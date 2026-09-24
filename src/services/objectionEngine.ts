@@ -1099,12 +1099,14 @@ export function detectNextStepResistance(text: string, state?: ConversationState
   const materialsInstead = /(?:пришлите|отправьте|скиньте)[^.!?]{0,80}(?:цен|планиров|вариант|материал|в сообщени|на бумаге)/iu.test(lower);
   const elliptical = /преждевременно|потом.*(?:времени|согласуем)|сначала.*(?:вариант|объект)|(?:ставк|ипотек).{0,45}(?:потом|позже|когда|после|более увер)|(?:сначала|сперва).{0,60}(?:параметр|планиров|услов|объект|вариант)|^(?:а |ну )?(?:пока рано|не сейчас|теперь готов|сейчас это)/iu.test(lower) || /^(?:пока )?(?:не готов|не надо|не нужно|нет|позже|потом)[.!\s]*$/iu.test(lower.trim());
   const deferral = explicitVideoRefusal || explicitBrokerRefusal || /(?:^|[^\p{L}\p{N}])(?:не готов|не хочу|не надо|не нужно|не будем|пока не|сначала|сперва|потом|позже|преждевременно|пока рано|не сейчас|рано)/iu.test(lower) || /когда.+тогда/iu.test(lower) || /(?:ставк|ипотек).{0,50}(?:когда|после|более увер|позже)/iu.test(lower) || /^нет[.!\s]*$/iu.test(lower.trim());
+  const bareDeferral = /^(?:а\s+|ну\s+)?(?:не готов|не хочу|не надо|не нужно|пока рано|не сейчас|позже|потом|сначала|сперва|нет)(?:\s+(?:это|сейчас|пока))?[.!\s]*$/iu.test(lower.trim());
   const permission = /(?:давайте|можно|можем|готов|подключим|назначим|теперь|договорились)/iu.test(lower);
   const action = /подключ|показ|созвон|назнач|теперь готов|договорил/iu.test(lower);
   const contextualTarget = explicitTarget(agentText || '') || null;
+  const contextualDeferral = elliptical || bareDeferral || (materialsInstead && Boolean(contextualTarget)) || (permission && action);
   const target = explicitVideoRefusal ? 'ppv'
     : explicitBrokerRefusal ? 'ppi'
-    : explicitTarget(lower) || ((elliptical || deferral || (materialsInstead && contextualTarget) || (permission && action)) ? contextualTarget : null);
+    : explicitTarget(lower) || (contextualDeferral ? contextualTarget : null);
   if (!target) return null;
   const history = state?.dialogueControl?.nextStepResistanceHistory?.[target];
   if (deferral) return { target, count: (history?.count || 0) + 1, reopened: false };
