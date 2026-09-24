@@ -1126,8 +1126,12 @@ export const App: React.FC = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          suggestionId: suggestion.id,
+          basedOnRevision: suggestion.basedOnRevision,
+          source: suggestion.source || null,
           ruleId: suggestion.candidateRuleId ?? null,
           suggestionText: suggestion.text,
+          shortReason: suggestion.shortReason,
           rating,
           feedback: rating === 'accurate' ? 'accepted' : 'dismissed',
           comment,
@@ -1139,8 +1143,8 @@ export const App: React.FC = () => {
       }
       showToast(
         rating === 'accurate'
-          ? 'Оценка сохранена: подсказка точная'
-          : 'Оценка сохранена: подсказка неточная (учтено для калибровки)'
+          ? 'Оценка отправлена: подсказка точная'
+          : 'Оценка отправлена: подсказка неточная'
       );
     } catch (err: any) {
       console.error('Failed to submit feedback:', err);
