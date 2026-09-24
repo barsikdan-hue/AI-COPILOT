@@ -145,9 +145,10 @@ describe('session 5 semantic core regression', () => {
       ['client', 'Мне важны локация, ликвидность, возможность аренды, адекватная цена и инфраструктура.'],
     ]);
 
-    const normalize = (items: string[] = []) => Array.from(new Set(items)).sort();
+    const normalize = (items: Array<string | { text: string }> = []) =>
+      Array.from(new Set(items.map((item) => typeof item === 'string' ? item : item.text))).sort();
     expect(normalize(twice.criteria?.items)).toEqual(normalize(once.criteria?.items));
-    expect(new Set(twice.criteria?.items || []).size).toBe((twice.criteria?.items || []).length);
+    expect(normalize(twice.criteria?.items).length).toBe((twice.criteria?.items || []).length);
     expect(twice.scriptProgress?.metrics.criteria.status).toBe('confirmed');
     expect(once.scriptProgress?.metrics.criteria.status).toBe('confirmed');
   });
