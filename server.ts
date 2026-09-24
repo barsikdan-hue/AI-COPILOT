@@ -311,14 +311,30 @@ app.post('/api/analyze', async (req, res) => {
     });
   }
 
-  const localResponse = buildLocalAnalysisResponse({
-    sessionId,
-    revision,
-    newTurns,
-    recentTurns: Array.isArray(recentTurns) ? recentTurns : [],
-    currentState: currentState || createInitialState(),
-    fallbackReason: null,
-  });
+  if (currentState != null && (typeof currentState !== 'object' || Array.isArray(currentState))) {
+    return res.status(400).json({
+      error: 'INVALID_STATE',
+      message: 'currentState должен быть JSON-объектом',
+    });
+  }
+
+  let localResponse;
+  try {
+    localResponse = buildLocalAnalysisResponse({
+      sessionId,
+      revision,
+      newTurns,
+      recentTurns: Array.isArray(recentTurns) ? recentTurns : [],
+      currentState: currentState || createInitialState(),
+      fallbackReason: null,
+    });
+  } catch (error: any) {
+    console.error('Local analysis validation error:', error);
+    return res.status(400).json({
+      error: 'INVALID_ANALYSIS_INPUT',
+      message: 'Некорректное состояние или данные анализа',
+    });
+  }
 
   // Visible realtime decisions are deterministic in both auto and local modes.
   // Gemini text analysis is opt-in via COPILOT_ANALYSIS_MODE=gemini only.
@@ -1026,6 +1042,9 @@ app.post('/api/feedback', (req, res) => {
     const {
       sessionId,
       revision,
+      suggestionId,
+      basedOnRevision,
+      source,
       ruleId,
       turnId,
       feedback,
@@ -1033,6 +1052,7 @@ app.post('/api/feedback', (req, res) => {
       actionType,
       text,
       suggestionText,
+      shortReason,
       comment,
     } = req.body;
 
@@ -1040,9 +1060,20 @@ app.post('/api/feedback', (req, res) => {
     const effectiveSessionId = sessionId || `session_${Date.now()}`;
     const effectiveRuleId = ruleId ? String(ruleId) : null;
 
-    console.log(
-      `[ANDREI OS FEEDBACK] session=${effectiveSessionId} rule=${effectiveRuleId} rating=${normalizedRating} comment=${comment || ''}`
-    );
+    console.log('[ANDREI OS FEEDBACK]', JSON.stringify({
+      sessionId: effectiveSessionId,
+      suggestionId: suggestionId || null,
+      basedOnRevision: basedOnRevision ?? revision ?? null,
+      source: source || null,
+      ruleId: effectiveRuleId,
+      rating: normalizedRating,
+      actionType: actionType || null,
+      turnId: turnId || null,
+      suggestionText: suggestionText || text || null,
+      shortReason: shortReason || null,
+      comment: comment || null,
+      recordedAt: Date.now(),
+    }));
 
     res.json({
       ok: true,
