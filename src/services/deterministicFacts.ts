@@ -76,6 +76,42 @@ export function extractDeterministicFacts(
   };
 
   // 1. Budget extraction: e.g. "30 миллионов", "30 млн", "до 45 млн руб", "около 15 млн", "бюджет 15 млн"
+  const spokenNumberMap: Record<string, number> = {
+    один: 1, одна: 1, два: 2, две: 2, три: 3, четыре: 4, пять: 5, шесть: 6,
+    семь: 7, восемь: 8, девять: 9, десять: 10, одиннадцать: 11, двенадцать: 12,
+    тринадцать: 13, четырнадцать: 14, пятнадцать: 15, шестнадцать: 16, семнадцать: 17,
+    восемнадцать: 18, девятнадцать: 19, двадцать: 20, тридцать: 30, сорок: 40,
+    пятьдесят: 50, шестьдесят: 60, семьдесят: 70, восемьдесят: 80, девяносто: 90,
+  };
+  const parseBudgetNumber = (token: string): number | null => {
+    const cleanToken = token.toLocaleLowerCase('ru-RU').replace(',', '.').trim();
+    const numeric = Number(cleanToken);
+    if (Number.isFinite(numeric)) return numeric;
+    return spokenNumberMap[cleanToken] ?? null;
+  };
+  const correctionToken = '(?:\\d+(?:[.,]\\d+)?|один|одна|два|две|три|четыре|пять|шесть|семь|восемь|девять|десять|одиннадцать|двенадцать|тринадцать|четырнадцать|пятнадцать|шестнадцать|семнадцать|восемнадцать|девятнадцать|двадцать|тридцать|сорок|пятьдесят|шестьдесят|семьдесят|восемьдесят|девяносто)';
+  const budgetCorrectionRegex = new RegExp(
+    `(?:^|[^\\p{L}\\p{N}])не\\s+(${correctionToken})\\s*(млн|миллион(?:а|ов)?|млрд|тысяч(?:и)?|тыс|к)[^.!?]{0,28}(?:,\\s*|\\s+)а\\s+(${correctionToken})(?:\\s*(млн|миллион(?:а|ов)?|млрд|тысяч(?:и)?|тыс|к))?(?!\\s*(?:лет|год|месяц|%))`,
+    'iu'
+  );
+  const budgetCorrectionMatch = lower.match(budgetCorrectionRegex);
+  let explicitCorrectedBudget: { value: string; quote: string } | null = null;
+  if (budgetCorrectionMatch) {
+    const correctedNumber = parseBudgetNumber(budgetCorrectionMatch[3]);
+    const correctedUnit = budgetCorrectionMatch[4] || budgetCorrectionMatch[2];
+    if (correctedNumber != null) {
+      const value = correctedUnit.startsWith('млрд')
+        ? `${correctedNumber} млрд руб`
+        : correctedUnit.startsWith('тыс') || correctedUnit === 'к'
+          ? `${correctedNumber} тыс руб`
+          : `${correctedNumber} млн руб`;
+      explicitCorrectedBudget = {
+        value,
+        quote: budgetCorrectionMatch[0].trim().replace(/^[^\\p{L}\\p{N}]+/u, ''),
+      };
+    }
+  }
+
   const budgetMatches = Array.from(
     lower.matchAll(
       /(?:(?:бюджет(?:ом|а)?|до|около|примерно|в\s*районе)\s*)?(\d+(?:[.,]\d+)?(?:\s*-\s*\d+(?:[.,]\d+)?)?)\s*(млн|миллион(?:а|ов)?|млрд|тысяч(?:и)?|тыс|к)(?:[^\p{L}\p{N}]|$)/giu
@@ -85,7 +121,7 @@ export function extractDeterministicFacts(
   // In flexible-budget phrases (“до 30, но 35–40 если стоящая история”) preserve
   // both the base target and the stretch ceiling instead of collapsing to one number.
   const unitlessStretchMatch = lower.match(/(?:посмотр(?:ю|им)|готов[^.!?]{0,20}рассмотр|мож(?:но|ем)[^.!?]{0,20}рассмотр)[^0-9]{0,24}(\d{1,3}(?:[.,]\d+)?(?:\s*-\s*\d{1,3}(?:[.,]\d+)?)?)(?!\s*(?:лет|год|месяц|%))/iu);
-  const explicitBudgetCorrection = /(?:^|[^\p{L}\p{N}])не\s+[^.!?]{0,32}\d+(?:[.,]\d+)?\s*(?:млн|миллион(?:а|ов)?|млрд|тыс(?:яч(?:и)?)?|к)[^.!?]{0,24}(?:,\s*|\s+)а\s+[^.!?]{0,24}\d+(?:[.,]\d+)?\s*(?:млн|миллион(?:а|ов)?|млрд|тыс(?:яч(?:и)?)?|к)/iu.test(lower);
+  const explicitBudgetCorrection = Boolean(explicitCorrectedBudget);
   const hasStretchCue = /(?:^|[^\p{L}\p{N}])(?:если|но)(?=$|[^\p{L}\p{N}])|при\s+(?:сильн|интересн|стоящ)|посмотрю|рассмотр/iu.test(lower);
   const conditionalStretch = !explicitBudgetCorrection &&
     (budgetMatches.length >= 2 || (budgetMatches.length >= 1 && Boolean(unitlessStretchMatch))) &&
@@ -100,7 +136,12 @@ export function extractDeterministicFacts(
     /(?:квартир|жиль|дом).{0,80}вырос\S*\s+(?:в\s+)?цен/iu.test(lower) &&
     /не\s+прода(?:вал|вала|вали|ю|ем)/iu.test(lower);
   const explicitlyBudgetContext = /(?:бюджет|общая\s*стоимость|весь\s*бюджет|максимальн\w*\s*сумм)/iu.test(lower);
-  if (budgetMatch && !isUnrealizedAssetGrowth && (!agentAskedDownPayment || explicitlyBudgetContext)) {
+  if (explicitCorrectedBudget && (!agentAskedDownPayment || explicitlyBudgetContext)) {
+    addFact('budget', 'budget', explicitCorrectedBudget.value, explicitCorrectedBudget.quote, 0.99, {
+      isFlexible: false,
+      comment: 'Явная коррекция клиента: предыдущее значение бюджета отменено.',
+    });
+  } else if (budgetMatch && !isUnrealizedAssetGrowth && (!agentAskedDownPayment || explicitlyBudgetContext)) {
     const normalizeBudget = (match: RegExpMatchArray) => {
       const num = match[1].replace(',', '.');
       const unit = match[2];
@@ -188,10 +229,10 @@ export function extractDeterministicFacts(
   // the client says the purchase is primarily an investment with occasional use.
   const explicitNoPermanentLiving = /(?:(?:не|точно\s+не)\s*(?:планиру\p{L}*|собира\p{L}*|хоч\p{L}*|буд\p{L}*)[^.!?]{0,35}(?:переезжа\p{L}*|жить\s+постоянно|пмж)|(?:переезжа\p{L}*|пмж|жить\s+постоянно)[^.!?]{0,45}(?:не\s*(?:планиру\p{L}*|собира\p{L}*|хоч\p{L}*|буд\p{L}*)))/iu.test(lower);
   const investmentMatch = lower.match(
-    /(?:смотр\p{L}*\s+как\s+вложени\p{L}*|скорее[^.!?]{0,20}вложени\p{L}*|как\s+вложени\p{L}*|вложить\s+(?:часть\s+)?(?:денег|капитал)|чисто\s*под\s*инвестици\p{L}*|для\s*перепродажи|инвестиционн\p{L}*|сохранить\s+капитал)/iu
+    /(?:смотр\p{L}*\s+как\s+вложени\p{L}*|скорее[^.!?]{0,20}вложени\p{L}*|как\s+вложени\p{L}*|это\s+инвестици\p{L}*|куда\s+(?:разумно\s+)?вложить|вложить\s+(?:часть\s+)?(?:денег|капитал)|чисто\s*под\s*инвестици\p{L}*|для\s*перепродажи|инвестиционн\p{L}*|сохранить\s+капитал)/iu
   );
   const personalVisitMatch = lower.match(
-    /(?:(?:сам(?:ому)?|сами|мы)\s+(?:иногда|периодически)?\s*приезжа\p{L}*|хотелось\s+бы\s+(?:и\s+)?сам(?:ому)?\s+(?:иногда\s+)?приезжа\p{L}*|приезжа\p{L}*\s+на\s+(?:пару|несколько|1-3|одну-две)\s+недел)/iu
+    /(?:(?:сам(?:ому)?|сами|мы)\s+(?:иногда|периодически)?\s*приезжа\p{L}*|(?:иногда|периодически)\s+сам(?:ому)?\s+приезжа\p{L}*|хотелось\s+бы\s+(?:и\s+)?сам(?:ому)?\s+(?:иногда\s+)?приезжа\p{L}*|приезжа\p{L}*\s+на\s+(?:пару|несколько|1-3|одну-две)\s+недел)/iu
   );
   const leisureMatch = lower.match(
     /(?:для\s*отдыха|сезонн(?:ое|ого|ом)?\s*проживан(?:ие|ия|ии)|приезжать\s+(?:на\s*)?(?:отдых|каникул)|на\s*каникулы|для\s*каникул|периодически\s*приезжать)/iu
@@ -445,15 +486,18 @@ export function extractDeterministicFacts(
     }
     return (
       /(?:не\s+(?:хочу|рассматрива(?:ю|ем)|нуж(?:ен|на|ны)|подход(?:ит|ят))|без|исключа(?:ю|ем))\s*(?:\S+\s*){0,2}$/iu.test(before) ||
-      /^\s*(?:мне\s*)?не\s+(?:хочу|рассматрива(?:ю|ем)|нуж(?:ен|на|ны)|подход(?:ит|ят))/iu.test(after)
+      /^\s*(?:(?:мне|я|мы)\s+)?(?:вообще\s+|точно\s+)?не\s+(?:хочу|рассматрива(?:ю|ем)|нуж(?:ен|на|ны)|подход(?:ит|ят))/iu.test(after)
     );
   };
   const flatMatches = Array.from(
     lower.matchAll(/(?:квартир(?:а|у|ы|е|ой|ам|ами|ах)?|апартамент(?:ы|ов|ам|ами|ах|е)?|студи(?:я|ю|и|ей))/giu)
   );
-  const flatMatch = flatMatches.find(
+  const positiveFlatMatches = flatMatches.filter(
     (match) => !isNegatedPropertyMention(match.index, match[0].length)
-  ) || null;
+  );
+  const flatMatch = positiveFlatMatches[0] || null;
+  const hasPositiveApartment = positiveFlatMatches.some((match) => match[0].toLowerCase().startsWith('апарт'));
+  const hasPositiveFlat = positiveFlatMatches.some((match) => match[0].toLowerCase().startsWith('квартир'));
   const explicitHouseMatch = lower.match(/(?:коттедж(?:ей|а)?|вилл(?:а|у)|таунхаус(?:а)?)/iu);
   const homeToken = lower.match(/(?:^|[^\p{L}\p{N}])(дом)(?=$|[^\p{L}\p{N}])/iu);
   const homeIndex = homeToken
@@ -466,7 +510,7 @@ export function extractDeterministicFacts(
       : null;
 
   const rejectedHouseMatch = lower.match(
-    /(?:(?:дом|коттедж|вилл(?:а|у)|таунхаус)\w*\s*(?:точно\s*)?(?:не\s*(?:нужен|нужно|интересует|рассматрива(?:ю|ем)|хочу|подходит)|исключа(?:ю|ем))|(?:не\s*(?:нужен|нужно|интересует|рассматрива(?:ю|ем)|хочу|подходит)|исключа(?:ю|ем))[^.!?]{0,24}(?:дом|коттедж|вилл(?:у|а)|таунхаус))/iu
+    /(?:(?:дом|коттедж|вилл(?:а|у)|таунхаус)\w*[^.!?]{0,22}(?:не\s*(?:нужен|нужно|интересует|рассматрива(?:ю|ем)|хочу|подходит)|исключа(?:ю|ем))|(?:не\s*(?:нужен|нужно|интересует|рассматрива(?:ю|ем)|хочу|подходит)|исключа(?:ю|ем))[^.!?]{0,24}(?:дом|коттедж|вилл(?:у|а)|таунхаус))/iu
   );
   if (rejectedHouseMatch) {
     addFact('property_constraint', 'propertyTypeConstraint', 'Дом исключён', rejectedHouseMatch[0].trim(), 0.99);
@@ -482,6 +526,8 @@ export function extractDeterministicFacts(
     addFact('property_type', 'propertyType', 'Дом или квартира (допустимы оба формата)', `${flatMatch[0]}, ${houseMatch[0]}`);
   } else if (!genericMarketPropertyMention && houseMatch) {
     addFact('property_type', 'propertyType', 'Дом / Коттедж', houseMatch[0]);
+  } else if (!genericMarketPropertyMention && hasPositiveApartment && hasPositiveFlat) {
+    addFact('property_type', 'propertyType', 'Квартира / апартаменты', positiveFlatMatches.map((match) => match[0]).join(', '));
   } else if (!genericMarketPropertyMention && flatMatch) {
     addFact('property_type', 'propertyType', flatMatch[0].toLowerCase().startsWith('апарт') ? 'Апартаменты' : 'Квартира', flatMatch[0]);
   }
