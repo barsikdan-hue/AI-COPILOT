@@ -255,6 +255,20 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
     closesMetricLabel = dominantEvent.closesMetricLabel || null;
     immediatePriority = `P0: ${dominantEvent.type}`;
     priority = dominantEvent.priority;
+  } else if (
+    spin &&
+    spin.suggestedText &&
+    !['WAIT', 'SPIN_SITUATION'].includes(spin.suggestionMode)
+  ) {
+    // Once a real Problem/Implication/Need-payoff chain is active, keep its
+    // causal continuity. A generic rapport/trust question must not interrupt
+    // the chain immediately after the client disclosed a meaningful pain.
+    suggestedReply = spin.suggestedText;
+    shortReason = spin.shortReason;
+    suggestionMode = spin.suggestionMode;
+    actionType = actionForSuggestionMode(spin.suggestionMode);
+    expectedClientMeaning = spin.expectedClientMeaning;
+    priority = 60;
   } else if (canUseDopamine && dopamine) {
     suggestedReply = dopamine.text;
     shortReason = dopamine.reason;
@@ -262,7 +276,7 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
     actionType = 'CLARIFY';
     closesMetric = 'trust';
     closesMetricLabel = 'Доверие';
-    immediatePriority = 'Контекстный дофаминовый вопрос';
+    immediatePriority = 'Контекстный личный вопрос';
     expectedClientMeaning = 'Клиент раскрывает личный контекст, связанный с уже обсуждаемой темой.';
     priority = 58;
   } else if (spin && spin.suggestedText) {
