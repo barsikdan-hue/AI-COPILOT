@@ -92,7 +92,8 @@ describe('session 5 semantic core regression', () => {
     expect(state.decisionMakers?.value || '').not.toMatch(/совмест|супруг/iu);
     expect(state.scriptProgress?.metrics.decisionMaker.status).not.toBe('confirmed');
 
-    expect(state.criteria?.items || []).toEqual(expect.arrayContaining([
+    const criteriaTexts = (state.criteria?.items || []).map((item) => item.text);
+    expect(criteriaTexts).toEqual(expect.arrayContaining([
       expect.stringMatching(/локац/iu),
       expect.stringMatching(/сдава|аренд/iu),
       expect.stringMatching(/ликвид/iu),
