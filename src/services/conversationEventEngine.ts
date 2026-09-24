@@ -166,6 +166,17 @@ function composeMeetingDeadline(dateOrDay: string | null, time: string | null): 
 
 function extractRejectedBranch(text: string): string | null {
   const lower = normalize(text);
+
+  const directObjectRejections: Array<[RegExp, string]> = [
+    [/(?:не\s+(?:хочу|рассматрива\p{L}*|нужен|нужна|подходит)\s+(?:вообще\s+)?)(дом|коттедж|вилл\p{L}*|таунхаус\p{L}*)/iu, 'дом'],
+    [/(?:дом|коттедж|вилл\p{L}*|таунхаус\p{L}*)[^.!?]{0,18}не\s+(?:хочу|рассматрива\p{L}*|нужен|нужна|подходит)/iu, 'дом'],
+    [/не\s+(?:хочу|рассматрива\p{L}*|нужн\p{L}*|подходит)[^.!?]{0,12}апартамент\p{L}*/iu, 'апартаменты'],
+    [/не\s+(?:хочу|рассматрива\p{L}*|нужн\p{L}*|подходит)[^.!?]{0,12}квартир\p{L}*/iu, 'квартиру'],
+    [/не\s+(?:хочу|рассматрива\p{L}*|нужн\p{L}*|подходит)[^.!?]{0,12}ипотек\p{L}*/iu, 'ипотеку'],
+    [/не\s+(?:хочу|рассматрива\p{L}*|нужн\p{L}*|подходит)[^.!?]{0,12}рассроч\p{L}*/iu, 'рассрочку'],
+  ];
+  const exact = directObjectRejections.find(([pattern]) => pattern.test(lower));
+  if (exact) return exact[1];
   const scoped: Array<[RegExp, string]> = [
     [/(?:красн(?:ую|ая|ой)?\s*полян\w*)[^.!?]{0,30}(?:не\s*(?:рассматрива\w*|хочу|нужн\w*|подходит)|исключа\w*)|(?:не\s*(?:рассматрива\w*|хочу|нужн\w*|подходит)|исключа\w*)[^.!?]{0,30}(?:красн(?:ую|ая|ой)?\s*полян\w*)/iu, 'Красная Поляна'],
     [/(?:сириус\w*)[^.!?]{0,30}(?:не\s*(?:рассматрива\w*|хочу|нужн\w*|подходит)|исключа\w*)|(?:не\s*(?:рассматрива\w*|хочу|нужн\w*|подходит)|исключа\w*)[^.!?]{0,30}(?:сириус\w*)/iu, 'Сириус'],
@@ -197,12 +208,16 @@ function hasDirectQuestion(text: string): boolean {
   const lower = normalize(text);
   return (
     text.includes('?') ||
-    /^(сколько|где|почему|зачем|какой|какая|какие|кто|можно ли|есть ли|скажите|подскажите|уточните)(?=$|[^\p{L}\p{N}])/iu.test(
-      lower
-    ) ||
+    /^(сколько|где|почему|зачем|какой|какая|какие|кто|можно ли|есть ли|скажите|подскажите|уточните)(?=$|[^\p{L}\p{N}])/iu.test(lower) ||
     (/^когда(?=$|[^\p{L}\p{N}])/iu.test(lower) && !/(?:^|,)\s*тогда(?=$|[^\p{L}\p{N}])/iu.test(lower)) ||
-    /(?:пришлите|отправьте|покажите|дайте)\s+(?:точн|договор|план|расчет|расчёт|документ)/iu.test(lower)
+    /(?:хочу|хотел|хотела|хотелось)\s+(?:бы\s+)?(?:узнать|понять)[^.!?]{0,70}(?:сколько|какая|какой|почему|зачем|что)/iu.test(lower) ||
+    /(?:скин\p{L}*|пришл\p{L}*|отправ\p{L}*|покаж\p{L}*|дайте)\s+[^.!?]{0,45}(?:цен|планиров|вариант|материал|договор|расчет|расчёт|документ)/iu.test(lower)
   );
+}
+
+function isBarrierQuestion(text: string): boolean {
+  const lower = normalize(text);
+  return /(?:если[^?]{0,80}(?:меньше|хуже)[^?]{0,55}(?:депозит|банк)|зачем[^?]{0,50}(?:менять\s+инструмент|покупать|брать)|не\s+вижу\s+смысла|где\s+гаранти)/iu.test(lower);
 }
 
 type DirectQuestionIntent =
@@ -211,6 +226,8 @@ type DirectQuestionIntent =
   | 'financing'
   | 'price'
   | 'yield_comparison'
+  | 'materials_request'
+  | 'market_options'
   | 'property_details'
   | 'general';
 
@@ -227,6 +244,8 @@ function classifyDirectQuestionIntent(text: string, previousAgentText: string | 
   if (/(?:сколько|какая|какой).{0,25}(?:стоит|цена|стоимость)|(?:цена|стоимость).{0,25}(?:сколько|какая|какой)/iu.test(normalized)) return 'price';
   if (/(?:доходност|окупаем|депозит|денежн\p{L}*\s+поток|сколько.{0,20}(?:получить|заработать)|что.{0,35}даст.{0,20}инвест)/iu.test(normalized)) return 'yield_comparison';
   if (/ипотек|ставк|плат[её]ж|банк|рассроч|первоначальн.*взнос/iu.test(normalized)) return 'financing';
+  if (/(?:скин\p{L}*|пришл\p{L}*|отправ\p{L}*|покаж\p{L}*)[^.!?]{0,55}(?:цен|планиров|вариант|материал)|(?:цен|планиров|вариант)[^.!?]{0,35}(?:скин\p{L}*|пришл\p{L}*|отправ\p{L}*)/iu.test(normalized)) return 'materials_request';
+  if (/(?:что\s+(?:реально\s+)?интересн|что\s+можете\s+предлож|какие\s+есть\s+(?:вариант|решен)|что\s+есть\s+такого)/iu.test(normalized)) return 'market_options';
   if (/площад|этаж|планиров|отделк|ремонт|срок сдач|инфраструктур|паркинг|вид|море/iu.test(normalized)) return 'property_details';
   return 'general';
 }
@@ -240,8 +259,10 @@ function directQuestionReply(intent: DirectQuestionIntent, text: string): string
   if (intent === 'price') return 'По цене отвечу прямо, но не буду придумывать цифру без актуальной базы: диапазон сильно зависит от формата и локации. Назову проверенную вилку и дальше сравним, за что реально есть смысл доплачивать.';
   if (intent === 'yield_comparison') return 'Без конкретного объекта честную доходность не назову. Считать нужно чистый денежный поток, возможный рост цены и риски, а затем сравнить это с депозитом. Какая планка для вас будет минимально приемлемой?';
   if (intent === 'financing') return 'По этому финансовому вопросу лучше дать точный расчёт по вашим параметрам — проверю условия, не буду гадать.';
+  if (intent === 'materials_request') return 'Да. Отправлю 2–3 варианта с ценами и планировками без длинной презентации. После просмотра коротко сверим, что из этого действительно оставлять.';
+  if (intent === 'market_options') return 'Если цель — вложить капитал и не тратить время, сравнивать нужно 2–3 сценария по чистому доходу, ликвидности и потенциалу роста. Что для вас важнее: доход сейчас или рост стоимости?';
   if (intent === 'property_details') return 'По конкретному объекту отвечу только проверенными данными. Если объект ещё не выбран, сначала сузим до 2–3 вариантов и сравним этот параметр по каждому.';
-  return 'Отвечу по существу. Если точного факта сейчас нет, не буду придумывать — отмечу, что нужно проверить, и вернусь к одному следующему вопросу.';
+  return 'Понял вопрос. Если ответ зависит от конкретного объекта, не буду придумывать факт: скажу, что можно ответить сейчас, а что нужно проверить.';
 }
 
 function isAmbiguousShortConfirmation(text: string, agentText: string | null): boolean {
@@ -421,7 +442,7 @@ export function detectConversationEvent(
   const previousAgent = lastAgentBefore(turn, recentTurns);
 
   const resistance = detectNextStepResistance(turn.text, state, previousAgent?.text);
-  if (resistance && !hasDirectQuestion(turn.text)) {
+  if (resistance && (['ppv', 'ppi'].includes(resistance.target) || !hasDirectQuestion(turn.text))) {
     const recorded = state.dialogueControl?.nextStepResistanceHistory?.[resistance.target]?.lastEvidenceTurnId === turn.id;
     const count = resistance.count - (recorded ? 1 : 0);
     return {
@@ -456,7 +477,7 @@ export function detectConversationEvent(
   const meeting = detectMeetingContract(turn, previousAgent, state);
   if (meeting) return meeting;
 
-  if (hasDirectQuestion(turn.text)) {
+  if (hasDirectQuestion(turn.text) && !isBarrierQuestion(turn.text)) {
     const intent = classifyDirectQuestionIntent(turn.text, previousAgent?.text || null);
     return {
       type: 'DIRECT_QUESTION',
@@ -467,23 +488,26 @@ export function detectConversationEvent(
       shortReason: `Прямой вопрос клиента (${intent}) выше коррекции, SPIN-вопроса и презентации.`,
       evidenceTurnId: turn.id,
       evidenceQuote: turn.text,
-      suppressesAnalysis: intent === 'meeting_time_confirmation',
+      suppressesAnalysis: true,
       stage: state.stage,
     };
   }
 
   const correction = extractCorrection(turn.text);
   if (correction) {
+    const correctedBudget = /миллион|млн|бюджет|предел/iu.test(turn.text) && state.budget?.value
+      ? `Принял: ${state.budget.value} — актуальный предел. Предыдущее значение больше не учитываю.`
+      : 'Принял поправку. Дальше опираемся на новую версию факта, старую не учитываю.';
     return {
       type: 'FACT_CORRECTION',
       priority: 104,
       actionType: 'SUMMARIZE',
       ruleId: 'fact_correction',
-      suggestedReply: null,
-      shortReason: 'Новая версия факта должна заменить прежнюю, а не храниться рядом с ней.',
+      suggestedReply: correctedBudget,
+      shortReason: 'Новая версия факта заменяет прежнюю; после коррекции не перескакиваем на случайный вопрос анкеты.',
       evidenceTurnId: turn.id,
       evidenceQuote: turn.text,
-      suppressesAnalysis: false,
+      suppressesAnalysis: true,
       stage: state.stage,
     };
   }
@@ -504,11 +528,13 @@ export function detectConversationEvent(
         priority: 100,
         actionType: 'CLARIFY',
         ruleId: 'explicit_rejection',
-        suggestedReply: null,
-        shortReason: 'Явно отвергнутая ветка закрывается; повторная презентация запрещена без инициативы клиента.',
+        suggestedReply: rejectedBranch
+          ? `Понял, «${rejectedBranch}» исключаем и дальше эту ветку не предлагаю.`
+          : 'Понял, эту ветку исключаем и дальше на ней не настаиваю.',
+        shortReason: 'Явно отвергнутая ветка закрывается; после отказа не перескакиваем на несвязанный вопрос.',
         evidenceTurnId: turn.id,
         evidenceQuote: turn.text,
-        suppressesAnalysis: false,
+        suppressesAnalysis: true,
         stage: 'diagnostics',
         rejectedBranch,
       };
