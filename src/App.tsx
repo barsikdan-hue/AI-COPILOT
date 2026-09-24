@@ -308,7 +308,7 @@ export const App: React.FC = () => {
 
     if (!skipAntiRepeat) {
       const recentAt = recentShownSemanticKeysRef.current.get(candidate.semanticKey);
-      if (recentAt != null) {
+      if (recentAt != null && Date.now() - recentAt < 30000) {
         candidate.lifecycleStatus = 'suppressed';
         return false;
       }
