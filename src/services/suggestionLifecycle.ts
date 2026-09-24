@@ -37,7 +37,13 @@ export function shouldReplaceSuggestion(
   const candidateKey = candidate.semanticKey || candidate.text.trim().toLocaleLowerCase('ru-RU');
   if (currentKey === candidateKey) return false;
 
-  return candidate.basedOnRevision > current.basedOnRevision || !currentIsFresh;
+  const sameRevisionLocalCorrection =
+    candidate.basedOnRevision === current.basedOnRevision &&
+    ['local_engine', 'local_event'].includes(candidate.source || '') &&
+    ['local_engine', 'local_event'].includes(current.source || '') &&
+    candidate.createdAt > current.createdAt;
+
+  return sameRevisionLocalCorrection || candidate.basedOnRevision > current.basedOnRevision || !currentIsFresh;
 }
 
 /** Branch constraints apply to both local and cloud candidates before display. */
@@ -50,7 +56,12 @@ export function isSuggestionAllowedByState(candidate: Partial<SuggestedReply>, s
   const proposes = /давайте|предлагаю|подключ|назнач|провед|провести|запиш|удобн|готов|сравним|подойд|рассмотр|рекоменд/iu.test(text);
   if (blocked.includes('ppi') && proposes && /брокер|специалист|ипотечн.*консультац/iu.test(text) && !/видео|показ|специалист.{0,5}застройщик/iu.test(text)) return false;
   if (blocked.includes('ppv') && proposes && /видео|показ/iu.test(text)) return false;
-  if (candidate.closesMetric && isMetricClosed(state.scriptProgress?.metrics[candidate.closesMetric]?.status || 'not_confirmed')) return false;
+  const confirmationEvent = ['MEETING_CONTRACT', 'NEXT_STEP_REOPENED'].includes(String(candidate.eventType || ''));
+  if (
+    candidate.closesMetric &&
+    isMetricClosed(state.scriptProgress?.metrics[candidate.closesMetric]?.status || 'not_confirmed') &&
+    !confirmationEvent
+  ) return false;
   if (state.dialogueControl?.clientBoundaryActive) {
     const boundarySafeEvent = [
       'CLIENT_STOP',
