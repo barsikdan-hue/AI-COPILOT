@@ -36,6 +36,13 @@ export function aggregateFinalTurn(last: TranscriptTurn | undefined, speaker: Sp
   // Token edit similarity also handles small STT corrections inside a sentence.
   // Changed numbers or negation are new assertions, not harmless recognition edits.
   const anchors = (tokens: string[]) => tokens.filter(token => /^(?:не|нет|без|никогда|\d+)$/u.test(token)).join(' ');
+  const lexical = (tokens: string[]) => new Set(tokens.filter(token => token.length > 2 && !/^(?:не|нет|без|никогда)$/u.test(token)));
+  const leftLexical = lexical(left); const rightLexical = lexical(right);
+  const sharedLexical = [...leftLexical].filter(token => rightLexical.has(token)).length;
+  const lexicalOverlap = Math.min(leftLexical.size, rightLexical.size) > 0
+    ? sharedLexical / Math.min(leftLexical.size, rightLexical.size)
+    : 0;
+  if (anchors(left) !== anchors(right) && lexicalOverlap >= 0.6) return { kind: 'new', text };
   if (Math.min(left.length, right.length) >= 6 && Math.max(left.length, right.length) <= 400 && anchors(left) === anchors(right)) {
     let distance = Array.from({ length: right.length + 1 }, (_, index) => index);
     for (let i = 1; i <= left.length; i++) {
