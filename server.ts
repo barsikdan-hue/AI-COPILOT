@@ -76,14 +76,16 @@ function getSalesRules() {
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
-    buildVersion: '4.0.2-rc.5.1-session11-hotfix',
+    buildVersion: '4.0.2-rc.5.2-local-core-cloud-stt',
+    renderRegion: process.env.RENDER_REGION || null,
+    renderGitCommit: process.env.RENDER_GIT_COMMIT || null,
     hasKey: !!process.env.GEMINI_API_KEY,
     transcribeModel: TRANSCRIBE_MODEL,
     analysisMode: ANALYSIS_MODE,
     analysisModel:
-      ANALYSIS_MODE === 'local' || !process.env.GEMINI_API_KEY
-        ? 'local-deterministic'
-        : ANALYSIS_MODELS[0],
+      ANALYSIS_MODE === 'gemini' && process.env.GEMINI_API_KEY
+        ? ANALYSIS_MODELS[0]
+        : 'local-deterministic',
     localFallbackReady: true,
     time: new Date().toISOString(),
   });
@@ -318,11 +320,12 @@ app.post('/api/analyze', async (req, res) => {
     fallbackReason: null,
   });
 
-  // Safety, consent and boundary events are always deterministic. Normal turns
-  // also stay fully usable when the key/quota is unavailable or local mode is set.
+  // Visible realtime decisions are deterministic in both auto and local modes.
+  // Gemini text analysis is opt-in via COPILOT_ANALYSIS_MODE=gemini only.
+  // Gemini Live STT remains active independently through /ws/transcribe.
   if (
     (localResponse.priority || 0) >= 95 ||
-    ANALYSIS_MODE === 'local' ||
+    ANALYSIS_MODE !== 'gemini' ||
     !process.env.GEMINI_API_KEY
   ) {
     return res.json({
@@ -332,7 +335,9 @@ app.post('/api/analyze', async (req, res) => {
           ? 'deterministic_priority_event'
           : ANALYSIS_MODE === 'local'
             ? 'local_mode'
-            : 'gemini_key_missing',
+            : ANALYSIS_MODE === 'auto'
+              ? 'auto_local_authoritative'
+              : 'gemini_key_missing',
       latencyMs: Date.now() - startTime,
     });
   }
