@@ -166,7 +166,13 @@ function extractRejectedBranch(text: string): string | null {
 }
 
 function extractCorrection(text: string): string | null {
-  const direct = text.match(/(?:^|[^\p{L}\p{N}])не\s+(.{1,60}?)\s*,?\s*а\s+(.{1,80})(?:[.!?]|$)/iu);
+  // Require a real separator before the contrastive conjunction "а".
+  // The previous pattern allowed zero whitespace and could treat the final "а"
+  // inside words such as "инфраструктура" as the conjunction, producing false
+  // FACT_CORRECTION events from ordinary negative statements.
+  const direct = text.match(
+    /(?:^|[^\p{L}\p{N}])не\s+(.{1,60}?)(?:,\s*|\s+)а\s+(.{1,80})(?:[.!?]|$)/iu
+  );
   if (direct?.[2]) return direct[2].trim().replace(/[.!?]+$/u, '');
   const clarification = text.match(/(?:вы\s+ошиблись|поправлю|точнее)\s*[:,-]?\s*(.{2,100})/iu);
   return clarification?.[1]?.trim().replace(/[.!?]+$/u, '') || null;
