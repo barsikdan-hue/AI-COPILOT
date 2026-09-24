@@ -105,24 +105,37 @@ export function extractDeterministicFacts(
       ? `${unitlessStretchMatch[1].replace(/\s+/g, '')} млн руб`
       : null;
     const stretchValue = stretchMatch ? normalizeBudget(stretchMatch) : inferredStretchValue;
+    const spokenBaseMatch = lower.match(/(?:но\s+)?(?:пока|ориентир|базов\p{L}*)[^.!?]{0,16}(?:около|примерно)?\s*(двадцати|тридцати|сорока|пятидесяти|шестидесяти|семидесяти|восьмидесяти|девяноста)(?:\s*млн)?/iu);
+    const spokenBaseMap: Record<string, number> = {
+      двадцати: 20, тридцати: 30, сорока: 40, пятидесяти: 50,
+      шестидесяти: 60, семидесяти: 70, восьмидесяти: 80, девяноста: 90,
+    };
+    const isExplicitStretchCeiling = /(?:готов\p{L}*|мож\p{L}*)[^.!?]{0,24}(?:рассматрива\p{L}*|посмотр\p{L}*)[^.!?]{0,16}до\s*\d+/iu.test(lower);
     const isFlex =
       conditionalStretch ||
+      isExplicitStretchCeiling ||
+      Boolean(spokenBaseMatch) ||
       lower.includes('немного выше') ||
       lower.includes('при веском обосновании') ||
       lower.includes('гибк') ||
       lower.includes('посмотрю и') ||
       lower.includes('посмотрим');
 
-    const finalValue = stretchValue && stretchValue !== normalizedValue
-      ? `Ориентир ${normalizedValue}; до ${stretchValue} при сильном варианте`
-      : isFlex
-        ? `Около ${normalizedValue} (гибкий)`
-        : normalizedValue;
+    const spokenBaseValue = spokenBaseMatch ? spokenBaseMap[spokenBaseMatch[1].toLowerCase()] : null;
+    const finalValue = spokenBaseValue && isExplicitStretchCeiling
+      ? `Ориентир ${spokenBaseValue} млн руб; до ${normalizedValue} при сильном варианте`
+      : stretchValue && stretchValue !== normalizedValue
+        ? `Ориентир ${normalizedValue}; до ${stretchValue} при сильном варианте`
+        : isFlex
+          ? `Около ${normalizedValue} (гибкий)`
+          : normalizedValue;
     addFact('budget', 'budget', finalValue, budgetMatch[0].trim(), 0.95, {
       isFlexible: isFlex,
-      comment: stretchValue && stretchValue !== normalizedValue
-        ? `Базовый ориентир ${normalizedValue}; расширение до ${stretchValue} при сильном варианте`
-        : isFlex ? 'Может рассмотреть немного выше при веском обосновании' : undefined,
+      comment: spokenBaseValue && isExplicitStretchCeiling
+        ? `Базовый ориентир ${spokenBaseValue} млн руб; ${normalizedValue} — верхняя граница для сильного варианта`
+        : stretchValue && stretchValue !== normalizedValue
+          ? `Базовый ориентир ${normalizedValue}; расширение до ${stretchValue} при сильном варианте`
+          : isFlex ? 'Может рассмотреть немного выше при веском обосновании' : undefined,
     });
   }
 
@@ -160,43 +173,68 @@ export function extractDeterministicFacts(
     addFact('location', 'location', names.join(' / '), positiveLocations[0].quote, 0.93);
   }
 
-  // 3. Goal & Secondary Use Model (Requirement 7 & 8)
-  // Primary Goal: Living / Personal Residence.
-  // IMPORTANT: lexical presence is not positive evidence when the client negates it:
-  // “Постоянно жить не планируем” must never become “Постоянное проживание”.
-  const livingMatches = Array.from(
-    lower.matchAll(/(?:для\s*постоянной\s*жизни|для\s*жизни|постоянно\s*жить|буд(?:у|ем)\s*жить|переезжа(?:ем|ть)|переезд|пмж)/giu)
+  // 3. Goal & Secondary Use Model
+  // Positive residence must never be inferred from a negated mention such as
+  // “переезжать на ПМЖ я не планирую”. Prefer explicit investment intent when
+  // the client says the purchase is primarily an investment with occasional use.
+  const explicitNoPermanentLiving = /(?:(?:не|точно\s+не)\s*(?:планиру\p{L}*|собира\p{L}*|хоч\p{L}*|буд\p{L}*)[^.!?]{0,35}(?:переезжа\p{L}*|жить\s+постоянно|пмж)|(?:переезжа\p{L}*|пмж|жить\s+постоянно)[^.!?]{0,45}(?:не\s*(?:планиру\p{L}*|собира\p{L}*|хоч\p{L}*|буд\p{L}*)))/iu.test(lower);
+  const investmentMatch = lower.match(
+    /(?:смотр\p{L}*\s+как\s+вложени\p{L}*|скорее[^.!?]{0,20}вложени\p{L}*|как\s+вложени\p{L}*|вложить\s+(?:часть\s+)?(?:денег|капитал)|чисто\s*под\s*инвестици\p{L}*|для\s*перепродажи|инвестиционн\p{L}*|сохранить\s+капитал)/iu
   );
-  const livingMatch = livingMatches.find((match) => {
-    const start = match.index || 0;
-    const before = lower.slice(Math.max(0, start - 45), start);
-    const after = lower.slice(start + match[0].length, start + match[0].length + 55);
-    return !(
-      /(?:не\s+(?:хоч(?:у|ем)|планиру(?:ю|ем)|собира(?:юсь|емся)|буд(?:у|ем)|рассматрива(?:ю|ем)))\s*$/iu.test(before) ||
-      /^\s*(?:не\s+(?:хоч(?:у|ем)|планиру(?:ю|ем)|собира(?:юсь|емся)|буд(?:у|ем)|рассматрива(?:ю|ем))|не\s+нужн)/iu.test(after)
-    );
-  }) || null;
+  const personalVisitMatch = lower.match(
+    /(?:(?:сам(?:ому)?|сами|мы)\s+(?:иногда|периодически)?\s*приезжа\p{L}*|хотелось\s+бы\s+(?:и\s+)?сам(?:ому)?\s+(?:иногда\s+)?приезжа\p{L}*|приезжа\p{L}*\s+на\s+(?:пару|несколько|1-3|одну-две)\s+недел)/iu
+  );
   const leisureMatch = lower.match(
     /(?:для\s*отдыха|сезонн(?:ое|ого|ом)?\s*проживан(?:ие|ия|ии)|приезжать\s+(?:на\s*)?(?:отдых|каникул)|на\s*каникулы|для\s*каникул|периодически\s*приезжать)/iu
   );
-  if (livingMatch) {
+
+  const livingMatches = explicitNoPermanentLiving ? [] : Array.from(
+    lower.matchAll(/(?:для\s*постоянной\s*жизни|постоянно\s*жить|буд(?:у|ем)\s*жить\s+постоянно|переезжа(?:ем|ть)|переезд|пмж)/giu)
+  );
+  const livingMatch = livingMatches.find((match) => {
+    const startIndex = match.index || 0;
+    const before = lower.slice(Math.max(0, startIndex - 55), startIndex);
+    const after = lower.slice(startIndex + match[0].length, startIndex + match[0].length + 65);
+    return !(
+      /не\s+(?:хоч\p{L}*|планиру\p{L}*|собира\p{L}*|буд\p{L}*|рассматрива\p{L}*)[^.!?]{0,15}$/iu.test(before) ||
+      /^\s*[^.!?]{0,35}не\s+(?:хоч\p{L}*|планиру\p{L}*|собира\p{L}*|буд\p{L}*|рассматрива\p{L}*)/iu.test(after)
+    );
+  }) || null;
+
+  if (investmentMatch) {
+    const mixedPersonal = Boolean(personalVisitMatch || leisureMatch);
+    addFact('goal', 'primaryGoal', 'Инвестиции', investmentMatch[0].trim());
+    addFact(
+      'goal',
+      'goal',
+      mixedPersonal ? 'Инвестиции + периодическое личное использование' : 'Инвестиции',
+      investmentMatch[0].trim(),
+      0.97
+    );
+    if (mixedPersonal) {
+      addFact(
+        'goal',
+        'secondaryUse',
+        'Периодические личные приезды / отдых',
+        (personalVisitMatch || leisureMatch)![0].trim(),
+        0.94
+      );
+    }
+  } else if (livingMatch) {
     addFact('goal', 'primaryGoal', 'Постоянное личное проживание', livingMatch[0].trim());
     addFact('goal', 'goal', 'Постоянное личное проживание', livingMatch[0].trim());
-  } else if (leisureMatch) {
-    addFact('goal', 'primaryGoal', 'Отдых и сезонное проживание', leisureMatch[0].trim());
-    addFact('goal', 'goal', 'Отдых и сезонное проживание', leisureMatch[0].trim());
-  } else if (hasPhrase(lower, 'для себя')) {
+  } else if (leisureMatch || personalVisitMatch) {
+    const leisureQuote = (leisureMatch || personalVisitMatch)![0].trim();
+    addFact('goal', 'primaryGoal', 'Отдых и сезонное проживание', leisureQuote);
+    addFact('goal', 'goal', 'Отдых и сезонное проживание', leisureQuote);
+  } else if (hasPhrase(lower, 'для себя') && !explicitNoPermanentLiving) {
     addFact('goal', 'goal', 'Для себя (формат уточняется)', 'для себя', 0.9);
-  } else if (lower.match(/(?:чисто\s*под\s*инвестиции|для\s*перепродажи|инвестиционн(?:ый|ая))/iu)) {
-    const invMatch = lower.match(/(?:чисто\s*под\s*инвестиции|для\s*перепродажи|инвестиционн(?:ый|ая))/iu);
-    if (invMatch) {
-      addFact('goal', 'primaryGoal', 'Инвестиции', invMatch[0].trim());
-      addFact('goal', 'goal', 'Инвестиции', invMatch[0].trim());
-    }
   }
 
-  // Secondary Use: occasional rental during absence
-  const rentalMatch = lower.match(/(?:иногда\s*сдавать|возможность(?:ю)?\s*(?:иногда\s*)?сдавать|сдавать,?\s*если\s*я\s*уезжаю|сдавать\s*во\s*время\s*отсутствия)/iu);
+  // Secondary use: rental during absence.
+  const rentalMatch = lower.match(
+    /(?:иногда\s*сдавать|возможност\p{L}*\s*(?:иногда\s*)?сдавать|сдавать\s*(?:можно|можно\s+было|в\s+аренду)|можно\s+(?:было\s+)?сдавать|сдавать,?\s*если\s*я\s*уезжаю|сдавать\s*во\s*время\s*отсутствия)/iu
+  );
   if (rentalMatch) {
     addFact('goal', 'secondaryUse', 'Периодическая сдача во время отсутствия', rentalMatch[0].trim());
   }
@@ -374,7 +412,7 @@ export function extractDeterministicFacts(
 
   // 7. Decision Makers (Requirement 5 & 6: Never fabricate "с женой" from "важен" or "предложений")
   const spouseMatch = lower.match(/(?:реша(?:ем|ть)\s*вместе|обсуд(?:им|ить|у)\s*с\s*(?:женой|мужем|супруг(?:ой|ом)|семь[её]й|партн[её]ром)|совет(?:уюсь|оваться)\s*с\s*(?:женой|мужем|супруг(?:ой|ом)|семь[её]й|партн[её]ром)|соглас(?:ую|овать)\s*с\s*(?:женой|мужем|супруг(?:ой|ом)|семь[её]й|партн[её]ром)|(?:жена|муж|супруг(?:а)?)\s+(?:тоже\s+)?(?:решает|участвует\s+в\s+решении))/iu);
-  const soloMatch = lower.match(/(?:сам\s*решаю|сама\s*решаю|один\s*выбираю|одна\s*выбираю|решаю\s*самостоятельно)/iu);
+  const soloMatch = lower.match(/(?:сам\s*решаю|сама\s*решаю|сам\s*принимаю\s*(?:финальн\p{L}*\s*)?решение|сама\s*принимаю\s*(?:финальн\p{L}*\s*)?решение|финальн\p{L}*\s+решение\s+(?:мо[её]|за\s+мной)|решение\s+(?:мо[её]|принимаю\s+сам(?:остоятельно)?|принимаю\s+сама(?:остоятельно)?)|один\s*выбираю|одна\s*выбираю|решаю\s*самостоятельно)/iu);
   if (spouseMatch) {
     addFact('decision_makers', 'decisionMakers', 'Совместно с супругом / семьёй', spouseMatch[0]);
   } else if (soloMatch) {
@@ -459,7 +497,7 @@ export function extractDeterministicFacts(
     addFact(
       'criteria',
       'clientCriteria',
-      'Близость к морю (желательный критерий)',
+      'Близость к морю / пляжу',
       seaPreferenceMatch[0].trim(),
       0.94,
       { comment: 'Клиент обозначил море как предпочтение; не повышать до обязательного критерия без подтверждения.' }
