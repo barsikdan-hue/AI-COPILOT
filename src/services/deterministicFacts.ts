@@ -227,8 +227,14 @@ export function extractDeterministicFacts(
     const leisureQuote = (leisureMatch || personalVisitMatch)![0].trim();
     addFact('goal', 'primaryGoal', 'Отдых и сезонное проживание', leisureQuote);
     addFact('goal', 'goal', 'Отдых и сезонное проживание', leisureQuote);
-  } else if (hasPhrase(lower, 'для себя') && !explicitNoPermanentLiving) {
-    addFact('goal', 'goal', 'Для себя (формат уточняется)', 'для себя', 0.9);
+  } else {
+    const forMyselfUsageMatch = lower.match(
+      /(?:(?:ищу|покупа\p{L}*|беру|рассматрива\p{L}*|выбира\p{L}*|нужн\p{L}*)[^.!?]{0,35}для\s+себя|для\s+себя[^.!?]{0,35}(?:ищу|покупа\p{L}*|беру|рассматрива\p{L}*|выбира\p{L}*|недвижимост\p{L}*|объект\p{L}*))/iu
+    );
+    const agentAskedUsage = /(?:для\s+себя|для\s+кого|как\s+планиру\p{L}*\s+использ|цель\s+покупк|для\s+чего)/iu.test(previousAgentLower);
+    if (hasPhrase(lower, 'для себя') && !explicitNoPermanentLiving && (forMyselfUsageMatch || agentAskedUsage)) {
+      addFact('goal', 'goal', 'Для себя (формат уточняется)', 'для себя', 0.9);
+    }
   }
 
   // Secondary use: rental during absence.
