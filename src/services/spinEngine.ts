@@ -74,7 +74,12 @@ export function detectRealEstatePainCategory(text: string): RealEstatePainCatego
     lower.includes('сдавать') ||
     lower.includes('сдавать в аренду') ||
     lower.includes('сдачи в аренду') ||
-    lower.includes('управляющая компания')
+    lower.includes('управляющая компания') ||
+    lower.includes('не сдаётся') ||
+    lower.includes('не сдается') ||
+    lower.includes('продать сложно') ||
+    lower.includes('сложно продать') ||
+    lower.includes('ликвидност')
   ) {
     return 'yield_rental';
   }
@@ -104,6 +109,12 @@ export function detectRealEstatePainCategory(text: string): RealEstatePainCatego
   }
   if (
     lower.includes('рынок остын') ||
+    lower.includes('не сдаётся') ||
+    lower.includes('не сдается') ||
+    lower.includes('продать сложно') ||
+    lower.includes('сложно продать') ||
+    lower.includes('обещали ликвидность') ||
+    lower.includes('инфраструктура так себе') ||
     lower.includes('цены упад') ||
     lower.includes('есть смысл переплачивать') ||
     lower.includes('подождать год') ||
@@ -269,7 +280,8 @@ export function classifyAgentAction(text: string): AgentActionType {
       lower.includes('что мешает') ||
       lower.includes('что оттолкнуло') ||
       /какой ошибки.{0,30}избеж/iu.test(lower) ||
-      /какой риск.{0,30}важ/iu.test(lower)
+      /какую ошибку.{0,40}(?:избеж|исключ)/iu.test(lower) ||
+      /какой риск.{0,40}(?:важ|критич|избеж)/iu.test(lower)
     ) {
       return 'asked_problem_question';
     }
