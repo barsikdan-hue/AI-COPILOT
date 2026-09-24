@@ -520,8 +520,8 @@ export function detectLocalObjection(
     };
   }
 
-  // 8. Не верю в доходность / сомневаюсь
-  if (
+  // 8. Доходность / депозит — objection only when there is a real barrier or comparison threshold.
+  const hasYieldBarrier =
     hasAnyPhrase(lower, [
       'не верю в окупаемость',
       'не окупится',
@@ -529,15 +529,24 @@ export function detectLocalObjection(
       'не меньше чем на депозите',
       'не меньше, чем на депозите',
       'сравнить с депозитом',
+      'смысла менять инструмент нет',
+      'зачем мне вообще менять инструмент',
     ]) ||
-    hasAnyWholeWord(lower, ['доходность', 'окупаемость', 'депозит'])
-  ) {
+    /(?:если|когда)[^.!?]{0,70}(?:доходност\p{L}*|недвижимост\p{L}*)[^.!?]{0,45}(?:меньше|хуже)[^.!?]{0,35}(?:депозит|банк)/iu.test(lower) ||
+    /(?:депозит|банк)[^.!?]{0,55}(?:выше|лучше|доходнее)[^.!?]{0,35}(?:недвижимост|проект)/iu.test(lower) ||
+    /(?:доходност|окупаемост)[^.!?]{0,40}(?:не\s+верю|сомнева|рекламн|гарант)/iu.test(lower);
+  if (hasYieldBarrier) {
+    const thresholdAlreadyNamed = /(?:выше|не\s+ниже|не\s+меньше)[^.!?]{0,25}(?:депозит|банк)|(?:меньше|ниже)[^.!?]{0,25}(?:депозит|банк)/iu.test(lower);
     return {
       id: 'objection_yield',
       category: 'objection_yield',
-      actionType: 'CLARIFY',
-      text: 'Справедливое сомнение. А какую доходность на капитал вы считаете реалистичной, чтобы проект имел смысл?',
-      shortReason: 'Прояснение ожиданий инвестора по доходности вместо навязывания рекламных расчётов.',
+      actionType: thresholdAlreadyNamed ? 'SUMMARIZE' : 'CLARIFY',
+      text: thresholdAlreadyNamed
+        ? 'Понял: ваша базовая планка — совокупный результат не хуже депозита, плюс возможность сдачи и нормального выхода из объекта. Тогда сравниваем варианты только по этим трём блокам.'
+        : 'Справедливое сомнение. Какую планку относительно депозита вы считаете минимально приемлемой, чтобы недвижимость имела смысл?',
+      shortReason: thresholdAlreadyNamed
+        ? 'Порог уже назван — не спрашиваем его повторно, фиксируем критерий сравнения.'
+        : 'Проясняем планку инвестора вместо рекламной доходности.',
       confidenceStatus: 'high',
     };
   }
@@ -895,6 +904,20 @@ export function classifyClientTurnIntent(
     };
   }
 
+  // A direct information question is normally a clarification, not an objection.
+  // Keep genuinely resistant questions (e.g. “if it gives less than a deposit, why switch?”)
+  // in the objection path.
+  const genuineBarrierQuestion =
+    /(?:если[^?]{0,70}(?:меньше|хуже)[^?]{0,50}(?:депозит|банк)|зачем[^?]{0,40}(?:менять|покупать|брать)|не\s+верю|не\s+вижу\s+смысла|где\s+гаранти)/iu.test(lower);
+  if (clientText.includes('?') && !genuineBarrierQuestion) {
+    return {
+      type: 'clarification',
+      category: 'question_inquiry',
+      text: clientText,
+      confidence: 0.93,
+    };
+  }
+
   // 3. Identification of pure factual utterances (MUST NEVER become objections):
   // «Для себя / постоянное проживание / spouse fact / request / preference / next step != objection»
   const isFactUtterance =
@@ -1169,13 +1192,24 @@ export function getActiveObjectionGuidance(state: ConversationState, variant = 0
     };
   }
   if (category === 'objection_yield') {
+    const thresholdKnown = /(?:выше|не\s+ниже|не\s+меньше|меньше|ниже)[^.!?]{0,30}(?:депозит|банк)|совокупн\p{L}*\s+(?:результат|доходност)/iu.test(quote);
+    if (thresholdKnown) {
+      return {
+        title: 'Сомнение в доходности — критерий уже понятен',
+        text: variant > 0
+          ? 'Тогда спорить о рекламных процентах не будем. По каждому варианту покажем отдельно чистую аренду, потенциал роста и сценарий выхода — и сравним итог с депозитом на одинаковом горизонте.'
+          : 'Понял: вам нужен совокупный результат не хуже депозита, при этом объект должен сдаваться и оставаться ликвидным. Значит дальше сравниваем только эти три вещи — без рекламных процентов.',
+        goal: 'Зафиксировать названную клиентом планку и перейти от повторного вопроса к проверяемому сравнению',
+        reason: 'Клиент уже сформулировал базу сравнения; повторно спрашивать желаемую доходность нельзя.',
+      };
+    }
     return {
       title: 'Сомнение в доходности',
       text: variant > 0
-        ? 'Тогда депозит возьмём как базовую точку сравнения. Что для вас важнее увидеть в недвижимости: чистый денежный поток, рост цены самого актива или итоговую совокупную доходность?'
-        : 'Согласен, рекламную доходность брать на веру не стоит. Давайте сравним с депозитом одинаково: чистый денежный поток, возможный рост стоимости и риски. Какой результат для вас будет минимально приемлемым?',
+        ? 'Тогда депозит возьмём как базовую точку сравнения. Что важнее включить в итог: чистый денежный поток, рост цены актива или оба компонента вместе?'
+        : 'Согласен, рекламную доходность брать на веру не стоит. Какую планку относительно депозита вы считаете минимально приемлемой?',
       goal: 'Перевести спор о процентах в понятные клиенту критерии сравнения',
-      reason: 'Клиент сомневается в экономике объекта; сначала фиксируем его планку и базу сравнения.',
+      reason: 'Клиент сомневается в экономике объекта; сначала фиксируем планку и базу сравнения.',
     };
   }
   if (category === 'objection_price') {
@@ -1237,9 +1271,11 @@ export function updateObjectionLifecycle(state: ConversationState, turn: Transcr
     if (state.activeObjection?.evidenceTurnIds.includes(turn.id)) return state;
     const items = Array.from(new Set([...state.objections.items, category]));
     const branch = target ? state.dialogueControl?.nextStepResistanceHistory?.[target] : null;
-    const rootCause = /сначала.{0,55}(?:объект|вариант|планиров|услов|цен|локац)|после того как.{0,55}(?:объект|вариант|планиров|услов|цен)/iu.test(turn.text)
-      ? turn.text.trim()
-      : null;
+    const rootCause =
+      /сначала.{0,55}(?:объект|вариант|планиров|услов|цен|локац)|после того как.{0,55}(?:объект|вариант|планиров|услов|цен)/iu.test(turn.text) ||
+      (category === 'objection_yield' && /(?:выше|не\s+ниже|не\s+меньше|меньше|ниже)[^.!?]{0,30}(?:депозит|банк)|(?:сдава\p{L}*|ликвидн\p{L}*|продать)/iu.test(turn.text))
+        ? turn.text.trim()
+        : null;
     const initialStatus = branch?.status === 'blocked'
       ? 'blocked' as const
       : rootCause
