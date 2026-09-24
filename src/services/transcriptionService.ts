@@ -1,5 +1,30 @@
 import { SpeakerRole } from '../types';
 
+export function selectFinalTranscriptionText(finalTextRaw: string, interimTextRaw: string): string {
+  const finalText = String(finalTextRaw || '').trim();
+  const interimText = String(interimTextRaw || '').trim();
+  if (!finalText) return interimText;
+  if (!interimText) return finalText;
+
+  const normalize = (value: string) =>
+    value.toLowerCase().replace(/[^а-яёa-z0-9\s]/giu, ' ').replace(/\s+/g, ' ').trim();
+  const finalNorm = normalize(finalText);
+  const interimNorm = normalize(interimText);
+  const finalWords = finalNorm.split(' ').filter(Boolean);
+  const interimWords = interimNorm.split(' ').filter(Boolean);
+
+  // Gemini's final transcript is normally the corrected hypothesis and must win.
+  // Only recover the interim when the final is obviously truncated to a tiny fragment.
+  const tinyFinal = finalWords.length <= 2 || finalText.length <= 12;
+  const muchRicherInterim = interimWords.length >= Math.max(5, finalWords.length * 2);
+  const interimContainsFinal =
+    finalNorm.length > 0 &&
+    (interimNorm.startsWith(finalNorm) || interimNorm.endsWith(finalNorm) || interimNorm.includes(` ${finalNorm} `));
+
+  return tinyFinal && muchRicherInterim && interimContainsFinal ? interimText : finalText;
+}
+
+
 export interface TranscriptionCallbacks {
   onStatusChange?: (role: SpeakerRole, status: 'idle' | 'connecting' | 'connected' | 'error' | 'closed') => void;
   onInterimText?: (role: SpeakerRole, text: string) => void;
@@ -85,17 +110,7 @@ export class LiveTranscriptionChannel {
           } else if (data.type === 'final') {
             const finalText = String(data.text || '').trim();
             const interimText = this.longestInterimText.trim();
-            const norm = (value: string) => value.toLowerCase().replace(/[^а-яёa-z0-9\s]/giu, ' ').replace(/\s+/g, ' ').trim();
-            const normalizedFinal = norm(finalText);
-            const normalizedInterim = norm(interimText);
-            const finalTokens = new Set(normalizedFinal.split(' ').filter(Boolean));
-            const interimTokens = new Set(normalizedInterim.split(' ').filter(Boolean));
-            const shared = [...finalTokens].filter((token) => interimTokens.has(token)).length;
-            const overlap = finalTokens.size ? shared / finalTokens.size : 0;
-            const interimLooksLikeRicherSameUtterance =
-              interimText.length > finalText.length * 1.15 &&
-              (normalizedInterim.includes(normalizedFinal) || overlap >= 0.7);
-            const preservedText = interimLooksLikeRicherSameUtterance ? interimText : finalText;
+            const preservedText = selectFinalTranscriptionText(finalText, interimText);
             this.longestInterimText = '';
             this.callbacks.onFinalTurn?.(this.role, preservedText, data.timestamp || Date.now());
           } else if (data.type === 'voiceActivity') {
