@@ -1,0 +1,11 @@
+{
+  "name": "AI Copilot риелтора",
+  "description": "Речевой суфлёр для звонков агента по недвижимости: потоковая транскрипция, анализ потребностей и реплики-подсказки в реальном времени",
+  "requestFramePermissions": [
+    "microphone",
+    "display-capture"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
