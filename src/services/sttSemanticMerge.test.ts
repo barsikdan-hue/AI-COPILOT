@@ -4,9 +4,30 @@ import { AnalysisProvider } from './analysisProvider';
 import { createInitialState } from './conversationStore';
 import { advanceLocalConversation, buildLocalAnalysisResponse, restoreStateForAmendedTurn } from './localAnalysisEngine';
 import { TranscriptTurn } from '../types';
+import { selectFinalTranscriptionText } from './transcriptionService';
 
 const turn = (text: string, timestamp = 0): TranscriptTurn => ({ id: 't1', sessionId: 's', speaker: 'client', source: 'call_audio', text, timestamp, isFinal: true, revision: 1 });
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
+describe('STT final hypothesis selection', () => {
+  it('prefers Gemini final correction over a longer noisy interim', () => {
+    expect(
+      selectFinalTranscriptionText(
+        'Давайте сравним чистый денежный поток и риски.',
+        'Давайте сравним одинаковые чистоты денежный поток возможный рост стоимости и риски.'
+      )
+    ).toBe('Давайте сравним чистый денежный поток и риски.');
+  });
+
+  it('recovers a richer interim only when the final is obviously truncated', () => {
+    expect(
+      selectFinalTranscriptionText(
+        'Доходность',
+        'Доходность выше депозита для меня будет минимально приемлемой.'
+      )
+    ).toBe('Доходность выше депозита для меня будет минимально приемлемой.');
+  });
+});
+
 describe('4.0.2 semantic final aggregation', () => {
   it('T12 extended final preserves one turn, objection and Gemini batch', async () => {
     vi.useFakeTimers();
