@@ -20,6 +20,7 @@ import {
   SalesRule,
   SpeakerRole,
   SuggestedReply,
+  SuggestionTraceEntry,
   SuggestionLockState,
   TranscriptTurn,
   isMetricClosed,
@@ -290,11 +291,39 @@ export const App: React.FC = () => {
     };
   }, [isCallRunning, isPaused]);
 
+  const recordSuggestionTrace = useCallback((
+    candidate: SuggestedReply,
+    outcome: SuggestionTraceEntry['outcome'],
+    reason: string
+  ) => {
+    const entry: SuggestionTraceEntry = {
+      timestamp: Date.now(),
+      candidateId: candidate.id,
+      basedOnRevision: candidate.basedOnRevision,
+      source: candidate.source,
+      actionType: candidate.actionType,
+      eventType: candidate.eventType,
+      closesMetric: candidate.closesMetric,
+      semanticKey: candidate.semanticKey || extractSemanticKey(candidate.text),
+      priority: candidate.priority,
+      text: candidate.text,
+      outcome,
+      reason,
+    };
+    suggestionTraceRef.current = [...suggestionTraceRef.current.slice(-499), entry];
+  }, []);
+
   const publishSuggestion = useCallback((candidate: SuggestedReply, skipAntiRepeat = false): boolean => {
     const activeSession = sessionIdRef.current;
-    if (!activeSession || candidate.sessionId !== activeSession) return false;
+    if (!activeSession || candidate.sessionId !== activeSession) {
+      recordSuggestionTrace(candidate, 'rejected', 'session_mismatch');
+      return false;
+    }
 
-    if (!isSuggestionAllowedByState(candidate, conversationStateRef.current, lastSubstantiveClientRevisionRef.current)) return false;
+    if (!isSuggestionAllowedByState(candidate, conversationStateRef.current, lastSubstantiveClientRevisionRef.current)) {
+      recordSuggestionTrace(candidate, 'rejected', 'state_validator');
+      return false;
+    }
     candidate.semanticKey ||= extractSemanticKey(candidate.text);
     candidate.ttlMs ||= HINT_TTL_MS;
 
@@ -303,6 +332,7 @@ export const App: React.FC = () => {
     const comparisonTarget = pending && shouldReplaceSuggestion(current, pending) ? pending : current;
     if (!shouldReplaceSuggestion(comparisonTarget, candidate)) {
       candidate.lifecycleStatus = 'suppressed';
+      recordSuggestionTrace(candidate, 'rejected', 'replacement_policy');
       return false;
     }
 
@@ -310,6 +340,7 @@ export const App: React.FC = () => {
       const recentAt = recentShownSemanticKeysRef.current.get(candidate.semanticKey);
       if (recentAt != null && Date.now() - recentAt < 30000) {
         candidate.lifecycleStatus = 'suppressed';
+        recordSuggestionTrace(candidate, 'rejected', 'shown_semantic_cooldown');
         return false;
       }
       const antiRepeat = checkSemanticAntiRepeat(
@@ -319,6 +350,7 @@ export const App: React.FC = () => {
       );
       if (!antiRepeat.accepted) {
         candidate.lifecycleStatus = 'suppressed';
+        recordSuggestionTrace(candidate, 'rejected', `anti_repeat:${antiRepeat.rejectionReason || 'unknown'}`);
         return false;
       }
     }
@@ -327,6 +359,7 @@ export const App: React.FC = () => {
       if (pendingSuggestionRef.current) pendingSuggestionRef.current.lifecycleStatus = 'superseded';
       candidate.lifecycleStatus = 'candidate';
       pendingSuggestionRef.current = candidate;
+      recordSuggestionTrace(candidate, 'pending', suggestionLockedRef.current ? 'suggestion_locked' : 'agent_speaking');
       return true;
     }
 
@@ -347,8 +380,9 @@ export const App: React.FC = () => {
       suggestedRepliesHistoryRef.current = [candidate, ...suggestedRepliesHistoryRef.current];
       setSuggestedRepliesHistory(suggestedRepliesHistoryRef.current);
     }
+    recordSuggestionTrace(candidate, 'shown', 'accepted');
     return true;
-  }, []);
+  }, [recordSuggestionTrace]);
 
   // Warn at 80% of an explicit time promise (for example: “I will take two minutes”).
   useEffect(() => {
@@ -877,6 +911,7 @@ export const App: React.FC = () => {
     turnBaseStateRef.current = null;
     turnsRef.current = [];
     suggestedRepliesHistoryRef.current = [];
+    suggestionTraceRef.current = [];
     pendingSuggestionRef.current = null;
     currentSuggestionRef.current = null;
     recentShownSemanticKeysRef.current.clear();
@@ -984,6 +1019,7 @@ export const App: React.FC = () => {
       turns: activeTurns,
       state: activeState,
       suggestedRepliesHistory: activeHistory,
+      suggestionTrace: suggestionTraceRef.current,
       diagnostics: finalDiagnostics,
       status: 'completed',
     };
@@ -1190,6 +1226,7 @@ export const App: React.FC = () => {
       turnsRef.current = [];
       conversationStateRef.current = initialState;
       suggestedRepliesHistoryRef.current = [];
+      suggestionTraceRef.current = [];
       currentSuggestionRef.current = null;
       pendingSuggestionRef.current = null;
       recentShownSemanticKeysRef.current.clear();
