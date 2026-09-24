@@ -66,17 +66,17 @@ describe('ANDREI OS 4 deterministic core', () => {
     expect(event?.suggestedReply).toContain('какой именно вариант');
   });
 
-  it('escalates repeated soft resistance into a client boundary', () => {
-    const first = makeTurn('soft_1', 'client', 'Просто пришлите варианты, я посмотрю.', 1);
+  it('routes a concrete material request directly and respects a later time boundary', () => {
+    const first = makeTurn('soft_1', 'client', 'Просто пришлите варианты, цены и планировки, я посмотрю.', 1);
     const firstEvent = detectConversationEvent(first, [first], createInitialState())!;
     const afterFirst = applyConversationEvent(createInitialState(), firstEvent, first);
-    const firstReanalysis = detectConversationEvent(first, [first], afterFirst)!;
-    expect(firstReanalysis.suppressesAnalysis).toBe(false);
-    expect(firstReanalysis.priority).toBe(85);
-    const second = makeTurn('soft_2', 'client', 'Пришлите информацию, потом подумаю.', 2);
+    expect(firstEvent.type).toBe('DIRECT_QUESTION');
+    expect(firstEvent.ruleId).toBe('direct_question_materials_request');
+    expect(firstEvent.suppressesAnalysis).toBe(true);
+    const second = makeTurn('soft_2', 'client', 'Мне сейчас некогда объяснять, просто пришлите, потом посмотрю.', 2);
     const secondEvent = detectConversationEvent(second, [first, second], afterFirst)!;
     const afterSecond = applyConversationEvent(afterFirst, secondEvent, second);
-    expect(secondEvent.type).toBe('SOFT_RESISTANCE');
+    expect(secondEvent.type).toBe('TIME_CONSTRAINT');
     expect(secondEvent.suppressesAnalysis).toBe(true);
     expect(afterSecond.dialogueControl?.clientBoundaryActive).toBe(true);
   });
