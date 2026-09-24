@@ -963,6 +963,19 @@ export const App: React.FC = () => {
     const activeHistory = suggestedRepliesHistoryRef.current;
 
     // Prepare session record for IndexedDB with the exact single session ID
+    const stats = analysisProviderRef.current.getStats();
+    const finalDiagnostics: DiagnosticsData = {
+      ...diagnostics,
+      droppedAudioChunksMic: agentChannelRef.current?.droppedAudioChunksCount || 0,
+      droppedAudioChunksCall: clientChannelRef.current?.droppedAudioChunksCount || 0,
+      micReconnectCount: agentChannelRef.current?.reconnectCount || 0,
+      clientReconnectCount: clientChannelRef.current?.reconnectCount || 0,
+      analysisRequestsCount: stats.requestsCount,
+      cancelledRequestsCount: stats.cancelledCount,
+      rejectedAnalysisCount: stats.rejectedCount,
+      lastRejectedReason: stats.lastRejectedReason,
+    };
+
     const record: CallSessionRecord = {
       id: activeSessionId,
       startedAt: Date.now() - callDuration * 1000,
@@ -971,6 +984,7 @@ export const App: React.FC = () => {
       turns: activeTurns,
       state: activeState,
       suggestedRepliesHistory: activeHistory,
+      diagnostics: finalDiagnostics,
       status: 'completed',
     };
 
@@ -1065,22 +1079,9 @@ export const App: React.FC = () => {
     );
     setSuggestedRepliesHistory([...suggestedRepliesHistoryRef.current]);
 
-    // Фиксация в askedQuestions для работы Semantic Anti-Repeat
-    const questionText = reply.text.trim();
-    if (questionText) {
-      setConversationState((prevState) => {
-        const currentQuestions = prevState.askedQuestions || [];
-        const isAlreadyTracked = currentQuestions.some(
-          (q) => q.toLowerCase().trim() === questionText.toLowerCase()
-        );
-        const nextState = {
-          ...prevState,
-          askedQuestions: isAlreadyTracked ? currentQuestions : [...currentQuestions, questionText],
-        };
-        conversationStateRef.current = nextState;
-        return nextState;
-      });
-    }
+    // Do not inject the card text into askedQuestions here.
+    // The real microphone STT is the source of truth for what the agent actually said.
+    // Injecting both the card and the recognized speech created duplicate semantic questions.
 
     setShouldSuggest(false);
     setCurrentSuggestion(null);
