@@ -43,6 +43,7 @@ export class AnalysisProvider {
   private analyzedRevisions: Set<number> = new Set();
   private lastAnalysisTimestamp: number = 0;
   private lastValidResponse: AnalysisResponse | null = null;
+  private remoteEnhancementEnabled = false;
 
   // Constants
   public static readonly HARD_TIMEOUT_MS: number = 3200; // semantic enhancement is useless if it trails the live call for many seconds
@@ -63,6 +64,10 @@ export class AnalysisProvider {
   private lastRejectedReason: string | null = null;
   private lastRequestTimestamp: number | null = null;
   private lastRequestReason: string | null = null;
+
+  public setRemoteEnhancementEnabled(enabled: boolean) {
+    this.remoteEnhancementEnabled = enabled;
+  }
 
   public setSession(sessionId: string) {
     this.cancelPending();
@@ -96,6 +101,7 @@ export class AnalysisProvider {
   public scheduleLocalFirst(payload: AnalysisPayload, onSuccess: (result: AnalysisResponse) => void, onError: (error: any) => void, onRefiningChange?: (value: boolean) => void, options: { amendment?: boolean; suppressRemote?: boolean } = {}) {
     const local = buildLocalAnalysisResponse(payload);
     onSuccess(local);
+    if (!this.remoteEnhancementEnabled) return;
     if (options.amendment) {
       this.amendTurn(payload.newTurns.at(-1)!, payload.currentState);
       return;
