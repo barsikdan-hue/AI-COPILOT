@@ -332,7 +332,13 @@ export const App: React.FC = () => {
     candidate.ttlMs ||= HINT_TTL_MS;
 
     const current = currentSuggestionRef.current;
-    const pending = pendingSuggestionRef.current;
+    let pending = pendingSuggestionRef.current;
+    if (pending && isPendingSuggestionSuperseded(pending.basedOnRevision, lastSubstantiveClientRevisionRef.current)) {
+      pending.lifecycleStatus = 'superseded';
+      pendingSuggestionRef.current = null;
+      recordSuggestionTrace(pending, 'rejected', 'superseded_by_newer_revision');
+      pending = null;
+    }
     const comparisonTarget = pending && shouldReplaceSuggestion(current, pending) ? pending : current;
     if (!shouldReplaceSuggestion(comparisonTarget, candidate)) {
       candidate.lifecycleStatus = 'suppressed';
