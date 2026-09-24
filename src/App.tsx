@@ -266,6 +266,9 @@ export const App: React.FC = () => {
       .then((res) => res.json())
       .then((data) => {
         if (data.status === 'ok') {
+          analysisProviderRef.current.setRemoteEnhancementEnabled(
+            data.analysisMode === 'gemini' && data.analysisModel !== 'local-deterministic'
+          );
           setDiagnostics((d) => ({
             ...d,
             actualModel: data.transcribeModel || d.actualModel,
@@ -631,6 +634,15 @@ export const App: React.FC = () => {
       if (event) {
         const eventSuggestion = suggestionFromEvent(event, activeSessionId, nextRev);
         if (eventSuggestion) publishSuggestion(eventSuggestion);
+
+        // A P0/control event already decided the next action for this exact turn.
+        // Do not run a second local policy pass that can overwrite it with a
+        // questionnaire fallback or create a duplicate candidate.
+        if (event.suppressesAnalysis && eventSuggestion) {
+          setIsAnalyzing(false);
+          setIsRefiningContext(false);
+          return;
+        }
       }
 
       if (localObjection && clientIntent.type === 'objection') {
