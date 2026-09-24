@@ -85,8 +85,16 @@ export function extractDeterministicFacts(
   // In flexible-budget phrases (“до 30, но 35–40 если стоящая история”) preserve
   // both the base target and the stretch ceiling instead of collapsing to one number.
   const unitlessStretchMatch = lower.match(/(?:посмотр(?:ю|им)|готов[^.!?]{0,20}рассмотр|мож(?:но|ем)[^.!?]{0,20}рассмотр)[^0-9]{0,24}(\d{1,3}(?:[.,]\d+)?(?:\s*-\s*\d{1,3}(?:[.,]\d+)?)?)(?!\s*(?:лет|год|месяц|%))/iu);
-  const conditionalStretch = (budgetMatches.length >= 2 || (budgetMatches.length >= 1 && Boolean(unitlessStretchMatch))) && /(?:если|но|при\s+(?:сильн|интересн|стоящ)|посмотрю|рассмотр)/iu.test(lower);
-  const budgetMatch = conditionalStretch ? budgetMatches[0] : (budgetMatches.at(-1) || null);
+  const explicitBudgetCorrection = /(?:^|[^\p{L}\p{N}])не\s+[^.!?]{0,32}\d+(?:[.,]\d+)?\s*(?:млн|миллион(?:а|ов)?|млрд|тыс(?:яч(?:и)?)?|к)[^.!?]{0,24}(?:,\s*|\s+)а\s+[^.!?]{0,24}\d+(?:[.,]\d+)?\s*(?:млн|миллион(?:а|ов)?|млрд|тыс(?:яч(?:и)?)?|к)/iu.test(lower);
+  const hasStretchCue = /(?:^|[^\p{L}\p{N}])(?:если|но)(?=$|[^\p{L}\p{N}])|при\s+(?:сильн|интересн|стоящ)|посмотрю|рассмотр/iu.test(lower);
+  const conditionalStretch = !explicitBudgetCorrection &&
+    (budgetMatches.length >= 2 || (budgetMatches.length >= 1 && Boolean(unitlessStretchMatch))) &&
+    hasStretchCue;
+  const budgetMatch = explicitBudgetCorrection
+    ? (budgetMatches.at(-1) || null)
+    : conditionalStretch
+      ? budgetMatches[0]
+      : (budgetMatches.at(-1) || null);
   const stretchMatch = conditionalStretch && budgetMatches.length >= 2 ? budgetMatches.at(-1)! : null;
   const isUnrealizedAssetGrowth =
     /(?:квартир|жиль|дом).{0,80}вырос\S*\s+(?:в\s+)?цен/iu.test(lower) &&
@@ -112,6 +120,7 @@ export function extractDeterministicFacts(
     };
     const isExplicitStretchCeiling = /(?:готов\p{L}*|мож\p{L}*)[^.!?]{0,24}(?:рассматрива\p{L}*|посмотр\p{L}*)[^.!?]{0,16}до\s*\d+/iu.test(lower);
     const isFlex =
+      !explicitBudgetCorrection && (
       conditionalStretch ||
       isExplicitStretchCeiling ||
       Boolean(spokenBaseMatch) ||
@@ -119,7 +128,7 @@ export function extractDeterministicFacts(
       lower.includes('при веском обосновании') ||
       lower.includes('гибк') ||
       lower.includes('посмотрю и') ||
-      lower.includes('посмотрим');
+      lower.includes('посмотрим'));
 
     const spokenBaseValue = spokenBaseMatch ? spokenBaseMap[spokenBaseMatch[1].toLowerCase()] : null;
     const finalValue = spokenBaseValue && isExplicitStretchCeiling
@@ -213,7 +222,7 @@ export function extractDeterministicFacts(
     );
     if (mixedPersonal) {
       addFact(
-        'goal',
+        'goal_secondary',
         'secondaryUse',
         'Периодические личные приезды / отдых',
         (personalVisitMatch || leisureMatch)![0].trim(),
