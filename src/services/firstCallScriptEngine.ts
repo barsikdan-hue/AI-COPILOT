@@ -1272,7 +1272,7 @@ export function evaluateFirstCallScript(
     pmReason = `Способ покупки зафиксирован: ${pmValue}`;
   }
 
-  if (state.paymentMethod?.value && !mortgageNegationInClientText) {
+  if (state.paymentMethod?.value) {
     pmValue = state.paymentMethod.value;
     pmStatus = state.paymentMethod.needsClarification ? 'partially_confirmed' : 'confirmed';
     pmReason = 'Способ оплаты из подтверждённого состояния диалога.';
