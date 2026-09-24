@@ -282,11 +282,13 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
   const personalContextTurn = lastClientTurn
     ? /(?:семь|супруг|дет|сочи|отдых|путеше|хобби|увлека|работ|професс|инвест|доход)/iu.test(lastClientTurn.text)
     : false;
+  const spinPausedForTopicShift =
+    spin?.suggestionMode === 'WAIT' && /сменил тему|приостановлена/iu.test(spin.shortReason || '');
   const canUseDopamine = Boolean(
     dopamine && personalContextTurn &&
     (scriptProgress.trust?.openPersonalQuestionsCount || 0) < 2 &&
     !workingState.activeObjection &&
-    !['asked_implication_question', 'asked_need_payoff_question'].includes(calculatedAgentAction)
+    (spinPausedForTopicShift || !['asked_implication_question', 'asked_need_payoff_question'].includes(calculatedAgentAction))
   );
 
   let suggestedReply: string | null = null;
