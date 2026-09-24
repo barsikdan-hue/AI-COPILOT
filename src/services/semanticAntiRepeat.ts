@@ -25,7 +25,7 @@ export function extractSemanticKey(replyOrText: Partial<SuggestedReply> | string
   }
 
   const text = typeof replyOrText === 'string' ? replyOrText : replyOrText.text || '';
-  const lower = text.toLowerCase();
+  const lower = text.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
 
   if (/давно.*(?:рассматрива|присматрива)|только начал.*(?:изуч|рын)|давно присматриваетесь|давно.*или только начали/iu.test(lower)) return 'ask_search_experience';
   if (/что из.*(?:видели|увиденного|пробовали)|(?:прошл|негативн).*опыт|что.*не устроило/iu.test(lower)) return 'ask_past_experience_problem';
@@ -115,7 +115,7 @@ export function extractSemanticKey(replyOrText: Partial<SuggestedReply> | string
     lower.includes('кто принимает решение') ||
     lower.includes('с кем советуетесь') ||
     lower.includes('совместно с кем') ||
-    lower.includes('кто еще участвует') ||
+    /кто\s+еще[^?]{0,25}участв/iu.test(lower) ||
     lower.includes('что для супруга будет')
   ) {
     return 'ask_decision_makers';
