@@ -951,7 +951,10 @@ export function evaluateSpinAndHpb(
   }
 
   // Сценарий 2: Клиент назвал проблему/боль (Problem назван, но Implication ещё не раскрыт)
-  if (newEvidenceStage === 'PROBLEM' || (nextSpin.problem.length > 0 && nextSpin.implication.length === 0)) {
+  if (
+    newEvidenceStage === 'PROBLEM' ||
+    (nextSpin.problem.length > 0 && nextSpin.implication.length === 0 && pairedStage === 'PROBLEM')
+  ) {
     const probQuote =
       nextSpin.problem[nextSpin.problem.length - 1]?.evidenceQuote ||
       extracted?.evidenceQuote ||
