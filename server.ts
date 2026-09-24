@@ -1318,7 +1318,7 @@ async function start() {
                 'инфраструктура',
                 'видеопоказ',
               ],
-            } as any,
+            },
           },
           callbacks: {
             onopen: () => {
