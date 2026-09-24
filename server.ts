@@ -1291,7 +1291,34 @@ async function start() {
             responseModalities: [Modality.TEXT],
             inputAudioTranscription: {
               languageCodes: ['ru-RU'],
-            },
+              // Bias recognition toward the vocabulary that appears in live real-estate calls.
+              // Google recommends keeping the active vocabulary focused; this list stays well
+              // below the documented best-practice ceiling.
+              customVocabulary: [
+                'Элитный Сочи',
+                'Сочи',
+                'Сириус',
+                'Адлер',
+                'Красная Поляна',
+                'апартаменты',
+                'жилой комплекс',
+                'застройщик',
+                'планировка',
+                'ликвидность',
+                'доходность',
+                'арендный доход',
+                'рассрочка',
+                'ипотека',
+                'семейная ипотека',
+                'первоначальный взнос',
+                'ДДУ',
+                'эскроу',
+                '214-ФЗ',
+                'ПМЖ',
+                'инфраструктура',
+                'видеопоказ',
+              ],
+            } as any,
           },
           callbacks: {
             onopen: () => {
