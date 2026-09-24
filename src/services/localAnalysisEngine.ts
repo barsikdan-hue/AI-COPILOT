@@ -426,8 +426,18 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
       ['urgency', 'К какому сроку планируете определиться с покупкой?'],
     ];
     const alternative = alternatives.find(([metric, text]) => allowed(text, metric));
-    if (alternative) { closesMetric = alternative[0]; suggestedReply = alternative[1]; actionType = 'CLARIFY'; priority = 50; }
-    else suggestedReply = null;
+    if (alternative) {
+      closesMetric = alternative[0];
+      closesMetricLabel = scriptProgress.metrics[alternative[0]]?.name || null;
+      suggestedReply = alternative[1];
+      shortReason = `Fallback по открытому смысловому intent: ${closesMetricLabel || alternative[0]}.`;
+      candidateRuleId = `qualification_fallback_${alternative[0]}`;
+      actionType = 'CLARIFY';
+      suggestionMode = 'WAIT';
+      immediatePriority = closesMetricLabel ? `Уточнить: ${closesMetricLabel}` : 'Уточнить недостающий факт';
+      expectedClientMeaning = null;
+      priority = 50;
+    } else suggestedReply = null;
     }
   }
 
@@ -454,7 +464,10 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
       candidateRuleId = 'semantic_ack_liveness';
       actionType = 'SUMMARIZE';
       suggestionMode = 'WAIT';
-      immediatePriority = scriptProgress.quality?.nextScriptStep || 'Сохранить контекст клиента';
+      closesMetric = null;
+      closesMetricLabel = null;
+      immediatePriority = 'Сохранить текущий смысл клиента';
+      expectedClientMeaning = null;
       priority = 45;
     }
   }
