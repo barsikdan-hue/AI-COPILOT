@@ -149,6 +149,23 @@ describe('session 11 field regression', () => {
     expect(result.suggestedText).not.toMatch(/учитывать.*море|учитывать.*пляж/iu);
   });
 
+  it('treats rent/resale failure as investment Problem evidence', () => {
+    const client = makeTurn(
+      'c-investment-risk',
+      'client',
+      'Хочу избежать ситуации, где обещали ликвидность, а по итогу объект не сдаётся, продать сложно и инфраструктура так себе.',
+      2
+    );
+    const result = evaluateSpinAndHpb(
+      client,
+      createInitialSpinState(),
+      'asked_problem_question',
+      'Если смотреть как на инвестицию, какой риск для вас критичнее: слабая аренда, сложная перепродажа или переплата?'
+    );
+    expect(result.updatedSpin.problem.length).toBeGreaterThan(0);
+    expect(result.updatedSpin.problem.at(-1)?.evidenceQuote).toMatch(/не сда|продать сложно/iu);
+  });
+
   it('does not misclassify ordinary negative wording as a fact correction', () => {
     const client = makeTurn(
       'c-risk-normal',
