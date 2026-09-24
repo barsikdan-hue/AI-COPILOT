@@ -1152,7 +1152,7 @@ export interface ActiveObjectionGuidance {
  */
 export function getActiveObjectionGuidance(state: ConversationState, variant = 0): ActiveObjectionGuidance | null {
   const active = state.activeObjection;
-  if (!active || ['resolved', 'handled'].includes(active.status)) return null;
+  if (!active || ['resolved', 'handled', 'clarified'].includes(active.status)) return null;
   const category = active.category || '';
   const quote = active.evidenceQuote || active.rootCause || '';
 
@@ -1317,12 +1317,45 @@ export function updateObjectionLifecycle(state: ConversationState, turn: Transcr
     return { ...next, dialogueControl: { ...state.dialogueControl!, nextStepResistance: updated,
       nextStepResistanceHistory: { ...state.dialogueControl?.nextStepResistanceHistory, [target]: updated } } };
   };
-  if (turn.speaker === 'agent' && /правильно понимаю|что именно|с чем связан|сначала.*(?:выбер|суз|отбер|определ)|пока.*(?:рано|не трогаем|отлож)|в чем|чем.*вызван|что хотите прояснить|что нужно прояснить/iu.test(turn.text)) {
-    return transition({ ...state, activeObjection: { ...active, status: 'response_attempted', lastAgentResponseTurnId: turn.id, lastResponseStrategy: 'diagnose_or_acknowledge' } }, 'isolating');
+  const agentDiagnosedOrResponded =
+    /правильно понимаю|что именно|с чем связан|сначала.*(?:выбер|суз|отбер|определ)|пока.*(?:рано|не трогаем|отлож)|в чем|чем.*вызван|что хотите прояснить|что нужно прояснить/iu.test(turn.text) ||
+    (active.category === 'objection_yield' && /(?:депозит[^.!?]{0,45}(?:сравн|базов)|сравн[^.!?]{0,45}депозит|чист\p{L}*\s+денежн\p{L}*\s+поток|совокупн\p{L}*\s+(?:доходност|результат)|что\s+для\s+вас\s+важнее)/iu.test(turn.text)) ||
+    (active.category === 'objection_market' && /(?:какой\s+сигнал|по\s+какому\s+критери|сравн[^.!?]{0,35}(?:сейчас|через\s+год)|не\s+буду\s+создавать\s+срочност)/iu.test(turn.text));
+
+  if (turn.speaker === 'agent' && agentDiagnosedOrResponded) {
+    return transition(
+      {
+        ...state,
+        activeObjection: {
+          ...active,
+          status: 'response_attempted',
+          lastAgentResponseTurnId: turn.id,
+          lastResponseStrategy: 'diagnose_or_acknowledge',
+        },
+      },
+      'isolating'
+    );
   }
-  if (turn.speaker === 'client' && active.status === 'response_attempted' && /(?:^|[^\p{L}\p{N}])(?:да|именно|верно|согласен|хорошо|потому|дело в|боюсь|важно)(?=$|[^\p{L}\p{N}])/iu.test(turn.text)) {
+
+  const clientClarified =
+    /(?:^|[^\p{L}\p{N}])(?:да|именно|верно|согласен|хорошо|потому|дело в|боюсь|важно)(?=$|[^\p{L}\p{N}])/iu.test(turn.text) ||
+    (active.category === 'objection_yield' && /(?:совокупн\p{L}*|доход\p{L}*|денежн\p{L}*\s+поток|рост\p{L}*\s+(?:цен|стоим)|ликвидн\p{L}*|продат\p{L}*|сдава\p{L}*|депозит)/iu.test(turn.text)) ||
+    (active.category === 'objection_market' && /(?:рынок|цена|аналог|услов|подожд|сигнал)/iu.test(turn.text));
+
+  if (turn.speaker === 'client' && active.status === 'response_attempted' && clientClarified) {
     const status = active.target ? 'deferred' : 'clarified';
-    return transition({ ...state, activeObjection: { ...active, status, rootCause: active.rootCause || turn.text.trim(), evidenceTurnIds: [...active.evidenceTurnIds, turn.id] } }, 'deferred');
+    return transition(
+      {
+        ...state,
+        activeObjection: {
+          ...active,
+          status,
+          rootCause: active.rootCause || turn.text.trim(),
+          evidenceTurnIds: Array.from(new Set([...active.evidenceTurnIds, turn.id])),
+        },
+      },
+      'deferred'
+    );
   }
   return state;
 }
