@@ -188,6 +188,8 @@ type DirectQuestionIntent =
   | 'meeting_time_confirmation'
   | 'documents'
   | 'financing'
+  | 'price'
+  | 'yield_comparison'
   | 'property_details'
   | 'general';
 
@@ -201,6 +203,8 @@ function classifyDirectQuestionIntent(text: string, previousAgentText: string | 
     (/(?:сегодня|завтра|послезавтра|\d{1,2}[:.]\d{2})/u.test(normalized) && /видео|показ|созвон|встреч/iu.test(combined))
   ) return 'meeting_time_confirmation';
   if (/документ|дду|договор|выписк|разрешен|эскроу|земл|214[-\s]?фз/iu.test(normalized)) return 'documents';
+  if (/(?:сколько|какая|какой).{0,25}(?:стоит|цена|стоимость)|(?:цена|стоимость).{0,25}(?:сколько|какая|какой)/iu.test(normalized)) return 'price';
+  if (/(?:доходност|окупаем|депозит|денежн\p{L}*\s+поток|сколько.{0,20}(?:получить|заработать)|что.{0,35}даст.{0,20}инвест)/iu.test(normalized)) return 'yield_comparison';
   if (/ипотек|ставк|плат[её]ж|банк|рассроч|первоначальн.*взнос/iu.test(normalized)) return 'financing';
   if (/площад|этаж|планиров|отделк|ремонт|срок сдач|инфраструктур|паркинг|вид|море/iu.test(normalized)) return 'property_details';
   return 'general';
@@ -211,10 +215,12 @@ function directQuestionReply(intent: DirectQuestionIntent, text: string): string
     const slot = extractCallbackTime(text);
     return slot ? `Да, ${slot}. Зафиксирую.` : 'Да, подходит. Зафиксирую договорённость.';
   }
-  if (intent === 'documents') return 'Проверю именно этот пункт по актуальным документам выбранного объекта и дам точный ответ.';
+  if (intent === 'documents') return 'Проверю именно этот пункт по актуальным документам конкретного объекта и дам точный ответ — без догадок.';
+  if (intent === 'price') return 'По цене отвечу прямо, но не буду придумывать цифру без актуальной базы: диапазон сильно зависит от формата и локации. Назову проверенную вилку и дальше сравним, за что реально есть смысл доплачивать.';
+  if (intent === 'yield_comparison') return 'Без конкретного объекта честную доходность не назову. Считать нужно чистый денежный поток, возможный рост цены и риски, а затем сравнить это с депозитом. Какая планка для вас будет минимально приемлемой?';
   if (intent === 'financing') return 'По этому финансовому вопросу лучше дать точный расчёт по вашим параметрам — проверю условия, не буду гадать.';
-  if (intent === 'property_details') return 'Уточню точные данные по выбранному объекту и отвечу именно на этот вопрос.';
-  return 'Понял вопрос. Сначала отвечу именно на него, потом продолжим.';
+  if (intent === 'property_details') return 'По конкретному объекту отвечу только проверенными данными. Если объект ещё не выбран, сначала сузим до 2–3 вариантов и сравним этот параметр по каждому.';
+  return 'Отвечу по существу. Если точного факта сейчас нет, не буду придумывать — отмечу, что нужно проверить, и вернусь к одному следующему вопросу.';
 }
 
 function isAmbiguousShortConfirmation(text: string, agentText: string | null): boolean {
@@ -421,6 +427,25 @@ export function detectConversationEvent(
     };
   }
 
+  const meeting = detectMeetingContract(turn, previousAgent, state);
+  if (meeting) return meeting;
+
+  if (hasDirectQuestion(turn.text)) {
+    const intent = classifyDirectQuestionIntent(turn.text, previousAgent?.text || null);
+    return {
+      type: 'DIRECT_QUESTION',
+      priority: 105,
+      actionType: 'ANSWER',
+      ruleId: `direct_question_${intent}`,
+      suggestedReply: directQuestionReply(intent, turn.text),
+      shortReason: `Прямой вопрос клиента (${intent}) выше коррекции, SPIN-вопроса и презентации.`,
+      evidenceTurnId: turn.id,
+      evidenceQuote: turn.text,
+      suppressesAnalysis: intent === 'meeting_time_confirmation',
+      stage: state.stage,
+    };
+  }
+
   const correction = extractCorrection(turn.text);
   if (correction) {
     return {
@@ -433,25 +458,6 @@ export function detectConversationEvent(
       evidenceTurnId: turn.id,
       evidenceQuote: turn.text,
       suppressesAnalysis: false,
-      stage: state.stage,
-    };
-  }
-
-  const meeting = detectMeetingContract(turn, previousAgent, state);
-  if (meeting) return meeting;
-
-  if (hasDirectQuestion(turn.text)) {
-    const intent = classifyDirectQuestionIntent(turn.text, previousAgent?.text || null);
-    return {
-      type: 'DIRECT_QUESTION',
-      priority: 103,
-      actionType: 'ANSWER',
-      ruleId: `direct_question_${intent}`,
-      suggestedReply: directQuestionReply(intent, turn.text),
-      shortReason: `Прямой вопрос клиента (${intent}) выше следующего SPIN-вопроса и презентации.`,
-      evidenceTurnId: turn.id,
-      evidenceQuote: turn.text,
-      suppressesAnalysis: intent === 'meeting_time_confirmation',
       stage: state.stage,
     };
   }
