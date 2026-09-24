@@ -99,6 +99,7 @@ describe('RC5.3 audit regressions', () => {
       id: 'r1',
       sessionId: 's',
       basedOnRevision: 5,
+      candidateRuleId: null,
       text: 'Первый смысл',
       shortReason: 'old',
       evidenceTurnIds: ['c1'],
