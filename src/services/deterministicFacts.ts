@@ -107,7 +107,7 @@ export function extractDeterministicFacts(
           : `${correctedNumber} млн руб`;
       explicitCorrectedBudget = {
         value,
-        quote: budgetCorrectionMatch[0].trim().replace(/^[^\\p{L}\\p{N}]+/u, ''),
+        quote: budgetCorrectionMatch[0].trim().replace(/^[^\p{L}\p{N}]+/u, ''),
       };
     }
   }
@@ -481,7 +481,9 @@ export function extractDeterministicFacts(
     const after = lower.slice(index + length, index + length + 45);
     // A positive cue immediately before the noun belongs to that noun and must
     // not inherit a negation from an earlier alternative: "дом не хочу, нужна квартира".
-    if (/(?:нужн(?:а|о|ы|ен)|хоч(?:у|ем)|рассматрива(?:ю|ем)|подход(?:ит|ят))\s*$/iu.test(before)) {
+    const hasPositiveCue = /(?:нужн(?:а|о|ы|ен)|хоч(?:у|ем)|рассматрива(?:ю|ем)|подход(?:ит|ят))\s*$/iu.test(before);
+    const hasNegatedCue = /не\s+(?:хоч(?:у|ем)|рассматрива(?:ю|ем)|нужн(?:а|о|ы|ен)|подход(?:ит|ят))\s*$/iu.test(before);
+    if (hasPositiveCue && !hasNegatedCue) {
       return false;
     }
     return (
@@ -527,7 +529,11 @@ export function extractDeterministicFacts(
   } else if (!genericMarketPropertyMention && houseMatch) {
     addFact('property_type', 'propertyType', 'Дом / Коттедж', houseMatch[0]);
   } else if (!genericMarketPropertyMention && hasPositiveApartment && hasPositiveFlat) {
-    addFact('property_type', 'propertyType', 'Квартира / апартаменты', positiveFlatMatches.map((match) => match[0]).join(', '));
+    const firstIndex = positiveFlatMatches[0].index ?? 0;
+    const lastPositive = positiveFlatMatches.at(-1)!;
+    const lastEnd = (lastPositive.index ?? firstIndex) + lastPositive[0].length;
+    const exactQuote = trimmed.slice(firstIndex, lastEnd);
+    addFact('property_type', 'propertyType', 'Квартира / апартаменты', exactQuote);
   } else if (!genericMarketPropertyMention && flatMatch) {
     addFact('property_type', 'propertyType', flatMatch[0].toLowerCase().startsWith('апарт') ? 'Апартаменты' : 'Квартира', flatMatch[0]);
   }
