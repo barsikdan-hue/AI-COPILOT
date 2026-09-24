@@ -172,8 +172,21 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
     .sort((a, b) => b.priority - a.priority);
   const dominantEvent = events[0] || null;
   const activeObjectionGuidance = getActiveObjectionGuidance(input.currentState);
+  const activeCategory = input.currentState.activeObjection?.category || '';
+  const latestClientText = (lastClientTurn?.text || '').toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
+  const latestRelatesToActiveObjection =
+    activeCategory === 'objection_yield'
+      ? /(?:доходност|депозит|сдава|аренд|ликвид|продат|рост\s+(?:цен|стоим)|окупаем)/iu.test(latestClientText)
+      : activeCategory === 'objection_market'
+        ? /(?:рынок|цен\p{L}*\s+упад|подожд|через\s+год|момент\s+покуп)/iu.test(latestClientText)
+        : activeCategory === 'objection_compare' || activeCategory === 'objection_bad_experience'
+          ? /(?:сравн|вариант|презентац|агент|не\s+понима)/iu.test(latestClientText)
+          : false;
   const autoObjectionGuidance = activeObjectionGuidance && lastClientTurn &&
-    input.currentState.activeObjection?.evidenceTurnIds?.includes(lastClientTurn.id)
+    (
+      input.currentState.activeObjection?.evidenceTurnIds?.includes(lastClientTurn.id) ||
+      latestRelatesToActiveObjection
+    )
       ? activeObjectionGuidance
       : null;
 
