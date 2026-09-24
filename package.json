@@ -14,7 +14,7 @@
     "lint": "tsc --noEmit",
     "test": "vitest run",
     "test:rc5": "vitest run src/services/session5SemanticRegression.test.ts src/services/suggestionLiveness.test.ts src/services/rc4StressRegression.test.ts src/services/session11Regression.test.ts",
-    "prebuild": "npm test && npm run lint"
+    "verify": "npm test && npm run lint && npm run build"
   },
   "dependencies": {
     "@google/genai": "2.24.0",
