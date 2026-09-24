@@ -674,11 +674,27 @@ export function evaluateFirstCallScript(
     : allClientText
   ).toLowerCase();
 
+  const explicitNoPermanentLiving = /(?:(?:не|точно\s+не)\s*(?:планиру\p{L}*|собира\p{L}*|хоч\p{L}*|буд\p{L}*)[^.!?]{0,35}(?:переезжа\p{L}*|жить\s+постоянно|пмж)|(?:переезжа\p{L}*|пмж|жить\s+постоянно)[^.!?]{0,45}не\s*(?:планиру\p{L}*|собира\p{L}*|хоч\p{L}*|буд\p{L}*))/iu.test(goalCheckText);
+  const explicitInvestmentGoal =
+    /(?:инвестиц|вложени|вложить|сохранить\s+капитал|арендн\p{L}*\s+доход|под\s+сдачу)/iu.test(goalCheckText);
+
   if (
+    explicitInvestmentGoal &&
+    /(?:отдых|приезжа|личн\p{L}*\s+использ|сезон)/iu.test(goalCheckText)
+  ) {
+    goalStatus = 'confirmed';
+    goalValue = 'Инвестиции + периодическое личное использование';
+    goalReason = 'Клиент подтвердил инвестиционную цель и периодическое личное использование без переезда на ПМЖ.';
+    goalNeedsClarification = false;
+  } else if (explicitInvestmentGoal) {
+    goalStatus = 'confirmed';
+    goalValue = 'Инвестиции / арендный доход / сохранение капитала';
+    goalReason = 'Клиент озвучил инвестиционную цель или получение арендного дохода.';
+    goalNeedsClarification = false;
+  } else if (
     goalCheckText.includes('лето') &&
     (goalCheckText.includes('сдавать') || goalCheckText.includes('аренд'))
   ) {
-    // Mixed goal: vacation + rental
     goalStatus = 'confirmed';
     goalValue = 'Смешанная цель: личный отдых + сдача в аренду';
     goalReason = 'Клиент раскрыл смешанный сценарий: личный сезонный отдых и коммерческая аренда в остальное время.';
@@ -701,10 +717,12 @@ export function evaluateFirstCallScript(
     goalReason = 'Выявлено желание иметь свою недвижимость у моря, требуется разграничить сезонный отдых и постоянное проживание.';
     goalNeedsClarification = true;
   } else if (
-    goalCheckText.includes('переезд') ||
-    goalCheckText.includes('перебраться на юг') ||
-    goalCheckText.includes('пмж') ||
-    goalCheckText.includes('постоянно жить')
+    !explicitNoPermanentLiving && (
+      goalCheckText.includes('переезд') ||
+      goalCheckText.includes('перебраться на юг') ||
+      goalCheckText.includes('пмж') ||
+      goalCheckText.includes('постоянно жить')
+    )
   ) {
     goalStatus = 'confirmed';
     goalValue = 'Постоянное проживание / переезд';
@@ -719,18 +737,6 @@ export function evaluateFirstCallScript(
     goalStatus = 'confirmed';
     goalValue = 'Отдых и сезонное проживание';
     goalReason = 'Клиент подтвердил сценарий сезонного отдыха и курортного пребывания.';
-    goalNeedsClarification = false;
-  } else if (
-    goalCheckText.includes('приносила деньги') ||
-    goalCheckText.includes('под сдачу') ||
-    goalCheckText.includes('сдавать') ||
-    goalCheckText.includes('инвестиц') ||
-    goalCheckText.includes('пассивный доход') ||
-    goalCheckText.includes('сохранить капитал')
-  ) {
-    goalStatus = 'confirmed';
-    goalValue = 'Инвестиции / арендный доход / сохранение капитала';
-    goalReason = 'Клиент озвучил инвестиционную цель или получение арендного дохода.';
     goalNeedsClarification = false;
   } else if (goalValue) {
     goalStatus = 'confirmed';
@@ -1490,7 +1496,10 @@ export function evaluateFirstCallScript(
     dmStatus = 'confirmed';
     dmValue = 'Совместное решение с семьёй / супругом';
     dmReason = 'Клиент прямо подтвердил участие другого человека в принятии решения.';
-  } else if (hasAnyPhrase(allClientText, ['сам принимаю', 'сама принимаю', 'сам решаю', 'сама решаю', 'один выбираю', 'одна выбираю', 'решаю сам', 'решаю сама'])) {
+  } else if (
+    hasAnyPhrase(allClientText, ['сам принимаю', 'сама принимаю', 'сам решаю', 'сама решаю', 'один выбираю', 'одна выбираю', 'решаю сам', 'решаю сама', 'финальное решение моё', 'финальное решение мое', 'решение моё', 'решение мое']) ||
+    /(?:финальн\p{L}*\s+решение\s+(?:мо[её]|за\s+мной)|решение\s+принимаю\s+сам(?:остоятельно)?)/iu.test(allClientText)
+  ) {
     dmStatus = 'confirmed';
     dmValue = 'Принимает решение единолично (самостоятельный ЛПР)';
     dmReason = 'Клиент подтвердил единоличное принятие инвестиционного решения.';
