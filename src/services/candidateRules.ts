@@ -44,14 +44,18 @@ export function selectCandidateRules(allRules: any[], lastClientText: string, st
   }
 
   // 2. P48: ONLY explicit permanent relocation. "для себя с семьей" without permanent living does NOT trigger P48!
+  const explicitNoPermanentRelocation =
+    /(?:(?:не|точно\s+не)\s*(?:планиру\p{L}*|собира\p{L}*|хоч\p{L}*|буд\p{L}*)[^.!?]{0,35}(?:переезжа\p{L}*|жить\s+постоянно|пмж)|(?:переезжа\p{L}*|пмж|жить\s+постоянно)[^.!?]{0,45}не\s*(?:планиру\p{L}*|собира\p{L}*|хоч\p{L}*|буд\p{L}*))/iu.test(lower);
   const hasPermanentRelocation =
-    lower.includes('буду жить') ||
-    lower.includes('будем жить') ||
-    lower.includes('переезжа') ||
-    lower.includes('переезд') ||
-    lower.includes('постоянного проживания') ||
-    lower.includes('жить постоянно') ||
-    lower.includes('пмж');
+    !explicitNoPermanentRelocation && (
+      lower.includes('буду жить') ||
+      lower.includes('будем жить') ||
+      lower.includes('переезжа') ||
+      lower.includes('переезд') ||
+      lower.includes('постоянного проживания') ||
+      lower.includes('жить постоянно') ||
+      lower.includes('пмж')
+    );
 
   if (hasPermanentRelocation) {
     tryAdd('P48');
