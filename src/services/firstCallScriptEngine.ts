@@ -161,7 +161,7 @@ export function isOpenTechnicalQuestion(text: string): boolean {
     lower.includes('горы или побережье') ||
     lower.includes('что стало причиной') ||
     lower.includes('какой ошибки') ||
-    lower.includes('что вызывает') && lower.includes('сомнен') ||
+    /что[^?]{0,28}вызыва\p{L}*[^?]{0,28}сомнен/iu.test(lower) ||
     lower.includes('что смущает') ||
     lower.includes('что мешает') ||
     lower.includes('что оттолкнуло') ||
