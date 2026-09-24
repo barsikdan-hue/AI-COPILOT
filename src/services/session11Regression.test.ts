@@ -149,6 +149,18 @@ describe('session 11 field regression', () => {
     expect(result.suggestedText).not.toMatch(/учитывать.*море|учитывать.*пляж/iu);
   });
 
+  it('does not misclassify ordinary negative wording as a fact correction', () => {
+    const client = makeTurn(
+      'c-risk-normal',
+      'client',
+      'Хочу избежать ситуации, где обещали ликвидность, а по итогу объект не сдаётся, продать сложно и инфраструктура так себе. То есть мне нужна нормальная адекватность, а не очередной лучший проект.',
+      2
+    );
+    const agent = makeTurn('a1', 'agent', 'Какого риска вы хотите избежать?', 1);
+    const event = detectConversationEvent(client, [agent, client], createInitialState());
+    expect(event?.type).not.toBe('FACT_CORRECTION');
+  });
+
   it('does not repeat the yield threshold after client already names deposit as baseline', () => {
     const { hints } = replay([
       ['client', 'Если недвижимость даст меньше, зачем мне менять инструмент? Сейчас деньги лежат на депозите.'],
