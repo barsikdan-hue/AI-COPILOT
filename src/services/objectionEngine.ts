@@ -1104,7 +1104,11 @@ export function detectNextStepResistance(text: string, state?: ConversationState
   const bareDeferral = /^(?:а\s+|ну\s+)?(?:не готов|не хочу|не надо|не нужно|пока рано|не сейчас|позже|потом|сначала|сперва|нет)(?:\s+(?:это|сейчас|пока))?[.!\s]*$/iu.test(lower.trim());
   const permission = /(?:давайте|можно|можем|готов|подключим|назначим|теперь|договорились)/iu.test(lower);
   const action = /подключ|показ|созвон|назнач|теперь готов|договорил/iu.test(lower);
-  const contextualTarget = explicitTarget(agentText || '') || null;
+  const rememberedTarget =
+    state?.dialogueControl?.nextStepResistance?.status !== 'handled'
+      ? state?.dialogueControl?.nextStepResistance?.target || null
+      : null;
+  const contextualTarget = explicitTarget(agentText || '') || rememberedTarget;
   const contextualDeferral = elliptical || bareDeferral || (materialsInstead && Boolean(contextualTarget)) || (permission && action);
   const target = explicitVideoRefusal ? 'ppv'
     : explicitBrokerRefusal ? 'ppi'
