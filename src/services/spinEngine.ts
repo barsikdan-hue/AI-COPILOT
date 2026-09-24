@@ -258,6 +258,8 @@ export function classifyAgentAction(text: string): AgentActionType {
     // SPIN Problem
     if (
       lower.includes('что не устраивает') ||
+      /что.{0,45}не\s+устроил/iu.test(lower) ||
+      /что.{0,45}(?:оказалось|было).{0,25}(?:сложн|непонятн)/iu.test(lower) ||
       lower.includes('с чем основные сложности') ||
       lower.includes('что самое сложное') ||
       lower.includes('почему хотите поменять') ||
@@ -572,6 +574,9 @@ export function extractClientSpinMeaning(
     lower.includes('запутал') ||
     lower.includes('не понимаю чем они отличаются') ||
     lower.includes('не понимаю, чем они отличаются') ||
+    /не\s+(?:понял|могу\s+понять)[^.!?]{0,35}чем[^.!?]{0,30}(?:отлича|разниц)/iu.test(lower) ||
+    /(?:десят\p{L}*|кучу|много)[^.!?]{0,20}(?:презентац|вариант|объект)/iu.test(lower) ||
+    /одно\s+и\s+то\s+же[^.!?]{0,35}(?:агент|презентац|проект)/iu.test(lower) ||
     lower.includes('кучу вариантов') ||
     lower.includes('каждый агент') ||
     lower.includes('есть смысл переплачивать') ||
@@ -713,7 +718,7 @@ export function evaluateSpinAndHpb(
   currentSpinState: SpinState,
   lastAgentAction: AgentActionType = 'none',
   lastAgentTurnText: string = '',
-  context?: Pick<ConversationState, 'criteria' | 'dialogueControl'>
+  context?: Pick<ConversationState, 'criteria' | 'dialogueControl' | 'goal' | 'primaryGoal' | 'activeObjection'>
 ): SpinEvaluationResult {
   const text = clientTurn.text.trim();
   const lower = text.toLowerCase();
@@ -738,8 +743,11 @@ export function evaluateSpinAndHpb(
   }
 
   // 2. ПРОВЕРКА: Если клиент ответил «Для себя» без деталей ПМЖ
+  const existingGoal = (context?.goal?.value || context?.primaryGoal?.value || '').toLocaleLowerCase('ru-RU');
+  const goalAlreadySpecific = /(?:инвестиц|отдых|сезон|постоянн|переезд|аренд)/iu.test(existingGoal);
   const isOnlyForMyself =
     lower.includes('для себя') &&
+    !goalAlreadySpecific &&
     !lower.includes('будем жить') &&
     !lower.includes('переезд') &&
     !lower.includes('пмж') &&
@@ -808,13 +816,31 @@ export function evaluateSpinAndHpb(
     pairedStage !== 'NEED_PAYOFF' &&
     (noPastExperience || !/(?:боюсь|не устраивает|мешает|страдаю|раздражает|сомнен)/iu.test(text))
   ) {
-    const criterion = context?.criteria?.items?.[0]?.text;
+    const criteriaText = (context?.criteria?.items || []).map((item) => item.text).join(' ').toLocaleLowerCase('ru-RU');
+    const investmentContext =
+      /(?:инвестиц|вложени|доходност|ликвидн|сдава|депозит|рост\s+(?:цен|стоим))/iu.test(
+        `${criteriaText} ${context?.goal?.value || ''} ${context?.primaryGoal?.value || ''} ${text}`
+      );
+    const comparisonOverload = /(?:не\s+(?:понял|понимаю)|одно\s+и\s+то\s+же|десят\p{L}*\s+презентац|каждый\s+агент)/iu.test(text);
+    const criterion = context?.criteria?.items?.find((item) =>
+      !/море|пляж/iu.test(item.text)
+    )?.text || context?.criteria?.items?.[0]?.text;
+
+    let futureRiskQuestion: string;
+    if (investmentContext) {
+      futureRiskQuestion = 'Если смотреть как на инвестицию, какой риск для вас критичнее: слабая фактическая аренда, сложная перепродажа или переплата на входе?';
+    } else if (comparisonOverload) {
+      futureRiskQuestion = 'Если сократить рынок до двух-трёх вариантов, какую ошибку вы больше всего хотите исключить при финальном сравнении?';
+    } else {
+      futureRiskQuestion = criterion
+        ? `Если смотреть вперёд и учитывать «${criterion}», какой ошибки при выборе вы больше всего хотите избежать?`
+        : 'Если смотреть вперёд, какой ошибки вы больше всего хотите избежать при выборе — переплатить, ошибиться с локацией или получить неудобную планировку?';
+    }
+
     return {
       suggestionMode: 'SPIN_PROBLEM',
-      suggestedText: criterion
-        ? `Если смотреть вперёд и учитывать «${criterion}», какой ошибки при выборе вы больше всего хотите избежать?`
-        : 'Если смотреть вперёд, какой ошибки вы больше всего хотите избежать при выборе — переплатить, ошибиться с локацией или получить неудобную планировку?',
-      shortReason: 'Клиент ещё изучает рынок; выясняем будущие риски без предположения о прошлом негативном опыте.',
+      suggestedText: futureRiskQuestion,
+      shortReason: 'Клиент ещё изучает рынок; выясняем будущий риск через его реальный сценарий, а не случайный критерий.',
       evidenceQuote: text,
       expectedClientMeaning: 'Клиент называет риск будущего выбора.',
       updatedSpin: recomputeSpinProgress(nextSpin),
