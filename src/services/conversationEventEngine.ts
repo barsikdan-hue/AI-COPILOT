@@ -217,7 +217,7 @@ function hasDirectQuestion(text: string): boolean {
 
 function isBarrierQuestion(text: string): boolean {
   const lower = normalize(text);
-  return /(?:если[^?]{0,80}(?:меньше|хуже)[^?]{0,55}(?:депозит|банк)|зачем[^?]{0,50}(?:менять\s+инструмент|покупать|брать)|не\s+вижу\s+смысла|где\s+гаранти)/iu.test(lower);
+  return /(?:если[^?]{0,90}(?:меньше|хуже)[^?]{0,60}(?:зачем[^?]{0,45}менять\s+инструмент|депозит|банк)|(?:депозит|банк)[^?]{0,80}если[^?]{0,70}(?:меньше|хуже)|зачем[^?]{0,50}(?:менять\s+инструмент|покупать|брать)|не\s+вижу\s+смысла|где\s+гаранти)/iu.test(lower);
 }
 
 type DirectQuestionIntent =
@@ -242,7 +242,7 @@ function classifyDirectQuestionIntent(text: string, previousAgentText: string | 
   ) return 'meeting_time_confirmation';
   if (/документ|дду|договор|выписк|разрешен|эскроу|земл|214[-\s]?фз/iu.test(normalized)) return 'documents';
   if (/(?:сколько|какая|какой).{0,25}(?:стоит|цена|стоимость)|(?:цена|стоимость).{0,25}(?:сколько|какая|какой)/iu.test(normalized)) return 'price';
-  if (/(?:доходност|окупаем|депозит|денежн\p{L}*\s+поток|сколько.{0,20}(?:получить|заработать)|что.{0,35}даст.{0,20}инвест)/iu.test(normalized)) return 'yield_comparison';
+  if (/(?:доходност|окупаем|депозит|денежн\p{L}*\s+поток|сколько.{0,35}(?:получить|заработать|принос\p{L}*)|что.{0,35}даст.{0,20}инвест)/iu.test(normalized)) return 'yield_comparison';
   if (/ипотек|ставк|плат[её]ж|банк|рассроч|первоначальн.*взнос/iu.test(normalized)) return 'financing';
   if (/(?:скин\p{L}*|пришл\p{L}*|отправ\p{L}*|покаж\p{L}*)[^.!?]{0,55}(?:цен|планиров|вариант|материал)|(?:цен|планиров|вариант)[^.!?]{0,35}(?:скин\p{L}*|пришл\p{L}*|отправ\p{L}*)/iu.test(normalized)) return 'materials_request';
   if (/(?:что\s+(?:реально\s+)?интересн|что\s+можете\s+предлож|какие\s+есть\s+(?:вариант|решен)|что\s+есть\s+такого)/iu.test(normalized)) return 'market_options';
