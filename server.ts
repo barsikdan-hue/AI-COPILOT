@@ -76,6 +76,7 @@ function getSalesRules() {
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
+    buildVersion: '4.0.2-rc.5.1-session11-hotfix',
     hasKey: !!process.env.GEMINI_API_KEY,
     transcribeModel: TRANSCRIBE_MODEL,
     analysisMode: ANALYSIS_MODE,
