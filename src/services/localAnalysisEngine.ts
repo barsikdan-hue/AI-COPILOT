@@ -307,6 +307,15 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
     (!dominantEvent || ['RESEARCH_MODE'].includes(dominantEvent.type))
   );
 
+  const researchFutureRiskReady = Boolean(
+    lastClientTurn &&
+    (workingState.spin?.researchMode || workingState.dialogueControl?.researchMode) &&
+    (workingState.spin?.problem?.length || 0) === 0 &&
+    /(?:ничего\s+не\s+(?:смотрел|смотрели)|неудобств\s+не\s+было|проблем\s+не\s+было|только\s+начал\p{L}*\s+изуча)/iu.test(
+      lastClientTurn.text
+    )
+  );
+
   if (objectionShouldOwnReply && autoObjectionGuidance) {
     suggestedReply = autoObjectionGuidance.text;
     shortReason = autoObjectionGuidance.reason;
@@ -327,6 +336,14 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
     closesMetricLabel = dominantEvent.closesMetricLabel || null;
     immediatePriority = `P0: ${dominantEvent.type}`;
     priority = dominantEvent.priority;
+  } else if (researchFutureRiskReady) {
+    suggestedReply = 'Если смотреть вперёд, какой ошибки при выборе вы больше всего хотите избежать?';
+    shortReason = 'Клиент ещё изучает рынок и не назвал прошлую боль: исследуем будущий риск вместо повторного вопроса об опыте.';
+    candidateRuleId = 'research_future_risk';
+    actionType = 'CLARIFY';
+    suggestionMode = 'SPIN_PROBLEM';
+    expectedClientMeaning = 'Клиент называет риск или ошибку, которую хочет исключить.';
+    priority = 61;
   } else if (
     spin &&
     spin.suggestedText &&
