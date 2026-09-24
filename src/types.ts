@@ -699,6 +699,7 @@ export interface CallSessionRecord {
   state: ConversationState;
   summary?: CallSummary;
   suggestedRepliesHistory: SuggestedReply[];
+  diagnostics?: DiagnosticsData;
   status: 'completed' | 'cancelled';
   note?: string;
 }
