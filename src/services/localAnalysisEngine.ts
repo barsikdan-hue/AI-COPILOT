@@ -80,9 +80,25 @@ export function advanceLocalConversation(current: ConversationState, turn: Trans
 
   state = updateObjectionLifecycle(state, turn, clientIntent.type === 'objection' ? localObjection?.category : undefined, event?.nextStepTarget);
   if (turn.speaker === 'client') {
-    const previousAgentAction = previousAgent ? classifyAgentAction(previousAgent.text) : 'none';
-    const spin = evaluateSpinAndHpb(turn, state.spin, previousAgentAction, previousAgent?.text || '', state);
-    state = { ...state, spin: spin.updatedSpin, spinState: spin.updatedSpin };
+    const controlEventBlocksSpin = Boolean(
+      event && [
+        'DIRECT_QUESTION',
+        'EXPLICIT_REJECTION',
+        'FACT_CORRECTION',
+        'NEXT_STEP_RESISTANCE',
+        'NEXT_STEP_REOPENED',
+        'MEETING_CONTRACT',
+        'AMBIGUOUS_CONFIRMATION',
+        'CLIENT_STOP',
+        'TIME_CONSTRAINT',
+        'COMPLIANCE_STOP',
+      ].includes(event.type)
+    );
+    if (!controlEventBlocksSpin) {
+      const previousAgentAction = previousAgent ? classifyAgentAction(previousAgent.text) : 'none';
+      const spin = evaluateSpinAndHpb(turn, state.spin, previousAgentAction, previousAgent?.text || '', state);
+      state = { ...state, spin: spin.updatedSpin, spinState: spin.updatedSpin };
+    }
   }
   const progress = evaluateFirstCallScript(turns, state);
   state = { ...state, scriptProgress: progress, trustEvaluation: progress.trust, qualityResult: progress.quality };
