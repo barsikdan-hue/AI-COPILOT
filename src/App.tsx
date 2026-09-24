@@ -180,6 +180,7 @@ export const App: React.FC = () => {
   const finalTurnBufferRef = useRef<FinalTurnBuffer | null>(null);
   useEffect(() => () => finalTurnBufferRef.current?.reset(), []);
   const suggestedRepliesHistoryRef = useRef<SuggestedReply[]>([]);
+  const suggestionTraceRef = useRef<SuggestionTraceEntry[]>([]);
 
   // References for services
   const audioCaptureRef = useRef<DualAudioCapture | null>(null);
@@ -747,36 +748,39 @@ export const App: React.FC = () => {
       finalTurnBufferRef.current?.reset();
       finalTurnBufferRef.current = new FinalTurnBuffer(handleAddFinalTurn);
       // 1. Dual Audio Capture
-      const audioCapture = new DualAudioCapture({
-        onMicChunk: (chunk) => {
-          if (!isPausedRef.current && agentChannelRef.current) {
-            agentChannelRef.current.sendAudioChunk(chunk);
-          }
-        },
-        onCallChunk: (chunk) => {
-          if (!isPausedRef.current && clientChannelRef.current) {
-            clientChannelRef.current.sendAudioChunk(chunk);
-          }
-        },
-        onMicLevel: (lvl, db) => {
-          setMicLevel(lvl);
-          setMicDb(db);
-        },
-        onCallLevel: (lvl, db) => {
-          setCallLevel(lvl);
-          setCallDb(db);
-        },
-        onError: (src, msg) => {
-          showToast(`[${src === 'microphone' ? 'Микрофон' : 'Звук звонка'}]: ${msg}`);
-          if (src === 'microphone') setIsMicActive(false);
-          if (src === 'call_audio') setIsCallAudioActive(false);
-        },
-        onCallAudioEnded: () => {
-          setIsCallAudioActive(false);
-          showToast('Захват звука звонка остановлен пользователем.');
-        },
-      });
-      audioCaptureRef.current = audioCapture;
+      // Reuse an existing capture instance so a microphone/tab stream enabled
+      // before "Начать звонок" is not orphaned when a real session ID is created.
+      if (!audioCaptureRef.current) {
+        audioCaptureRef.current = new DualAudioCapture({
+          onMicChunk: (chunk) => {
+            if (!isPausedRef.current && agentChannelRef.current) {
+              agentChannelRef.current.sendAudioChunk(chunk);
+            }
+          },
+          onCallChunk: (chunk) => {
+            if (!isPausedRef.current && clientChannelRef.current) {
+              clientChannelRef.current.sendAudioChunk(chunk);
+            }
+          },
+          onMicLevel: (lvl, db) => {
+            setMicLevel(lvl);
+            setMicDb(db);
+          },
+          onCallLevel: (lvl, db) => {
+            setCallLevel(lvl);
+            setCallDb(db);
+          },
+          onError: (src, msg) => {
+            showToast(`[${src === 'microphone' ? 'Микрофон' : 'Звук звонка'}]: ${msg}`);
+            if (src === 'microphone') setIsMicActive(false);
+            if (src === 'call_audio') setIsCallAudioActive(false);
+          },
+          onCallAudioEnded: () => {
+            setIsCallAudioActive(false);
+            showToast('Захват звука звонка остановлен пользователем.');
+          },
+        });
+      }
 
       // 2. Transcription Channel for Agent
       const agentChannel = new LiveTranscriptionChannel('agent', newSessionId, {
@@ -899,6 +903,7 @@ export const App: React.FC = () => {
 
   // Start Call Session
   const handleStartCall = async () => {
+    try {
     const newSessionId = `session_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     sessionIdRef.current = newSessionId;
     revisionRef.current = 0;
@@ -961,6 +966,14 @@ export const App: React.FC = () => {
 
     isCallRunningRef.current = true;
     setIsCallRunning(true);
+    } catch (error: any) {
+      console.error('Failed to start call:', error);
+      isCallRunningRef.current = false;
+      setIsCallRunning(false);
+      setHasAnalysisError(true);
+      setAnalysisErrorMessage(error?.message || 'Не удалось запустить звонок');
+      showToast(`Не удалось запустить звонок: ${error?.message || 'неизвестная ошибка'}`);
+    }
   };
 
   // End Call Session
