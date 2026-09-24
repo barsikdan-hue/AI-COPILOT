@@ -1134,7 +1134,7 @@ export function nextStepResistanceReply(target: NextStepTarget, repeated: boolea
   if (target === 'ppi') {
     const playbook = salesKnowledge.objectionPlaybooks.ppi;
     return causeAlreadyNamed
-      ? `Понял. ${playbook.research[2]}`
+      ? `Понял, брокера пока не подключаем. ${playbook.research[2]}`
       : `${playbook.accept[0]} ${playbook.research[1]}`;
   }
   if (target === 'ppv') {
