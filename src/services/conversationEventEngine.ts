@@ -116,6 +116,21 @@ function extractCallbackTime(text: string): string | null {
   return `${day}в ${hourOnly[2].padStart(2, '0')}:00`;
 }
 
+function extractCallbackSlots(text: string): string[] {
+  const slots: string[] = [];
+  const full = /(?:(сегодня|завтра|послезавтра)\s*)?(?:ровно\s*)?(?:в\s*)?(\d{1,2})(?::|\s)(\d{2})/giu;
+  for (const match of text.matchAll(full)) {
+    const day = match[1] ? `${match[1]} ` : '';
+    slots.push(`${day}в ${match[2].padStart(2, '0')}:${match[3]}`);
+  }
+  const hourOnly = /(?:(сегодня|завтра|послезавтра)\s*)?(?:ровно\s*)?в\s*(\d{1,2})(?:\s*час(?:а|ов)?)?/giu;
+  for (const match of text.matchAll(hourOnly)) {
+    const day = match[1] ? `${match[1]} ` : '';
+    slots.push(`${day}в ${match[2].padStart(2, '0')}:00`);
+  }
+  return Array.from(new Set(slots));
+}
+
 function extractPreferredCallbackTime(text: string): string | null {
   const preferred = text.match(
     /(?:удобнее|предпочту|предпочитаю|лучше|выбираю|давайте)\s+(?:(сегодня|завтра|послезавтра)\s*)?(?:ровно\s*)?(?:в\s*)?(\d{1,2})(?::|\s)(\d{2})/iu
@@ -255,11 +270,14 @@ function detectMeetingContract(
   const meetingContext = /(?:видеовстреч|видеопоказ|видео|созвон|зум|zoom|встреч|показ)/iu.test(`${agentText} ${text}`);
   if (!affirmative || !meetingContext) return null;
 
-  const callbackSlot = extractPreferredCallbackTime(turn.text) || extractCallbackTime(turn.text) || extractCallbackTime(previousAgent?.text || '');
+  const clientSlot = extractPreferredCallbackTime(turn.text) || extractCallbackTime(turn.text);
+  const agentSlots = extractCallbackSlots(previousAgent?.text || '');
+  const inheritedSingleAgentSlot = !clientSlot && agentSlots.length === 1 ? agentSlots[0] : null;
+  const callbackSlot = clientSlot || inheritedSingleAgentSlot;
   const time = extractClock(callbackSlot);
-  const dateOrDay = callbackSlot?.match(/(?:^|[^\p{L}\p{N}])(сегодня|завтра|послезавтра|понедельник|вторник|сред[ау]|четверг|пятниц[ау]|суббот[ау]|воскресенье)(?=$|[^\p{L}\p{N}])/iu)?.[1]
-    || `${turn.text} ${previousAgent?.text || ''}`.match(/(?:^|[^\p{L}\p{N}])(сегодня|завтра|послезавтра|понедельник|вторник|сред[ау]|четверг|пятниц[ау]|суббот[ау]|воскресенье)(?=$|[^\p{L}\p{N}])/iu)?.[1]
-    || null;
+  const clientDay = turn.text.match(/(?:^|[^\p{L}\p{N}])(сегодня|завтра|послезавтра|понедельник|вторник|сред[ау]|четверг|пятниц[ау]|суббот[ау]|воскресенье)(?=$|[^\p{L}\p{N}])/iu)?.[1] || null;
+  const inheritedDay = inheritedSingleAgentSlot?.match(/(?:^|[^\p{L}\p{N}])(сегодня|завтра|послезавтра|понедельник|вторник|сред[ау]|четверг|пятниц[ау]|суббот[ау]|воскресенье)(?=$|[^\p{L}\p{N}])/iu)?.[1] || null;
+  const dateOrDay = clientDay || inheritedDay || null;
   const channel = `${agentText} ${text}`.match(/(видеовстреча|видеопоказ|zoom|зум|телефон|whatsapp|ватсап|telegram|телеграм)/iu)?.[1] || null;
   const participants = /(?:вдвоем|вдвоём|с супруг|с муж|с жен|всей семь)/iu.test(text) ? 'несколько участников' : null;
   const expectedResult = /(?:сравним|выберем|определим|решим|проверим)/iu.test(`${agentText} ${text}`)
@@ -275,9 +293,11 @@ function detectMeetingContract(
       : 'clear';
 
   const missing: string[] = [];
+  const multipleAgentSlotsWithoutSelection = !clientSlot && agentSlots.length > 1;
   if (!dateOrDay) missing.push('день');
   if (!time) missing.push('время');
   if (!channel) missing.push('канал');
+  if (multipleAgentSlotsWithoutSelection && !missing.includes('время')) missing.push('выбор времени');
 
   const suggestion =
     quality === 'forced_or_low_confidence'
