@@ -128,7 +128,10 @@ export function extractSemanticCriteria(text: string): SemanticCriterion[] {
     out,
     'family_layout',
     'Планировка и комфорт для семьи',
-    firstMatch(lower, /(?:для\s+семьи|планировк\p{L}*|изолированн\p{L}+\s+комнат\p{L}*|личн\p{L}+\s+пространств\p{L}*)/iu),
+    firstMatch(
+      lower,
+      /(?:для\s+семьи|(?:удобн\p{L}*|функциональн\p{L}*|важн\p{L}*|принципиальн\p{L}*)[^.!?]{0,18}планировк\p{L}*|планировк\p{L}*[^.!?]{0,18}(?:удобн\p{L}*|функциональн\p{L}*|важн\p{L}*|принципиальн\p{L}*)|изолированн\p{L}+\s+комнат\p{L}*|личн\p{L}+\s+пространств\p{L}*)/iu,
+    ),
   );
 
   // A broad "everything matters" statement is not a concrete criterion by itself.
