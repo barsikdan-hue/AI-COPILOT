@@ -304,7 +304,7 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
 
   const objectionShouldOwnReply = Boolean(
     autoObjectionGuidance &&
-    (!dominantEvent || ['NEXT_STEP_RESISTANCE', 'FACT_CORRECTION', 'RESEARCH_MODE'].includes(dominantEvent.type))
+    (!dominantEvent || ['RESEARCH_MODE'].includes(dominantEvent.type))
   );
 
   if (objectionShouldOwnReply && autoObjectionGuidance) {
