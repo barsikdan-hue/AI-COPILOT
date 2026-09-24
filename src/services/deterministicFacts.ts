@@ -8,9 +8,16 @@ import {
   hasWholeWord,
   hasAnyWholeWord,
   hasPhrase,
+  hasAnyPhrase,
   normalizeRussianText,
   validateEvidenceQuote,
 } from './textUtils';
+import {
+  detectAdultChildren,
+  detectFundsAvailability,
+  detectSearchExperience,
+  extractSemanticCriteria,
+} from './semanticEvidence';
 
 export interface ExtractedFactItem {
   category: string;
@@ -35,7 +42,14 @@ export function extractDeterministicFacts(
   if (!trimmed) return [];
 
   const lower = trimmed.toLowerCase();
+  const previousAgentLower = (previousAgentTurnText || '').toLowerCase();
   const facts: ExtractedFactItem[] = [];
+
+  const agentAskedDownPayment =
+    /(?:первоначальн|первый\s*взнос|сколько\s*(?:готовы|можете)?\s*внести|какую\s*сумму\s*(?:готовы|можете)?\s*внести|сумм\w*\s*сразу|на\s*руках)/iu.test(previousAgentLower);
+
+  const sourceContext = agentAskedDownPayment || /источник|откуда.*средств|средства.*(?:руках|продаж)|после продажи/iu.test(previousAgentLower);
+  const explicitPaymentSwitch = /(?:всю|полностью|целиком|100%).*(?:покуп|оплат|средств)|(?:вместо|без) ипотеки|способ оплаты/iu.test(lower);
 
   const addFact = (
     category: string,
@@ -62,31 +76,59 @@ export function extractDeterministicFacts(
   };
 
   // 1. Budget extraction: e.g. "30 миллионов", "30 млн", "до 45 млн руб", "около 15 млн", "бюджет 15 млн"
-  const budgetMatch = lower.match(
-    /(?:(?:бюджет(?:ом|а)?|до|около|примерно|в\s*районе)\s*)?(\d+(?:[.,]\d+)?(?:\s*-\s*\d+(?:[.,]\d+)?)?)\s*(млн|миллион(?:а|ов)?|млрд|тысяч(?:и)?|тыс|к)(?:[^\p{L}\p{N}]|$)/iu
+  const budgetMatches = Array.from(
+    lower.matchAll(
+      /(?:(?:бюджет(?:ом|а)?|до|около|примерно|в\s*районе)\s*)?(\d+(?:[.,]\d+)?(?:\s*-\s*\d+(?:[.,]\d+)?)?)\s*(млн|миллион(?:а|ов)?|млрд|тысяч(?:и)?|тыс|к)(?:[^\p{L}\p{N}]|$)/giu
+    )
   );
-  if (budgetMatch) {
-    const num = budgetMatch[1].replace(',', '.');
-    const unit = budgetMatch[2];
-    let normalizedValue = `${num} млн руб`;
-    if (unit.startsWith('млрд')) normalizedValue = `${num} млрд руб`;
-    else if (unit.startsWith('тыс') || unit === 'к') normalizedValue = `${num} тыс руб`;
-
+  // In corrections such as “not 10m, but 6m”, the last explicit value is current.
+  // In flexible-budget phrases (“до 30, но 35–40 если стоящая история”) preserve
+  // both the base target and the stretch ceiling instead of collapsing to one number.
+  const unitlessStretchMatch = lower.match(/(?:посмотр(?:ю|им)|готов[^.!?]{0,20}рассмотр|мож(?:но|ем)[^.!?]{0,20}рассмотр)[^0-9]{0,24}(\d{1,3}(?:[.,]\d+)?(?:\s*-\s*\d{1,3}(?:[.,]\d+)?)?)(?!\s*(?:лет|год|месяц|%))/iu);
+  const conditionalStretch = (budgetMatches.length >= 2 || (budgetMatches.length >= 1 && Boolean(unitlessStretchMatch))) && /(?:если|но|при\s+(?:сильн|интересн|стоящ)|посмотрю|рассмотр)/iu.test(lower);
+  const budgetMatch = conditionalStretch ? budgetMatches[0] : (budgetMatches.at(-1) || null);
+  const stretchMatch = conditionalStretch && budgetMatches.length >= 2 ? budgetMatches.at(-1)! : null;
+  const isUnrealizedAssetGrowth =
+    /(?:квартир|жиль|дом).{0,80}вырос\S*\s+(?:в\s+)?цен/iu.test(lower) &&
+    /не\s+прода(?:вал|вала|вали|ю|ем)/iu.test(lower);
+  const explicitlyBudgetContext = /(?:бюджет|общая\s*стоимость|весь\s*бюджет|максимальн\w*\s*сумм)/iu.test(lower);
+  if (budgetMatch && !isUnrealizedAssetGrowth && (!agentAskedDownPayment || explicitlyBudgetContext)) {
+    const normalizeBudget = (match: RegExpMatchArray) => {
+      const num = match[1].replace(',', '.');
+      const unit = match[2];
+      if (unit.startsWith('млрд')) return `${num} млрд руб`;
+      if (unit.startsWith('тыс') || unit === 'к') return `${num} тыс руб`;
+      return `${num} млн руб`;
+    };
+    const normalizedValue = normalizeBudget(budgetMatch);
+    const inferredStretchValue = !stretchMatch && conditionalStretch && unitlessStretchMatch && /млн|миллион/iu.test(budgetMatch[2])
+      ? `${unitlessStretchMatch[1].replace(/\s+/g, '')} млн руб`
+      : null;
+    const stretchValue = stretchMatch ? normalizeBudget(stretchMatch) : inferredStretchValue;
     const isFlex =
+      conditionalStretch ||
       lower.includes('немного выше') ||
       lower.includes('при веском обосновании') ||
       lower.includes('гибк') ||
+      lower.includes('посмотрю и') ||
       lower.includes('посмотрим');
 
-    addFact('budget', 'budget', isFlex ? `Около ${normalizedValue} (гибкий)` : normalizedValue, budgetMatch[0].trim(), 0.95, {
+    const finalValue = stretchValue && stretchValue !== normalizedValue
+      ? `Ориентир ${normalizedValue}; до ${stretchValue} при сильном варианте`
+      : isFlex
+        ? `Около ${normalizedValue} (гибкий)`
+        : normalizedValue;
+    addFact('budget', 'budget', finalValue, budgetMatch[0].trim(), 0.95, {
       isFlexible: isFlex,
-      comment: isFlex ? 'Может рассмотреть немного выше при веском обосновании' : undefined,
+      comment: stretchValue && stretchValue !== normalizedValue
+        ? `Базовый ориентир ${normalizedValue}; расширение до ${stretchValue} при сильном варианте`
+        : isFlex ? 'Может рассмотреть немного выше при веском обосновании' : undefined,
     });
   }
 
   // 2. Location extraction
   const locations: Array<{ name: string; regex: RegExp }> = [
-    { name: 'Сириус', regex: /(?:^|[^\p{L}\p{N}])(сириус(?:е|а)?|в\s*сириусе|окрестност(?:и|ях)\s*сириуса)(?:[^\p{L}\p{N}]|$)/iu },
+    { name: 'Сириус', regex: /(?:^|[^\p{L}\p{N}])(сириус(?:е|а)?|sirius|в\s*сириусе|окрестност(?:и|ях)\s*сириуса)(?:[^\p{L}\p{N}]|$)/iu },
     { name: 'Сочи', regex: /(?:^|[^\p{L}\p{N}])(сочи|в\s*сочи)(?:[^\p{L}\p{N}]|$)/iu },
     { name: 'Адлер', regex: /(?:^|[^\p{L}\p{N}])(адлер|в\s*адлере)(?:[^\p{L}\p{N}]|$)/iu },
     { name: 'Красная Поляна', regex: /(?:^|[^\p{L}\p{N}])(красн(?:ая|ой)\s*полян(?:а|е|у))(?:[^\p{L}\p{N}]|$)/iu },
@@ -97,20 +139,52 @@ export function extractDeterministicFacts(
     { name: 'Краснодар', regex: /(?:^|[^\p{L}\p{N}])(краснодар|в\s*краснодаре)(?:[^\p{L}\p{N}]|$)/iu },
   ];
 
+  const positiveLocations: Array<{ name: string; quote: string }> = [];
+  const locationRejected = (name: string): boolean => {
+    const token = name === 'Красная Поляна' ? 'красн\w*\s+полян\w*'
+      : name === 'Сириус' ? '(?:сириус\w*|sirius)'
+      : name.toLocaleLowerCase('ru-RU');
+    const before = new RegExp(`(?:не\s*(?:рассматрива\w*|хочу|нужн\w*|подходит)|исключа\w*)[^.!?]{0,18}${token}`, 'iu');
+    const after = new RegExp(`${token}[^.!?]{0,18}(?:не\s*(?:рассматрива\w*|хочу|нужн\w*|подходит)|исключа\w*)`, 'iu');
+    return before.test(lower) || after.test(lower);
+  };
   for (const loc of locations) {
     const match = lower.match(loc.regex);
-    if (match) {
-      addFact('location', 'location', loc.name, match[1] || match[0].trim());
-      break;
-    }
+    if (!match || locationRejected(loc.name)) continue;
+    positiveLocations.push({ name: loc.name, quote: match[1] || match[0].trim() });
+  }
+  if (positiveLocations.length === 1) {
+    addFact('location', 'location', positiveLocations[0].name, positiveLocations[0].quote);
+  } else if (positiveLocations.length > 1) {
+    const names = Array.from(new Set(positiveLocations.map((item) => item.name)));
+    addFact('location', 'location', names.join(' / '), positiveLocations[0].quote, 0.93);
   }
 
   // 3. Goal & Secondary Use Model (Requirement 7 & 8)
-  // Primary Goal: Living / Personal Residence
-  const livingMatch = lower.match(/(?:для\s*постоянной\s*жизни|для\s*жизни|постоянно\s*жить|буд(?:у|ем)\s*жить|переезжа(?:ем|ть)|переезд|пмж)/iu);
+  // Primary Goal: Living / Personal Residence.
+  // IMPORTANT: lexical presence is not positive evidence when the client negates it:
+  // “Постоянно жить не планируем” must never become “Постоянное проживание”.
+  const livingMatches = Array.from(
+    lower.matchAll(/(?:для\s*постоянной\s*жизни|для\s*жизни|постоянно\s*жить|буд(?:у|ем)\s*жить|переезжа(?:ем|ть)|переезд|пмж)/giu)
+  );
+  const livingMatch = livingMatches.find((match) => {
+    const start = match.index || 0;
+    const before = lower.slice(Math.max(0, start - 45), start);
+    const after = lower.slice(start + match[0].length, start + match[0].length + 55);
+    return !(
+      /(?:не\s+(?:хоч(?:у|ем)|планиру(?:ю|ем)|собира(?:юсь|емся)|буд(?:у|ем)|рассматрива(?:ю|ем)))\s*$/iu.test(before) ||
+      /^\s*(?:не\s+(?:хоч(?:у|ем)|планиру(?:ю|ем)|собира(?:юсь|емся)|буд(?:у|ем)|рассматрива(?:ю|ем))|не\s+нужн)/iu.test(after)
+    );
+  }) || null;
+  const leisureMatch = lower.match(
+    /(?:для\s*отдыха|сезонн(?:ое|ого|ом)?\s*проживан(?:ие|ия|ии)|приезжать\s+(?:на\s*)?(?:отдых|каникул)|на\s*каникулы|для\s*каникул|периодически\s*приезжать)/iu
+  );
   if (livingMatch) {
     addFact('goal', 'primaryGoal', 'Постоянное личное проживание', livingMatch[0].trim());
     addFact('goal', 'goal', 'Постоянное личное проживание', livingMatch[0].trim());
+  } else if (leisureMatch) {
+    addFact('goal', 'primaryGoal', 'Отдых и сезонное проживание', leisureMatch[0].trim());
+    addFact('goal', 'goal', 'Отдых и сезонное проживание', leisureMatch[0].trim());
   } else if (hasPhrase(lower, 'для себя')) {
     addFact('goal', 'goal', 'Для себя (формат уточняется)', 'для себя', 0.9);
   } else if (lower.match(/(?:чисто\s*под\s*инвестиции|для\s*перепродажи|инвестиционн(?:ый|ая))/iu)) {
@@ -127,12 +201,31 @@ export function extractDeterministicFacts(
     addFact('goal', 'secondaryUse', 'Периодическая сдача во время отсутствия', rentalMatch[0].trim());
   }
 
+
+  // Shared semantic evidence layer: one meaning -> one normalized fact regardless
+  // of the exact wording used by the client.
+  for (const criterion of extractSemanticCriteria(trimmed)) {
+    addFact('criteria', 'clientCriteria', criterion.label, criterion.evidenceQuote, 0.94);
+  }
+
+  const searchExperience = detectSearchExperience(trimmed);
+  if (searchExperience) {
+    addFact('searchExperience', 'searchExperience', searchExperience.value, searchExperience.evidenceQuote, 0.94);
+  }
+
+  const fundsAvailability = detectFundsAvailability(trimmed, previousAgentTurnText || '');
+  if (fundsAvailability) {
+    addFact('downPayment', 'downPayment', fundsAvailability.value, fundsAvailability.evidenceQuote, 0.94, {
+      comment: 'Средства доступны; размер первого платежа уточняется под конкретную схему оплаты.',
+    });
+  }
+
   // 4. Payment Method & Financing
   const cashMatch = lower.match(/(?:наличн(?:ые|ыми|ых)|расчет\s*наличными|расчёт\s*наличными|100%\s*оплата|свои\s*средства|собственн(?:ые|ыми)\s*средств(?:а|ами))/iu);
   
   // Explicit current negative intent towards mortgage (e.g. "не хочу ипотеку", "не нужна ипотека", "без ипотеки")
   const explicitMortgageNegative = lower.match(
-    /(?:(?:не\s*(?:нужн(?:а|о)|планиру(?:ю|ем)|хоч(?:у|ешь)|хот(?:им|ел|ела|ели|елось|елось\s*бы)|буд(?:ем|у)|рассматрива(?:ем|ю)|подходит|интересует|люблю)|без)\s*ипотек(?:и|у)?|ипотек(?:а|у|ой)?\s*(?:мне|нам|пока)?\s*не\s*(?:нужн(?:а|о)|интересн(?:а|о)|подходит|хоч(?:у|ется)))/iu
+    /(?:(?:^|[^\p{L}\p{N}])(?:(?:не\s*(?:нужн(?:а|о)|планиру(?:ю|ем)|хоч(?:у|ешь)|хот(?:им|ел|ела|ели|елось|елось\s*бы)|буд(?:ем|у)|рассматрива(?:ем|ю)|собира(?:юсь|емся)|подходит|интересует|люблю)|без)\s*ипотек(?:и|у)?)|(?:^|[^\p{L}\p{N}])ипотек(?:а|у|ой)?[^.!?]{0,35}не\s*(?:нужн(?:а|о)|интересн(?:а|о)|подходит|хоч(?:у|ется)|рассматрива(?:ю|ем)|собира(?:юсь|емся))|(?:^|[^\p{L}\p{N}])ипотек(?:а|у|ой)?[^.!?]{0,35}рассматрива(?:ть|ю|ем)[^.!?]{0,18}не\s*собира(?:юсь|емся))/iu
   );
 
   // Stating they didn't use mortgage in the past (e.g. "ипотекой раньше не пользовался")
@@ -152,8 +245,8 @@ export function extractDeterministicFacts(
   // If client specifically intends mortgage (even if stating they haven't used it in the past), give precedence to explicit intent
   if (mortgageIntentMatch && installmentMatch) {
     addFact('paymentMethod', 'paymentMethod', 'Ипотека / Рассрочка (допустимы оба варианта)', `${mortgageIntentMatch[0]}, ${installmentMatch[0]}`);
-  } else if (cashMatch && (!genericMortgageMatch || mortgageNegationMatch)) {
-    addFact('paymentMethod', 'paymentMethod', 'наличные', cashMatch[0]);
+  } else if (cashMatch && (!sourceContext || explicitPaymentSwitch) && (!genericMortgageMatch || mortgageNegationMatch)) {
+    addFact('paymentMethod', 'paymentMethod', /сво|собствен/iu.test(cashMatch[0]) ? 'Собственные средства (100% оплата)' : 'наличные', cashMatch[0]);
   } else if (mortgageNegationMatch && !mortgageIntentMatch) {
     // Negative preference regarding mortgage - do NOT choose mortgage as payment method
     // Do NOT invent cash or installment unless client explicitly stated it
@@ -171,7 +264,36 @@ export function extractDeterministicFacts(
     addFact('finances', 'financialPriority', 'Комфортный ежемесячный платёж', paymentPriorityMatch[0]);
   }
 
+  // Contextual initial payment: a short client answer like "15 миллионов" or "30%"
+  // counts only when Andrei has just asked about the down payment.
+  if (agentAskedDownPayment) {
+    const downPaymentMoneyMatch = lower.match(
+      /(\d+(?:[.,]\d+)?)\s*(млн|миллион(?:а|ов)?|тысяч(?:и)?|тыс)(?:\s*(?:руб(?:лей|ля)?|₽))?/iu
+    );
+    const downPaymentPercentMatch = lower.match(/(\d{1,3})\s*%/u);
+    if (downPaymentMoneyMatch) {
+      const amount = downPaymentMoneyMatch[1].replace(',', '.');
+      const unit = downPaymentMoneyMatch[2].startsWith('тыс') ? 'тыс руб' : 'млн руб';
+      addFact('downPayment', 'downPayment', `${amount} ${unit}`, downPaymentMoneyMatch[0].trim(), 0.98);
+    } else if (downPaymentPercentMatch) {
+      addFact('downPayment', 'downPayment', `${downPaymentPercentMatch[1]}%`, downPaymentPercentMatch[0], 0.98);
+    }
+  }
+
+  const savingsSourceMatch = lower.match(
+    /(?:из\s*(?:личных\s*)?(?:накоплений|сбережений)|накоплени(?:я|й)|сбережени(?:я|й)|свои\s*средства|собственн(?:ые|ыми)\s*средств(?:а|ами)|деньги\s*на\s*руках)/iu
+  );
+  const assetSaleSourceMatch = lower.match(
+    /(?:из\s*продажи\s*(?:актива|активов|квартиры|недвижимости)|продам\s*(?:актив|активы|квартиру|недвижимость)|после\s*продажи\s*(?:актива|активов|квартиры|недвижимости))/iu
+  );
+  if (assetSaleSourceMatch) {
+    addFact('downPaymentSource', 'downPaymentSource', 'Продажа актива / недвижимости', assetSaleSourceMatch[0], 0.97);
+  } else if (savingsSourceMatch) {
+    addFact('downPaymentSource', 'downPaymentSource', 'Личные накопления / свободные средства', savingsSourceMatch[0], 0.97);
+  }
+
   // 5. Family & Children (Family Mortgage eligibility check)
+  const adultChildren = detectAdultChildren(trimmed);
   // Scoped negation: "детей до 7 лет нет" is specific to the under-7 eligibility, not proof of having no kids at all
   const noChildUnder7Match = lower.match(
     /(?:(?:нет|нету|без)\s*(?:маленьких\s*)?детей\s*(?:до\s*7\s*(?:лет|года)?)|детей\s*(?:до\s*7\s*(?:лет|года)?)\s*(?:у\s*нас\s*)?(?:пока\s*)?нет)/iu
@@ -181,6 +303,7 @@ export function extractDeterministicFacts(
     /(?:(?:нет|нету|без)\s*детей|детей\s*(?:у\s*нас\s*)?(?:пока\s*)?нет|нет\s*реб[её]нка|без\s*реб[её]нка)/iu
   );
   // Explicit positive evidence of child under 7: must be bound to child words, not loan terms like "рассрочка до 7 лет" or infrastructure like "детский сад"
+  const childAgeRangeMatch = lower.match(/(?:реб[её]н(?:ок|ку|ка)|дети|сыну|дочери).{0,20}(?:меньше|младше|до|еще нет|ещё нет)\s*(?:7|семи)(?:\s*лет)?/iu);
   const childUnder7Match = !noChildUnder7Match && !noChildrenMatch && lower.match(
     /(?:(?:реб[её]нк(?:у|а)?|дет(?:ям|ей|и)|сыну|дочер(?:и|ь)|дочк(?:е|а|у))\s*(?:до\s*7\s*(?:лет|года)?|[1-6]\s*(?:год(?:а)?|лет))|(?:до\s*7\s*(?:лет|года)?|[1-6]\s*(?:год(?:а)?|лет))\s*(?:реб[её]нк(?:у|а)?|дет(?:ям|ей|и)|сыну|дочер(?:и|ь)|дочк(?:е|а|у))|маленьк(?:ие|их)\s*дет(?:и|ей)|малыш|(?:есть\s+)?(?:реб[её]нок|дети)\s+до\s*7\s*(?:лет|года)?)/iu
   );
@@ -208,12 +331,21 @@ export function extractDeterministicFacts(
       0.95,
       { status: 'confirmed', needsClarification: false }
     );
-  } else if (childUnder7Match) {
+  } else if (adultChildren) {
+    addFact(
+      'familyMortgage',
+      'familyMortgage',
+      adultChildren.value,
+      adultChildren.evidenceQuote,
+      0.98,
+      { status: 'confirmed', needsClarification: false }
+    );
+  } else if (childUnder7Match || childAgeRangeMatch) {
     addFact(
       'familyMortgage',
       'familyMortgage',
       'Есть ребёнок подходящего возраста (до 7 лет, подходит под условия семейной ипотеки)',
-      childUnder7Match[0],
+      (childUnder7Match || childAgeRangeMatch)![0],
       0.95,
       { status: 'confirmed', needsClarification: false }
     );
@@ -230,16 +362,18 @@ export function extractDeterministicFacts(
   }
 
   // 6. Employment (Requirement 5 & 8: Whole-word / phrase matching, "ипотека" != "ИП")
-  const employmentMatch = lower.match(/(?:по\s*найму|в\s*найме|работаю\s*по\s*найму|в\s*компании|официальн(?:о|ое)\s*трудоустройство)/iu);
+  const employmentMatch = lower.match(/(?:по\s*найму|в\s*найме|работаю\s*по\s*найму|в\s*компании|официальн(?:о|ое)\s*трудоустройство|официально\s*трудоустроен(?:а)?)/iu);
+  const ipExplicitlyNegative = /(?:не\s*(?:являюсь|зарегистрирован(?:а)?|работаю\s*как)\s*)?ип\s*(?:у\s*меня\s*)?нет|никак(?:ого|их)\s+ип|без\s+ип|ип\s+не\s+(?:оформлен|зарегистрирован)/iu.test(lower);
+  const businessExplicitlyNegative = /(?:ооо|бизнес)\s*(?:у\s*меня\s*)?нет|никак(?:ого|их)\s+(?:ооо|бизнеса)/iu.test(lower);
   if (employmentMatch) {
     addFact('finances', 'employment', 'Работа по найму', employmentMatch[0]);
-  } else if (hasWholeWord(lower, 'ип') || hasPhrase(lower, 'свой бизнес') || hasPhrase(lower, 'собственный бизнес')) {
+  } else if ((!ipExplicitlyNegative && hasWholeWord(lower, 'ип')) || (!businessExplicitlyNegative && (hasPhrase(lower, 'свой бизнес') || hasPhrase(lower, 'собственный бизнес')))) {
     const ipQuote = hasWholeWord(lower, 'ип') ? 'ип' : 'свой бизнес';
     addFact('finances', 'employment', 'Индивидуальный предприниматель (ИП)', ipQuote);
   }
 
   // 7. Decision Makers (Requirement 5 & 6: Never fabricate "с женой" from "важен" or "предложений")
-  const spouseMatch = lower.match(/(?:с\s*женой|с\s*мужем|с\s*супруг(?:ой|ом)|с\s*семь[её]й|с\s*партн[её]ром|решаем\s*вместе|обсудим\s*с\s*женой|обсудим\s*с\s*мужем)/iu);
+  const spouseMatch = lower.match(/(?:реша(?:ем|ть)\s*вместе|обсуд(?:им|ить|у)\s*с\s*(?:женой|мужем|супруг(?:ой|ом)|семь[её]й|партн[её]ром)|совет(?:уюсь|оваться)\s*с\s*(?:женой|мужем|супруг(?:ой|ом)|семь[её]й|партн[её]ром)|соглас(?:ую|овать)\s*с\s*(?:женой|мужем|супруг(?:ой|ом)|семь[её]й|партн[её]ром)|(?:жена|муж|супруг(?:а)?)\s+(?:тоже\s+)?(?:решает|участвует\s+в\s+решении))/iu);
   const soloMatch = lower.match(/(?:сам\s*решаю|сама\s*решаю|один\s*выбираю|одна\s*выбираю|решаю\s*самостоятельно)/iu);
   if (spouseMatch) {
     addFact('decision_makers', 'decisionMakers', 'Совместно с супругом / семьёй', spouseMatch[0]);
@@ -248,22 +382,64 @@ export function extractDeterministicFacts(
   }
 
   // 8. Property Type (Whole-word / phrase matching, "рядом" != "дом")
-  const flatMatch = lower.match(/(?:квартир(?:а|у|ы)|апартамент(?:ы|ов)?|студи(?:я|ю))/iu);
-  const houseMatch = lower.match(/(?:коттедж(?:ей|а)?|вилл(?:а|у)|таунхаус(?:а)?)/iu) ||
-    (hasWholeWord(lower, 'дом') && !hasPhrase(lower, 'рядом') ? { 0: 'дом' } as any : null);
+  const isNegatedPropertyMention = (index: number, length: number): boolean => {
+    const before = lower.slice(Math.max(0, index - 45), index);
+    const after = lower.slice(index + length, index + length + 45);
+    // A positive cue immediately before the noun belongs to that noun and must
+    // not inherit a negation from an earlier alternative: "дом не хочу, нужна квартира".
+    if (/(?:нужн(?:а|о|ы|ен)|хоч(?:у|ем)|рассматрива(?:ю|ем)|подход(?:ит|ят))\s*$/iu.test(before)) {
+      return false;
+    }
+    return (
+      /(?:не\s+(?:хочу|рассматрива(?:ю|ем)|нуж(?:ен|на|ны)|подход(?:ит|ят))|без|исключа(?:ю|ем))\s*(?:\S+\s*){0,2}$/iu.test(before) ||
+      /^\s*(?:мне\s*)?не\s+(?:хочу|рассматрива(?:ю|ем)|нуж(?:ен|на|ны)|подход(?:ит|ят))/iu.test(after)
+    );
+  };
+  const flatMatches = Array.from(
+    lower.matchAll(/(?:квартир(?:а|у|ы|е|ой|ам|ами|ах)?|апартамент(?:ы|ов|ам|ами|ах|е)?|студи(?:я|ю|и|ей))/giu)
+  );
+  const flatMatch = flatMatches.find(
+    (match) => !isNegatedPropertyMention(match.index, match[0].length)
+  ) || null;
+  const explicitHouseMatch = lower.match(/(?:коттедж(?:ей|а)?|вилл(?:а|у)|таунхаус(?:а)?)/iu);
+  const homeToken = lower.match(/(?:^|[^\p{L}\p{N}])(дом)(?=$|[^\p{L}\p{N}])/iu);
+  const homeIndex = homeToken
+    ? (homeToken.index || 0) + homeToken[0].lastIndexOf(homeToken[1])
+    : -1;
+  const houseMatch = explicitHouseMatch && !isNegatedPropertyMention(explicitHouseMatch.index || 0, explicitHouseMatch[0].length)
+    ? explicitHouseMatch
+    : homeToken && !hasPhrase(lower, 'рядом') && !isNegatedPropertyMention(homeIndex, homeToken[1].length)
+      ? ({ 0: 'дом' } as any)
+      : null;
 
-  if (houseMatch && flatMatch) {
+  const rejectedHouseMatch = lower.match(
+    /(?:(?:дом|коттедж|вилл(?:а|у)|таунхаус)\w*\s*(?:точно\s*)?(?:не\s*(?:нужен|нужно|интересует|рассматрива(?:ю|ем)|хочу|подходит)|исключа(?:ю|ем))|(?:не\s*(?:нужен|нужно|интересует|рассматрива(?:ю|ем)|хочу|подходит)|исключа(?:ю|ем))[^.!?]{0,24}(?:дом|коттедж|вилл(?:у|а)|таунхаус))/iu
+  );
+  if (rejectedHouseMatch) {
+    addFact('property_constraint', 'propertyTypeConstraint', 'Дом исключён', rejectedHouseMatch[0].trim(), 0.99);
+  }
+
+  const propertyTypeQuestionContext = /(?:формат жилья|квартир|апартамент|дом|тип недвижимости|что рассматриваете)/iu.test(previousAgentLower);
+  const residentialComplexMatch = lower.match(/(?:жил(?:ой|ом)\s+комплекс(?:е|а)?|жк)(?:$|[^\p{L}\p{N}])/iu);
+  const genericMarketPropertyMention = /(?:сегмент(?:е|а)|рынок|доходност|загрузк|аналитик|источник)/iu.test(lower) && !propertyTypeQuestionContext;
+
+  if (!genericMarketPropertyMention && propertyTypeQuestionContext && residentialComplexMatch && !flatMatch && !houseMatch) {
+    addFact('property_type', 'propertyType', 'Квартира в жилом комплексе', residentialComplexMatch[0].trim());
+  } else if (!genericMarketPropertyMention && houseMatch && flatMatch) {
     addFact('property_type', 'propertyType', 'Дом или квартира (допустимы оба формата)', `${flatMatch[0]}, ${houseMatch[0]}`);
-  } else if (houseMatch) {
+  } else if (!genericMarketPropertyMention && houseMatch) {
     addFact('property_type', 'propertyType', 'Дом / Коттедж', houseMatch[0]);
-  } else if (flatMatch) {
+  } else if (!genericMarketPropertyMention && flatMatch) {
     addFact('property_type', 'propertyType', flatMatch[0].toLowerCase().startsWith('апарт') ? 'Апартаменты' : 'Квартира', flatMatch[0]);
   }
 
-  // 9. Timeline
-  const timelineMatch = lower.match(/(?:пара\s*месяцев|пару\s*месяцев|в\s*течение\s*пары\s*месяцев|2-3\s*месяца|к\s*лету|в\s*течение\s*месяца|срочно|не\s*к\s*спеху)/iu);
+  // 9. Timeline. Calendar wording such as "до декабря" is a concrete deadline.
+  const timelineMatch = lower.match(
+    /(?:пара\s*месяцев|пару\s*месяцев|в\s*течение\s*пары\s*месяцев|(?:2|два)[-–—\s]*(?:3|три)\s*месяц(?:а|ев)?|к\s*лету|в\s*течение\s*месяца|(?:^|[^\p{L}\p{N}])срочно(?:[^\p{L}\p{N}]|$)|не\s*к\s*спеху|(?:до|к)\s*(?:концу\s*)?(?:января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)|(?:в|на)\s*(?:январе|феврале|марте|апреле|мае|июне|июле|августе|сентябре|октябре|ноябре|декабре))/iu
+  );
   if (timelineMatch) {
-    addFact('timeline', 'purchaseTimeline', timelineMatch[0], timelineMatch[0]);
+    const timelineQuote = timelineMatch[0].trim().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
+    addFact('timeline', 'purchaseTimeline', timelineQuote, timelineQuote);
   }
 
   // 10. Criteria: Reliability / Transparency
@@ -274,6 +450,20 @@ export function extractDeterministicFacts(
       ? 'надежность'
       : 'прозрачность';
     addFact('criteria', 'clientCriteria', 'Надёжность и прозрачность сделки', quote);
+  }
+
+  const seaPreferenceMatch = lower.match(
+    /(?:близост[а-яё]*\s*к\s*морю|рядом\s*с\s*морем|недалеко\s*от\s*моря|у\s*моря|море[^.!?]{0,24}(?:бонус|важн|желатель))/iu
+  );
+  if (seaPreferenceMatch) {
+    addFact(
+      'criteria',
+      'clientCriteria',
+      'Близость к морю (желательный критерий)',
+      seaPreferenceMatch[0].trim(),
+      0.94,
+      { comment: 'Клиент обозначил море как предпочтение; не повышать до обязательного критерия без подтверждения.' }
+    );
   }
 
   // 11. Contextual agreedNextStep (e.g. Agent: "Видеопоказ завтра в 15:00 удобно?" -> Client: "Да")
@@ -311,7 +501,8 @@ export function extractDeterministicFacts(
         'окей',
         'подходит',
         'точно',
-      ]));
+      ]) ||
+      hasAnyPhrase(lower, ['предпочту', 'удобнее завтра', 'лучше завтра', 'да, завтра', 'тогда завтра']));
 
   if (previousAgentTurnText) {
     const prevLower = previousAgentTurnText.toLowerCase();
@@ -327,8 +518,10 @@ export function extractDeterministicFacts(
       // Extract proposed step detail if present, or generate descriptive step
       let stepValue = 'Видеопоказ';
       const combined = `${prevLower} ${lower}`;
-      if (combined.includes('завтра') && combined.includes('15:00')) {
-        stepValue = 'Видеопоказ завтра в 15:00';
+      const exactSlot = combined.match(/(?:^|[^\p{L}\p{N}])(сегодня|завтра|послезавтра)?\s*(?:в\s*)?(\d{1,2})(?::|\s)(\d{2})(?:$|[^\p{L}\p{N}])/iu);
+      if (exactSlot) {
+        const day = exactSlot[1] ? `${exactSlot[1]} ` : '';
+        stepValue = `Видеопоказ ${day}в ${exactSlot[2].padStart(2, '0')}:${exactSlot[3]}`.replace(/\s+/g, ' ').trim();
       } else if (prevLower.includes('видеопоказ') || prevLower.includes('видео')) {
         stepValue = 'Видеопоказ вариантов';
       } else if (prevLower.includes('созвон') || prevLower.includes('зум')) {

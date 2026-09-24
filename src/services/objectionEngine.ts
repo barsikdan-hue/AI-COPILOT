@@ -1,5 +1,6 @@
-import { ActionType, ConversationState, SuggestedReply } from '../types';
+import { ActionType, ConversationState, SuggestedReply, NextStepTarget, TranscriptTurn } from '../types';
 import { hasWholeWord, hasAnyWholeWord, hasPhrase, hasAnyPhrase } from './textUtils';
+import salesKnowledge from '../data/salesKnowledge.json';
 
 export type ClientIntentType = 'objection' | 'clarification' | 'preference' | 'fact' | 'next_step' | 'stop';
 
@@ -10,6 +11,14 @@ export interface ClientTurnIntent {
   text?: string;
   confidence: number;
 }
+
+export const REAL_OBJECTION_CATEGORIES = new Set([
+  'objection_price', 'objection_timing', 'objection_security', 'objection_finance',
+  'objection_remote', 'objection_decision_maker', 'objection_compare', 'objection_channel',
+  'objection_think', 'objection_timeline', 'objection_condition', 'objection_location',
+  'objection_trust', 'objection_interest', 'objection_bad_experience',
+  'objection_yield', 'objection_market', 'next_step_ppi', 'next_step_ppv', 'next_step_materials', 'next_step_callback', 'next_step_other', 'NEXT_STEP_RESISTANCE',
+]);
 
 export interface FastObjectionResult {
   id: string;
@@ -252,7 +261,8 @@ export function isSubstantiveClientTurn(text: string, previousAgentTurn?: string
  */
 export function detectLocalObjection(
   clientText: string,
-  state?: ConversationState
+  state?: ConversationState,
+  previousAgentTurn?: string | null
 ): FastObjectionResult | null {
   const lower = clientText.toLowerCase();
 
@@ -292,6 +302,17 @@ export function detectLocalObjection(
       actionType: 'RESPECT_STOP',
       text: 'Понял, не отвлекаю. В какое время завтра будет удобно созвониться на пару минут?',
       shortReason: 'Клиент занят: фиксация времени перезвона без удержания на линии.',
+      confidenceStatus: 'confirmed',
+    };
+  }
+
+  const resistance = detectNextStepResistance(clientText, state, previousAgentTurn);
+  if (resistance && !resistance.reopened) {
+    return {
+      id: `next_step_${resistance.target}`, category: `next_step_${resistance.target}`,
+      ruleId: `next_step_resistance_${resistance.target}`, actionType: 'CLARIFY',
+      text: nextStepResistanceReply(resistance.target, resistance.count > 1, clientText),
+      shortReason: 'Клиент отложил следующий шаг; уточняем причину и сохраняем границу.',
       confidenceStatus: 'confirmed',
     };
   }
@@ -337,6 +358,37 @@ export function detectLocalObjection(
     };
   }
 
+  // 4b. Реально нет денег / не хватает бюджета: сначала выяснить структуру,
+  // а не обесценивать финансовую границу клиента фразой “дело в приоритетах”.
+  if (
+    hasAnyPhrase(lower, ['нет денег', 'сейчас нет денег', 'не хватает денег', 'не хватает бюджета', 'не потяну', 'не потянем'])
+  ) {
+    return {
+      id: 'objection_no_money',
+      category: 'objection_finance',
+      actionType: 'CLARIFY',
+      text: 'Понял. Это вопрос общей суммы, первоначального взноса или того, когда деньги будут доступны?',
+      shortReason: 'Диагностика реального финансового ограничения без давления и обесценивания.',
+      confidenceStatus: 'confirmed',
+    };
+  }
+
+
+  // 4c. Рыночная пауза / ожидание снижения цены. Это отдельное возражение,
+  // а не общий «не сейчас»: агенту нужен контекст рынка, а не повтор срочности.
+  if (
+    /(?:рынок\s+(?:остын|упад|просяд)|цены?\s+(?:упад|сниз)|подождать\s+(?:год|полгода|рынок)|не\s+уверен.{0,45}переплач|есть\s+ли\s+смысл.{0,35}переплач)/iu.test(lower)
+  ) {
+    return {
+      id: 'objection_market',
+      category: 'objection_market',
+      actionType: 'CLARIFY',
+      text: 'Понял. А какой сигнал для вас будет означать, что ждать дальше уже невыгодно — цена, условия рассрочки или конкретный объект ниже рынка?',
+      shortReason: 'Сомнение в рынке: переводим абстрактное ожидание падения в измеримый критерий решения.',
+      confidenceStatus: 'high',
+    };
+  }
+
   // 5. Не сейчас / не к спеху / пауза
   if (
     hasAnyPhrase(lower, [
@@ -345,6 +397,9 @@ export function detectLocalObjection(
       'не горит',
       'в следующем году',
       'через полгода',
+      'давайте потом',
+      'вернемся потом',
+      'вернёмся потом',
     ])
   ) {
     return {
@@ -354,6 +409,74 @@ export function detectLocalObjection(
       text: 'Понял. А с чем связана пауза — ждёте определённого момента по финансам или пока просто изучаете рынок?',
       shortReason: 'Прояснение реальной причины паузы без давления на срочность.',
       confidenceStatus: 'high',
+    };
+  }
+
+  // Репутация / негативные отзывы: не спорить с клиентом и не атаковать
+  // конкурентов. Сначала выяснить конкретный риск, который стоит за отзывом.
+  if (hasAnyPhrase(lower, ['плохие отзывы', 'негативные отзывы', 'много негатива', 'о вас плохо пишут'])) {
+    return {
+      id: 'objection_bad_reviews',
+      category: 'objection_trust',
+      actionType: 'CLARIFY',
+      text: 'Понимаю. Что именно в этих отзывах вас насторожило больше всего?',
+      shortReason: 'Изоляция конкретного риска из отзывов перед доказательствами и аргументацией.',
+      confidenceStatus: 'confirmed',
+    };
+  }
+
+  if (hasAnyPhrase(lower, ['был плохой опыт', 'плохой опыт', 'уже обжигался', 'уже обжигались', 'меня обманули', 'нас обманули'])) {
+    return {
+      id: 'objection_bad_experience',
+      category: 'objection_bad_experience',
+      actionType: 'CLARIFY',
+      text: 'Понимаю. А что именно тогда произошло? Хочу понять, какой риск для вас сейчас самый чувствительный.',
+      shortReason: 'Сначала понять конкретный негативный опыт, затем доказывать отличие текущего процесса.',
+      confidenceStatus: 'confirmed',
+    };
+  }
+
+  if (hasAnyPhrase(lower, ['нет гарантий', 'какие гарантии', 'где гарантии', 'кто гарантирует'])) {
+    return {
+      id: 'objection_guarantees',
+      category: 'objection_security',
+      actionType: 'CLARIFY',
+      text: 'Понимаю. Какая именно гарантия для вас сейчас важна — юридическая чистота, сроки, деньги или качество объекта?',
+      shortReason: 'Уточнение требуемой гарантии; запрещено придумывать гарантии, которых нет.',
+      confidenceStatus: 'confirmed',
+    };
+  }
+
+  if (hasAnyPhrase(lower, ['неинтересно', 'не интересно', 'мне это неинтересно', 'мне это не интересно'])) {
+    return {
+      id: 'objection_not_interested',
+      category: 'objection_interest',
+      actionType: 'CLARIFY',
+      text: 'Понял. Я, возможно, не попал в вашу задачу. Что именно сейчас не подходит — сам формат, локация или условия?',
+      shortReason: 'Проверка причины отсутствия интереса вместо спора с клиентом.',
+      confidenceStatus: 'confirmed',
+    };
+  }
+
+  if (hasAnyPhrase(lower, ['нет времени', 'сейчас нет времени', 'мне некогда', 'я занят', 'я занята'])) {
+    return {
+      id: 'objection_no_time',
+      category: 'objection_timing',
+      actionType: 'RESPECT_STOP',
+      text: 'Понял, не задерживаю. Когда будет удобно коротко вернуться к разговору?',
+      shortReason: 'Граница времени клиента выше сценария и отработки возражений.',
+      confidenceStatus: 'confirmed',
+    };
+  }
+
+  if (hasAnyPhrase(lower, ['нужна личная встреча', 'хочу личную встречу', 'только лично', 'хочу встретиться лично'])) {
+    return {
+      id: 'objection_personal_meeting',
+      category: 'objection_remote',
+      actionType: 'CLARIFY',
+      text: 'Понимаю. Что для вас важно решить именно на личной встрече — увидеть человека, документы или сам объект?',
+      shortReason: 'Диагностика причины запроса личной встречи до предложения альтернативного формата.',
+      confidenceStatus: 'confirmed',
     };
   }
 
@@ -403,8 +526,11 @@ export function detectLocalObjection(
       'не верю в окупаемость',
       'не окупится',
       'где гарантии',
+      'не меньше чем на депозите',
+      'не меньше, чем на депозите',
+      'сравнить с депозитом',
     ]) ||
-    hasAnyWholeWord(lower, ['доходность', 'окупаемость'])
+    hasAnyWholeWord(lower, ['доходность', 'окупаемость', 'депозит'])
   ) {
     return {
       id: 'objection_yield',
@@ -710,6 +836,11 @@ export function classifyClientTurnIntent(
     };
   }
 
+  const resistance = detectNextStepResistance(clientText, state, previousAgentTurn);
+  if (resistance && !resistance.reopened) {
+    return { type: 'objection', category: `next_step_${resistance.target}`, text: clientText, confidence: 0.98 };
+  }
+
   // 2. Next step agreement / scheduling (including contextual short answers like "да" to a next step proposal)
   const isAffirmative = hasAnyWholeWord(clean, [
     'да',
@@ -798,7 +929,7 @@ export function classifyClientTurnIntent(
     hasAnyWholeWord(lower, ['миллион', 'миллионов', 'млн', 'бюджет', 'наличные', 'наличка']);
 
   // 4. Local objection check (detectLocalObjection)
-  const localObj = detectLocalObjection(clientText, state);
+  const localObj = detectLocalObjection(clientText, state, previousAgentTurn);
   if (localObj) {
     if (localObj.category === 'stop_contact') {
       return {
@@ -837,18 +968,7 @@ export function classifyClientTurnIntent(
     }
 
     // Real objection categories only (genuine client barriers/resistance)
-    const realObjectionCategories = new Set([
-      'objection_price',
-      'objection_timing',
-      'objection_security',
-      'objection_finance',
-      'objection_remote',
-      'objection_decision_maker',
-      'objection_compare',
-      'objection_channel',
-    ]);
-
-    if (realObjectionCategories.has(localObj.category) && !isFactUtterance) {
+    if (REAL_OBJECTION_CATEGORIES.has(localObj.category)) {
       return {
         type: 'objection',
         category: localObj.category,
@@ -940,3 +1060,233 @@ export function classifyClientTurnIntent(
   };
 }
 
+/** Shared branch classifier: event detection and intent use the same evidence. */
+export function detectNextStepResistance(text: string, state?: ConversationState, agentText: string | null = ''): {
+  target: NextStepTarget; count: number; reopened: boolean;
+} | null {
+  const lower = text.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
+  const explicitTarget = (value: string): NextStepTarget | null =>
+    /видео|показ|назначать время|специалист.{0,5}застройщик/iu.test(value) ? 'ppv'
+      : /брокер|специалист|ипотечн.*консультац/iu.test(value) ? 'ppi'
+      : /перезвон|созвон/iu.test(value) ? 'callback'
+      : /материал|информаци|присылать/iu.test(value) ? 'materials'
+      : /следующ.{0,3} шаг/iu.test(value) ? 'other' : null;
+  const explicitVideoRefusal = /(?:без\s+(?:всяких\s+)?(?:видео|видеопоказ\w*|видеовстреч\w*)|на\s+видео\s+(?:я\s+)?не\s+(?:выйду|буду)|не\s+(?:хочу|буду|готов\w*)[^.!?]{0,25}(?:видео|видеопоказ\w*|видеовстреч\w*))/iu.test(lower);
+  const explicitBrokerRefusal = /(?:без\s+(?:ипотечн\w*\s+)?брокер\w*|не\s+(?:хочу|нужен|надо|готов\w*)[^.!?]{0,25}(?:брокер\w*|ипотечн\w*\s+специалист\w*))/iu.test(lower);
+  const materialsInstead = /(?:пришлите|отправьте|скиньте)[^.!?]{0,80}(?:цен|планиров|вариант|материал|в сообщени|на бумаге)/iu.test(lower);
+  const elliptical = /преждевременно|потом.*(?:времени|согласуем)|сначала.*(?:вариант|объект)|(?:ставк|ипотек).{0,45}(?:потом|позже|когда|после|более увер)|(?:сначала|сперва).{0,60}(?:параметр|планиров|услов|объект|вариант)|^(?:а |ну )?(?:пока рано|не сейчас|теперь готов|сейчас это)/iu.test(lower) || /^(?:пока )?(?:не готов|не надо|не нужно|нет|позже|потом)[.!\s]*$/iu.test(lower.trim());
+  const deferral = explicitVideoRefusal || explicitBrokerRefusal || /(?:^|[^\p{L}\p{N}])(?:не готов|не хочу|не надо|не нужно|не будем|пока не|сначала|сперва|потом|позже|преждевременно|пока рано|не сейчас|рано)/iu.test(lower) || /когда.+тогда/iu.test(lower) || /(?:ставк|ипотек).{0,50}(?:когда|после|более увер|позже)/iu.test(lower) || /^нет[.!\s]*$/iu.test(lower.trim());
+  const permission = /(?:давайте|можно|можем|готов|подключим|назначим|теперь|договорились)/iu.test(lower);
+  const action = /подключ|показ|созвон|назнач|теперь готов|договорил/iu.test(lower);
+  const contextualTarget = explicitTarget(agentText || '') || null;
+  const target = explicitVideoRefusal ? 'ppv'
+    : explicitBrokerRefusal ? 'ppi'
+    : explicitTarget(lower) || ((elliptical || deferral || (materialsInstead && contextualTarget) || (permission && action)) ? contextualTarget : null);
+  if (!target) return null;
+  const history = state?.dialogueControl?.nextStepResistanceHistory?.[target];
+  if (deferral) return { target, count: (history?.count || 0) + 1, reopened: false };
+  if (permission && action && (state?.dialogueControl?.blockedNextSteps?.includes(target) || history)) {
+    return { target, count: 0, reopened: true };
+  }
+  return null;
+}
+
+export function nextStepResistanceReply(target: NextStepTarget, repeated: boolean, clientText = ''): string {
+  const lower = clientText.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
+  const causeAlreadyNamed = /сначала.{0,45}(?:объект|вариант|планиров|услов|цен|локац)|после того как.{0,45}(?:объект|вариант|планиров|услов|цен)/iu.test(lower);
+
+  if (repeated) {
+    if (target === 'ppi') return 'Понял. Брокера пока не подключаем и вернёмся к нему только по вашему сигналу. Сейчас сосредоточимся на самих объектах.';
+    if (target === 'ppv') return 'Понял. Видеопоказ пока не фиксируем. Вернёмся к нему только когда вам будет комфортно.';
+    return 'Принял. Этот шаг пока откладываем и вернёмся к нему только по вашему сигналу.';
+  }
+  if (target === 'ppi') {
+    const playbook = salesKnowledge.objectionPlaybooks.ppi;
+    return causeAlreadyNamed
+      ? `Понял. ${playbook.research[2]}`
+      : `${playbook.accept[0]} ${playbook.research[1]}`;
+  }
+  if (target === 'ppv') {
+    const playbook = salesKnowledge.objectionPlaybooks.ppv;
+    return causeAlreadyNamed
+      ? `${playbook.accept[0]} ${playbook.research[2]}`
+      : `${playbook.accept[0]} ${playbook.research[0]}`;
+  }
+  return 'Понял. Что нужно прояснить сначала, прежде чем переходить к этому шагу?';
+}
+
+export interface ActiveObjectionGuidance {
+  title: string;
+  text: string;
+  goal: string;
+  reason: string;
+}
+
+/**
+ * Produces a ready-to-say line for the latest unresolved objection.
+ * UI buttons and the live engine use the same function so “Отработка возражений”
+ * never falls back to a generic question while a concrete objection is active.
+ */
+export function getActiveObjectionGuidance(state: ConversationState, variant = 0): ActiveObjectionGuidance | null {
+  const active = state.activeObjection;
+  if (!active || ['resolved', 'handled'].includes(active.status)) return null;
+  const category = active.category || '';
+  const quote = active.evidenceQuote || active.rootCause || '';
+
+  if (active.target === 'ppv' || category === 'next_step_ppv' || category === 'objection_channel') {
+    const timeConcern = /час|долго|времени|длинн/iu.test(quote);
+    return {
+      title: 'Возражение по видеопоказу',
+      text: variant > 0
+        ? (timeConcern
+            ? 'Тогда уберём саму «презентацию»: 15 минут, только ваши критерии, 2–3 варианта и цифры. Если за 15 минут пользы не будет — на этом закончим. Так честнее?'
+            : 'Хорошо, видео пока не фиксирую. Что нужно увидеть или понять сначала, чтобы короткий показ вообще имел смысл?')
+        : (timeConcern
+            ? 'Понимаю, час на презентацию действительно не нужен. Предлагаю только 15 минут: покажу на одном экране 2–3 варианта по вашим критериям и на этом остановимся. Такой формат комфортнее?'
+            : 'Понял, давить на видео не буду. Что именно не подходит в формате — время, сам видеозвонок или пока рано переходить к просмотру?'),
+      goal: timeConcern ? 'Снять страх длинной презентации и получить согласие на короткий формат' : 'Выяснить реальную причину отказа, не повторяя предложение вслепую',
+      reason: 'Последнее незакрытое возражение относится к ППВ.',
+    };
+  }
+  if (category === 'objection_market') {
+    return {
+      title: 'Сомнение в рынке / ожидание снижения',
+      text: variant > 0
+        ? 'Чтобы не гадать про рынок целиком, давайте зафиксируем ориентир. Что для вас убедительнее: цена ниже сопоставимых объектов, сильные условия покупки или расчёт сценария «сейчас против через год»?'
+        : 'Понял. Ждать можно, вопрос — по какому сигналу принимать решение. Что для вас будет доказательством, что цена уже разумная: сравнение с аналогами, скидка к рынку или экономика конкретного объекта?',
+      goal: 'Перевести ожидание падения рынка в проверяемый критерий решения',
+      reason: 'Последнее незакрытое возражение — не срок сам по себе, а неопределённость по рынку и цене.',
+    };
+  }
+  if (category === 'objection_timeline') {
+    return {
+      title: 'Пауза / «не сейчас»',
+      text: variant > 0
+        ? 'Хорошо, сроки не форсируем. Что должно измениться, чтобы вопрос снова стал актуальным: рынок, ваши финансы или появление действительно сильного варианта?'
+        : 'Понял, искусственную срочность создавать не буду. Чтобы я не возвращался к вам с нерелевантными вариантами: пауза больше из-за рынка, финансов или вы пока просто сравниваете?',
+      goal: 'Понять причину паузы и выбрать корректный следующий шаг',
+      reason: 'Клиент откладывает решение; сначала нужна причина, а не давление сроком.',
+    };
+  }
+  if (category === 'objection_yield') {
+    return {
+      title: 'Сомнение в доходности',
+      text: variant > 0
+        ? 'Тогда депозит возьмём как базовую точку сравнения. Что для вас важнее увидеть в недвижимости: чистый денежный поток, рост цены самого актива или итоговую совокупную доходность?'
+        : 'Согласен, рекламную доходность брать на веру не стоит. Давайте сравним с депозитом одинаково: чистый денежный поток, возможный рост стоимости и риски. Какой результат для вас будет минимально приемлемым?',
+      goal: 'Перевести спор о процентах в понятные клиенту критерии сравнения',
+      reason: 'Клиент сомневается в экономике объекта; сначала фиксируем его планку и базу сравнения.',
+    };
+  }
+  if (category === 'objection_price') {
+    return {
+      title: 'Возражение по цене',
+      text: variant > 0
+        ? 'Чтобы не спорить о цене вслепую: с чем вы её сейчас сравниваете — своим пределом бюджета, альтернативным проектом или ожидаемой отдачей?'
+        : 'Понимаю. Дорого относительно вашего бюджета, похожих объектов или той ценности, которую вы сейчас видите?',
+      goal: 'Изолировать причину «дорого» до аргументации',
+      reason: 'Цена — симптом; ответ зависит от того, с чем клиент её сравнивает.',
+    };
+  }
+  if (category === 'objection_compare' || category === 'objection_bad_experience') {
+    return {
+      title: 'Сравнение / перегруз вариантами',
+      text: variant > 0
+        ? 'Давайте сделаем наоборот: не добавлять варианты, а убрать лишние. По каким двум параметрам можно сразу отсечь большую часть того, что вам уже присылали?'
+        : 'Понял. Тогда не буду добавлять ещё один список. Давайте сначала зафиксируем 2–3 критерия и по ним отсечём всё лишнее. Что для вас точно должно остаться в финальном сравнении?',
+      goal: 'Сузить поле выбора вместо новой подборки',
+      reason: 'Клиент уже перегружен вариантами или прошлым опытом выбора.',
+    };
+  }
+  if (category === 'objection_finance') {
+    return {
+      title: 'Финансовое возражение',
+      text: 'Понял. Что сейчас является ограничением: общая сумма, первый платёж или ежемесячная нагрузка?',
+      goal: 'Локализовать финансовый барьер без навязывания ипотеки',
+      reason: 'Нужно отделить размер капитала от схемы финансирования.',
+    };
+  }
+  if (category === 'objection_security' || category === 'objection_trust') {
+    return {
+      title: 'Риск / доверие',
+      text: 'Понимаю. Что именно хотите проверить в первую очередь — документы, сроки, застройщика или финансовую модель?',
+      goal: 'Назвать проверяемый риск и перейти к фактам',
+      reason: 'На сомнение в безопасности лучше отвечать проверкой, а не обещаниями.',
+    };
+  }
+  if (category === 'objection_timing') {
+    return {
+      title: 'Нет времени',
+      text: 'Понял, не задерживаю. Когда будет удобно вернуться буквально на пару минут — сегодня позже или завтра?',
+      goal: 'Уважить границу и зафиксировать конкретный возврат',
+      reason: 'Граница времени важнее продолжения квалификации.',
+    };
+  }
+
+  return {
+    title: 'Активное возражение',
+    text: 'Понял. Что именно в этом сейчас останавливает вас больше всего?',
+    goal: 'Уточнить причину последнего незакрытого возражения',
+    reason: 'Используем последнее активное возражение, а не общий вопрос из скрипта.',
+  };
+}
+
+/** Detection, an actual agent response, and client confirmation are separate transitions. */
+export function updateObjectionLifecycle(state: ConversationState, turn: TranscriptTurn, category?: string, target: NextStepTarget | null = null): ConversationState {
+  if (turn.speaker === 'client' && category && REAL_OBJECTION_CATEGORIES.has(category)) {
+    if (state.activeObjection?.evidenceTurnIds.includes(turn.id)) return state;
+    const items = Array.from(new Set([...state.objections.items, category]));
+    const branch = target ? state.dialogueControl?.nextStepResistanceHistory?.[target] : null;
+    const rootCause = /сначала.{0,55}(?:объект|вариант|планиров|услов|цен|локац)|после того как.{0,55}(?:объект|вариант|планиров|услов|цен)/iu.test(turn.text)
+      ? turn.text.trim()
+      : null;
+    const initialStatus = branch?.status === 'blocked'
+      ? 'blocked' as const
+      : rootCause
+        ? 'cause_identified' as const
+        : 'detected' as const;
+    return { ...state, objections: { value: items.join(', '), items, evidenceTurnIds: Array.from(new Set([...state.objections.evidenceTurnIds, turn.id])) },
+      activeObjection: { category, target, status: initialStatus,
+        resistanceCount: target ? state.dialogueControl?.nextStepResistanceHistory?.[target]?.count || 1 : 1,
+        evidenceTurnIds: [turn.id], evidenceQuote: turn.text.trim(), lastAgentResponseTurnId: null, rootCause } };
+  }
+  const active = state.activeObjection;
+  if (!active || active.evidenceTurnIds.includes(turn.id)) return state;
+  // A repeated explicit refusal is terminal for this branch until the client
+  // explicitly reopens it. Later agent/client turns must not downgrade BLOCKED
+  // back to response_attempted/deferred.
+  if (active.status === 'blocked') return state;
+  if (active.target) {
+    const branch = state.dialogueControl?.nextStepResistanceHistory?.[active.target];
+    if (branch?.status === 'blocked') {
+      return { ...state, activeObjection: { ...active, status: 'blocked' } };
+    }
+    if (branch?.status === 'handled' && turn.speaker === 'client') {
+      return {
+        ...state,
+        activeObjection: {
+          ...active,
+          status: 'resolved',
+          evidenceTurnIds: Array.from(new Set([...active.evidenceTurnIds, turn.id])),
+          rootCause: active.rootCause || 'Клиент сам согласился вернуться к ранее отложенному шагу',
+        },
+      };
+    }
+  }
+  const transition = (next: ConversationState, status: 'isolating' | 'deferred') => {
+    const target = active.target;
+    const resistance = target ? state.dialogueControl?.nextStepResistanceHistory?.[target] : null;
+    if (!target || !resistance || resistance.status === 'blocked' || resistance.status === 'handled') return next;
+    const updated = { ...resistance, status };
+    return { ...next, dialogueControl: { ...state.dialogueControl!, nextStepResistance: updated,
+      nextStepResistanceHistory: { ...state.dialogueControl?.nextStepResistanceHistory, [target]: updated } } };
+  };
+  if (turn.speaker === 'agent' && /правильно понимаю|что именно|с чем связан|сначала.*(?:выбер|суз|отбер|определ)|пока.*(?:рано|не трогаем|отлож)|в чем|чем.*вызван|что хотите прояснить|что нужно прояснить/iu.test(turn.text)) {
+    return transition({ ...state, activeObjection: { ...active, status: 'response_attempted', lastAgentResponseTurnId: turn.id, lastResponseStrategy: 'diagnose_or_acknowledge' } }, 'isolating');
+  }
+  if (turn.speaker === 'client' && active.status === 'response_attempted' && /(?:^|[^\p{L}\p{N}])(?:да|именно|верно|согласен|хорошо|потому|дело в|боюсь|важно)(?=$|[^\p{L}\p{N}])/iu.test(turn.text)) {
+    const status = active.target ? 'deferred' : 'clarified';
+    return transition({ ...state, activeObjection: { ...active, status, rootCause: active.rootCause || turn.text.trim(), evidenceTurnIds: [...active.evidenceTurnIds, turn.id] } }, 'deferred');
+  }
+  return state;
+}

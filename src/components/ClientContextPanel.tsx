@@ -21,6 +21,8 @@ import {
 } from 'lucide-react';
 import { ConversationState, FactEntry, FirstCallMetric, isMetricClosed } from '../types';
 import { FIRST_CALL_METRICS_LIST } from '../services/firstCallScriptEngine';
+import { getActiveObjectionGuidance } from '../services/objectionEngine';
+import { getContextualSpinQuestion } from '../services/spinEngine';
 import { getCategoryLabel, getMetricLabel, getObjectionLabel, isRealObjection } from '../utils/labels';
 
 const SCRIPT_METRIC_QUESTIONS: Record<string, string> = {
@@ -44,6 +46,21 @@ const SCRIPT_METRIC_QUESTIONS: Record<string, string> = {
   ppv: 'Предлагаю на 15 минут подключиться к видеопоказу с экспертом застройщика: выведем планировки и расчеты. Вам когда удобнее — сегодня в 18:00 или завтра в 12:00?',
 };
 
+const TRUST_QUESTION_BANK = [
+  'Как вообще сейчас ощущения от рынка Сочи — давно присматриваетесь или только начали?',
+  'Что уже успели посмотреть и что из увиденного вам понравилось или, наоборот, оттолкнуло?',
+  'Когда вы в последний раз были в Сочи — что больше всего запомнилось?',
+  'Когда приезжаете в Сочи, как обычно проводите здесь время — больше море, город или спокойный отдых?',
+  'Что в Сочи лично для вас самое приятное — море, прогулки, горы или сам ритм города?',
+  'Если не про квадратные метры, какой формат отдыха для вас обычно самый комфортный?',
+  'Кто кроме вас будет чаще всего пользоваться этой недвижимостью?',
+  'Как вы поймёте, что объект действительно подходит именно вам, а не просто хорошо выглядит в презентации?',
+  'Что в прошлых просмотрах или общении с агентами вам хотелось бы сделать по-другому?',
+  'Какие два критерия вы точно не готовы жертвовать при выборе?',
+  'Если вариантов останется всего два, по каким признакам будете принимать финальное решение?',
+  'Что для вас важнее в этом решении: комфорт использования, сохранность капитала или возможность заработать?',
+];
+
 interface ClientContextPanelProps {
   state: ConversationState;
   onTurnClick?: (turnIds: string[]) => void;
@@ -57,6 +74,27 @@ export const ClientContextPanel: React.FC<ClientContextPanelProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'script' | 'profile' | 'spin' | 'facts' | 'objections'>('script');
   const [showMoreDetails, setShowMoreDetails] = useState(false);
+  const [questionRotation, setQuestionRotation] = useState<Record<string, number>>({});
+  const [expandedObjection, setExpandedObjection] = useState<string | null>(null);
+
+  const askMetricQuestion = (metricId: string, fallbackQuestion: string) => {
+    if (!onAskField) return;
+    if (metricId === 'objections') {
+      const guidance = getActiveObjectionGuidance(state);
+      onAskField(guidance?.text || fallbackQuestion);
+      return;
+    }
+    const houseRejected = state.dialogueControl?.rejectedBranches?.some((branch) => branch.toLowerCase().includes('дом'));
+    const safeFallback =
+      metricId === 'propertyType' && houseRejected
+        ? 'Если дом исключаем, какой формат ближе — квартира в жилом комплексе или апартаменты?'
+        : fallbackQuestion;
+    const bank = metricId === 'trust' ? TRUST_QUESTION_BANK : [safeFallback];
+    const currentIndex = questionRotation[metricId] || 0;
+    const question = bank[currentIndex % bank.length];
+    setQuestionRotation((prev) => ({ ...prev, [metricId]: currentIndex + 1 }));
+    onAskField(question);
+  };
 
   // Helper to render key diagnostic field cleanly
   const renderCompactField = (
@@ -201,7 +239,9 @@ export const ClientContextPanel: React.FC<ClientContextPanelProps> = ({
             <span>Факты</span>
             {state.confirmedFacts?.length > 0 && (
               <span className="bg-teal-100 text-teal-800 text-[9px] px-1 rounded-full font-mono">
-                {state.confirmedFacts.length}
+                {state.confirmedFacts.filter(
+                  (fact) => fact.lifecycleStatus !== 'superseded' && fact.lifecycleStatus !== 'rejected'
+                ).length}
               </span>
             )}
           </button>
@@ -225,6 +265,8 @@ export const ClientContextPanel: React.FC<ClientContextPanelProps> = ({
 
       {/* Panel Body: Scrollable Internally */}
       <div className="flex-1 overflow-y-auto p-3 sm:p-3.5 space-y-2.5">
+        {/* Служебные события OS4 остаются в diagnostics и не показываются агенту во время звонка. */}
+
         {/* TAB 0: СКРИПТ ПЕРВОГО ЗВОНКА И КАЧЕСТВО */}
         {activeTab === 'script' && (
           <div className="space-y-3 text-xs">
@@ -271,7 +313,7 @@ export const ClientContextPanel: React.FC<ClientContextPanelProps> = ({
                 <div className="bg-white p-1.5 rounded border border-stone-200">
                   <span className="text-stone-500 block text-[10px]">Доверие (Trust):</span>
                   <span className="font-semibold text-stone-900">
-                    {trust?.openTechnicalQuestionsCount ?? 0}/3 техн., {trust?.openPersonalQuestionsCount ?? 0}/2 личн.
+                    {Math.min(trust?.openTechnicalQuestionsCount ?? 0, 3)}/3 техн., {Math.min(trust?.openPersonalQuestionsCount ?? 0, 2)}/2 личн.
                   </span>
                 </div>
                 <div className="bg-white p-1.5 rounded border border-stone-200">
@@ -365,9 +407,9 @@ export const ClientContextPanel: React.FC<ClientContextPanelProps> = ({
                           </button>
                         )}
 
-                        {!isClosed && !isNotApplicable && suggestedQ && onAskField && (
+                        {!isClosed && !isNotApplicable && !state.dialogueControl?.blockedNextSteps?.includes(metric.id) && suggestedQ && onAskField && (
                           <button
-                            onClick={() => onAskField(suggestedQ)}
+                            onClick={() => askMetricQuestion(metric.id, suggestedQ)}
                             className="text-[10px] text-teal-700 hover:text-teal-900 font-medium px-1.5 py-0.5 rounded hover:bg-teal-50 transition-colors cursor-pointer"
                           >
                             Спросить
@@ -376,6 +418,7 @@ export const ClientContextPanel: React.FC<ClientContextPanelProps> = ({
                       </div>
                     </div>
 
+                    {state.dialogueControl?.blockedNextSteps?.includes(metric.id) && <p className="text-[11px] text-amber-700 pl-5">Отложено клиентом</p>}
                     {/* Value or Evidence */}
                     {metric.value ? (
                       <div className="mt-1 text-[11px] text-stone-800 font-medium pl-5">
@@ -562,9 +605,12 @@ export const ClientContextPanel: React.FC<ClientContextPanelProps> = ({
                     NEED_PAYOFF: 'N • Ценность',
                   };
                   return (
-                    <div
+                    <button
+                      type="button"
                       key={stg}
-                      className={`text-center py-1 rounded text-[10px] font-medium border transition-colors ${
+                      onClick={() => onAskField?.(getContextualSpinQuestion(stg, state))}
+                      title="Предложить следующий SPIN-вопрос"
+                      className={`text-center py-1 rounded text-[10px] font-medium border transition-colors cursor-pointer ${
                         isDone
                           ? 'bg-teal-700 text-white border-teal-700 font-bold'
                           : isCurrent
@@ -573,7 +619,7 @@ export const ClientContextPanel: React.FC<ClientContextPanelProps> = ({
                       }`}
                     >
                       {labelMap[stg]}
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -705,7 +751,7 @@ export const ClientContextPanel: React.FC<ClientContextPanelProps> = ({
         {activeTab === 'facts' && (
           <div className="space-y-2 text-xs">
             {state.confirmedFacts && state.confirmedFacts.length > 0 ? (
-              state.confirmedFacts.map((fact, idx) => {
+              state.confirmedFacts.map((fact) => {
                 const categoryLabel =
                   getCategoryLabel(fact.category) ||
                   getMetricLabel(fact.category) ||
@@ -713,13 +759,29 @@ export const ClientContextPanel: React.FC<ClientContextPanelProps> = ({
 
                 return (
                   <div
-                    key={idx}
-                    className="p-2 rounded-lg bg-stone-50 border border-stone-100 flex flex-col space-y-0.5"
+                    key={fact.id}
+                    className={`p-2 rounded-lg border flex flex-col space-y-0.5 ${
+                      fact.lifecycleStatus === 'superseded'
+                        ? 'bg-stone-100/70 border-stone-200 opacity-60'
+                        : fact.lifecycleStatus === 'needs_verification'
+                          ? 'bg-amber-50/60 border-amber-200'
+                          : 'bg-stone-50 border-stone-100'
+                    }`}
                   >
                     <div className="flex items-center justify-between">
                       <span className="font-semibold text-teal-900 text-[11px] uppercase tracking-wide">
                         {categoryLabel}
                       </span>
+                      {fact.lifecycleStatus === 'superseded' && (
+                        <span className="text-[9px] rounded bg-stone-200 text-stone-600 px-1.5 py-0.5">
+                          заменён
+                        </span>
+                      )}
+                      {fact.lifecycleStatus === 'needs_verification' && (
+                        <span className="text-[9px] rounded bg-amber-100 text-amber-800 px-1.5 py-0.5">
+                          проверить
+                        </span>
+                      )}
                       {fact.turnId && (
                         <button
                           onClick={() => onTurnClick?.([fact.turnId])}
@@ -758,22 +820,83 @@ export const ClientContextPanel: React.FC<ClientContextPanelProps> = ({
                   </div>
                 );
               }
-              return realObjections.map((obj, idx) => (
-                <div
-                  key={idx}
-                  className="p-2.5 rounded-lg bg-amber-50 text-amber-900 border border-amber-200"
-                >
-                  <div className="flex items-center space-x-1.5 font-semibold text-amber-950 mb-0.5">
-                    <AlertCircle className="w-3.5 h-3.5 text-amber-700 shrink-0" />
-                    <span>{getObjectionLabel(obj)}</span>
+              const activeGuidance = getActiveObjectionGuidance(state);
+              return realObjections.map((obj, idx) => {
+                const isActive = state.activeObjection?.category === obj;
+                const isExpanded = expandedObjection === obj || (expandedObjection === null && isActive);
+                const statusLabel = isActive
+                  ? ({
+                      detected: 'Причина ещё не уточнена',
+                      response_attempted: 'Агент уточнил, ожидаем ответ',
+                      clarified: 'Причина уточнена',
+                      handled: 'Отработано',
+                      deferred: 'Отложено клиентом, граница принята',
+                      blocked: 'Клиент поставил границу — не повторяем',
+                      cause_identified: 'Причина уже названа клиентом',
+                      resolved: 'Снято',
+                    } as Record<string, string>)[state.activeObjection!.status] || state.activeObjection!.status
+                  : null;
+
+                return (
+                  <div
+                    key={idx}
+                    className={`rounded-lg border transition-colors ${isActive ? 'bg-amber-50 text-amber-900 border-amber-300' : 'bg-stone-50 text-stone-700 border-stone-200'}`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setExpandedObjection(isExpanded ? null : obj)}
+                      className="w-full p-2.5 text-left flex items-start justify-between gap-2"
+                    >
+                      <div>
+                        <div className="flex items-center space-x-1.5 font-semibold text-stone-950">
+                          <AlertCircle className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-amber-700' : 'text-stone-500'}`} />
+                          <span>{getObjectionLabel(obj)}</span>
+                        </div>
+                        {statusLabel && <p className="text-[11px] mt-1 text-amber-900">{statusLabel}</p>}
+                      </div>
+                      {isExpanded ? <ChevronUp className="w-3.5 h-3.5 shrink-0 mt-0.5" /> : <ChevronDown className="w-3.5 h-3.5 shrink-0 mt-0.5" />}
+                    </button>
+
+                    {isExpanded && (
+                      <div className="px-2.5 pb-2.5 space-y-2 border-t border-black/5 pt-2">
+                        {isActive && state.activeObjection?.evidenceQuote && (
+                          <div>
+                            <div className="text-[10px] uppercase tracking-wide font-semibold text-stone-500 mb-0.5">Клиент сказал</div>
+                            <p className="text-[11px] italic bg-white/80 border border-stone-200 rounded p-1.5 text-stone-700">
+                              «{state.activeObjection.evidenceQuote}»
+                            </p>
+                          </div>
+                        )}
+                        {isActive && activeGuidance ? (
+                          <>
+                            <div>
+                              <div className="text-[10px] uppercase tracking-wide font-semibold text-stone-500 mb-0.5">Сказать сейчас</div>
+                              <p className="text-[12px] font-semibold leading-snug text-stone-950">{activeGuidance.text}</p>
+                            </div>
+                            <div>
+                              <div className="text-[10px] uppercase tracking-wide font-semibold text-stone-500 mb-0.5">Цель</div>
+                              <p className="text-[11px] text-stone-700">{activeGuidance.goal}</p>
+                            </div>
+                            {onAskField && (
+                              <button
+                                type="button"
+                                onClick={() => onAskField(activeGuidance.text)}
+                                className="w-full rounded-md bg-stone-900 text-white py-1.5 px-2 text-[11px] font-semibold hover:bg-stone-800"
+                              >
+                                Показать подсказку
+                              </button>
+                            )}
+                          </>
+                        ) : obj.includes(' — ') ? (
+                          <p className="text-[11px] text-stone-700 italic">{obj.split(' — ')[1]}</p>
+                        ) : (
+                          <p className="text-[11px] text-stone-500">Историческое возражение. Активной отработки сейчас не требует.</p>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  {obj.includes(' — ') && (
-                    <p className="text-[11px] text-amber-800 mt-1 italic">
-                      {obj.split(' — ')[1]}
-                    </p>
-                  )}
-                </div>
-              ));
+                );
+              });
             })()}
           </div>
         )}

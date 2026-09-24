@@ -1,10 +1,36 @@
 import { CallStage, ConfirmedFact, ConversationState, CriterionItem, SpinState, TranscriptTurn, UnconfirmedHypothesis } from '../types';
 import { validateEvidenceQuote, hasAnyPhrase } from './textUtils';
 
+
+function timelineSpecificity(value: string | null | undefined): number {
+  const v = (value || '').toLowerCase();
+  if (!v) return 0;
+  if (/\d+\s*[-–—]\s*\d+\s*месяц|(?:два|три)\s*[-–—]?\s*(?:три|четыре)?\s*месяц|в течение \w+ месяца|до \w+|к \w+/.test(v)) return 4;
+  if (/\d+\s*месяц|месяц/.test(v)) return 3;
+  if (/срочно|не к спеху|не горит/.test(v)) return 1;
+  return 2;
+}
+
+function shouldReplaceTimeline(currentValue: string | null | undefined, incomingValue: string): boolean {
+  if (!currentValue) return true;
+  return timelineSpecificity(incomingValue) >= timelineSpecificity(currentValue);
+}
+
 export function createInitialState(): ConversationState {
   return {
     stage: 'contact',
     revision: 0,
+    events: [],
+    dialogueControl: {
+      lastEventType: null,
+      lastEventTurnId: null,
+      clientBoundaryActive: false,
+      researchMode: false,
+      softResistanceCount: 0,
+      rejectedBranches: [],
+      meetingConsentQuality: 'none',
+      timeContract: null,
+    },
     goal: { value: null, evidenceTurnIds: [] },
     primaryGoal: { value: null, evidenceTurnIds: [] },
     secondaryUse: { value: null, evidenceTurnIds: [] },
@@ -140,7 +166,10 @@ export function mergeFactsDelta(
     turnId: string;
   }>
 ): ConversationState {
-  const next: ConversationState = JSON.parse(JSON.stringify(current));
+  // ConversationState contains plain serializable data. Native structuredClone is
+  // materially faster than JSON stringify/parse on long calls and preserves
+  // undefined values without blocking the main thread as heavily.
+  const next: ConversationState = structuredClone(current);
 
   if (scriptProgress) {
     next.scriptProgress = scriptProgress;
@@ -221,10 +250,26 @@ export function mergeFactsDelta(
   }
 
   for (const item of delta) {
-    const { field, value, evidenceQuote, evidenceTurnId, confidence, needsClarification, isFlexible, comment } = item;
+    const {
+      field,
+      value,
+      evidenceQuote,
+      evidenceTurnId,
+      confidence,
+      needsClarification,
+      isFlexible,
+      comment,
+      status,
+      semanticReason,
+    } = item;
     if (!field || !value) continue;
 
     const turnText = turnTextLookup ? turnTextLookup[evidenceTurnId] : undefined;
+    if (turnTextLookup && !turnText) continue;
+    // Specific confirmed facts cannot be weakened by a later generic mention.
+    const canonical = (next as any)[field];
+    if (canonical?.value && !canonical.needsClarification && needsClarification &&
+        !/(?:поправлю|ошибся|ошиблась|точнее|на самом деле)/iu.test(turnText || '')) continue;
     const sanitizedVal = sanitizeFactValue(field, value, turnText);
     if (!sanitizedVal) continue;
 
@@ -246,26 +291,9 @@ export function mergeFactsDelta(
 
     // Specific hallucination guard for decision makers (e.g. "важен" / "предложений" matching "жен")
     if ((field === 'decisionMakers' || field === 'decision_makers') && turnText) {
-      const mentionsSpouse = hasAnyPhrase(turnText, [
-        'с женой',
-        'с мужем',
-        'с супругой',
-        'с супругом',
-        'с семьей',
-        'с семьёй',
-        'решаем вместе',
-        'обсудим с женой',
-        'обсудим с мужем',
-        'советуюсь с семьей',
-      ]);
-      const mentionsSolo = hasAnyPhrase(turnText, [
-        'сам решаю',
-        'сама решаю',
-        'один выбираю',
-        'одна выбираю',
-        'самостоятельно',
-      ]);
-      if (!mentionsSpouse && !mentionsSolo) {
+      const mentionsSharedDecision = /(?:реша\w*|принима\w*\s+решен\w*|обсужда\w*|совет\w*|согласовыва\w*).{0,45}(?:жен\w*|муж\w*|супруг\w*|семь\w*|партнер\w*|партнёр\w*)|(?:жен\w*|муж\w*|супруг\w*|семь\w*|партнер\w*|партнёр\w*).{0,45}(?:реша\w*|участв\w*|обсужда\w*|совет\w*|согласовыва\w*)/iu.test(turnText);
+      const mentionsSolo = /(?:сам|сама|самостоятельно|один|одна).{0,24}(?:реша\w*|принима\w*\s+решен\w*|выбира\w*)|(?:реша\w*|принима\w*\s+решен\w*|выбира\w*).{0,24}(?:сам|сама|самостоятельно)/iu.test(turnText);
+      if (!mentionsSharedDecision && !mentionsSolo) {
         console.warn(
           `[DecisionMaker Invariant] Rejected decision maker "${sanitizedVal}" without explicit client evidence in turn: "${turnText}"`
         );
@@ -280,6 +308,20 @@ export function mergeFactsDelta(
       const existingIdx = next.confirmedFacts.findIndex(
         (f) => f.turnId === evidenceTurnId && f.category === cat
       );
+      const previousActiveFact = [...next.confirmedFacts]
+        .reverse()
+        .find(
+          (f) =>
+            f.category === cat &&
+            f.lifecycleStatus !== 'superseded' &&
+            f.lifecycleStatus !== 'rejected' &&
+            f.value !== sanitizedVal
+        );
+
+      if (previousActiveFact) {
+        previousActiveFact.lifecycleStatus = 'superseded';
+      }
+
       const factRecord: ConfirmedFact = {
         id: `fact_${evidenceTurnId}_${field}`,
         category: cat,
@@ -287,9 +329,18 @@ export function mergeFactsDelta(
         evidenceQuote: quote,
         turnId: evidenceTurnId,
         confidence: typeof confidence === 'number' ? confidence : 0.9,
+        status,
+        semanticReason,
+        needsClarification,
         isFlexible,
         comment,
         timestamp: Date.now(),
+        origin: 'client_explicit',
+        lifecycleStatus:
+          needsClarification || status === 'needs_clarification' || status === 'partially_confirmed'
+            ? 'needs_verification'
+            : 'confirmed',
+        supersedesFactId: previousActiveFact?.id || null,
       };
       if (existingIdx >= 0) {
         next.confirmedFacts[existingIdx] = factRecord;
@@ -393,11 +444,11 @@ export function mergeFactsDelta(
           lowerVal.includes('в зависимости');
 
         next.budget = {
-          value: isFlex ? 'Гибкий (зависит от объекта)' : sanitizedVal,
+          value: sanitizedVal,
           evidenceTurnIds: Array.from(new Set([...(next.budget?.evidenceTurnIds || []), evidenceTurnId])),
           needsClarification,
           isFlexible: isFlex,
-          comment: isFlex ? sanitizedVal : comment,
+          comment: comment || (isFlex ? 'Бюджет гибкий; верхняя граница зависит от ценности объекта' : undefined),
         };
         break;
       }
@@ -412,18 +463,20 @@ export function mergeFactsDelta(
         break;
 
       case 'purchaseTimeline':
-      case 'purchase_timeline':
-        next.purchaseTimeline = {
-          value: sanitizedVal,
-          evidenceTurnIds: Array.from(
-            new Set([...(next.purchaseTimeline?.evidenceTurnIds || []), evidenceTurnId])
-          ),
-          needsClarification,
-        };
-        if (next.timeline) {
-          next.timeline.value = sanitizedVal;
+      case 'purchase_timeline': {
+        const existing = next.purchaseTimeline?.value;
+        if (shouldReplaceTimeline(existing, sanitizedVal)) {
+          next.purchaseTimeline = {
+            value: sanitizedVal,
+            evidenceTurnIds: Array.from(
+              new Set([...(next.purchaseTimeline?.evidenceTurnIds || []), evidenceTurnId])
+            ),
+            needsClarification,
+          };
+          if (next.timeline) next.timeline.value = sanitizedVal;
         }
         break;
+      }
 
       case 'moveInTimeline':
       case 'move_in_timeline':
@@ -459,7 +512,7 @@ export function mergeFactsDelta(
             ),
             needsClarification,
           };
-        } else {
+        } else if (shouldReplaceTimeline(next.purchaseTimeline?.value, sanitizedVal)) {
           next.purchaseTimeline = {
             value: sanitizedVal,
             evidenceTurnIds: Array.from(
@@ -468,13 +521,15 @@ export function mergeFactsDelta(
             needsClarification,
           };
         }
-        next.timeline = {
-          value: sanitizedVal,
-          evidenceTurnIds: Array.from(
-            new Set([...(next.timeline?.evidenceTurnIds || []), evidenceTurnId])
-          ),
-          needsClarification,
-        };
+        if (shouldReplaceTimeline(next.timeline?.value, sanitizedVal)) {
+          next.timeline = {
+            value: sanitizedVal,
+            evidenceTurnIds: Array.from(
+              new Set([...(next.timeline?.evidenceTurnIds || []), evidenceTurnId])
+            ),
+            needsClarification,
+          };
+        }
         break;
       }
 
@@ -542,6 +597,17 @@ export function mergeFactsDelta(
           value: sanitizedVal,
           evidenceTurnIds: Array.from(
             new Set([...next.agreedNextStep.evidenceTurnIds, evidenceTurnId])
+          ),
+          needsClarification,
+        };
+        break;
+
+      case 'downPayment':
+      case 'down_payment':
+        next.downPayment = {
+          value: sanitizedVal,
+          evidenceTurnIds: Array.from(
+            new Set([...(next.downPayment?.evidenceTurnIds || []), evidenceTurnId])
           ),
           needsClarification,
         };
@@ -706,4 +772,16 @@ export function mergeFactsDelta(
   }
 
   return next;
+}
+
+export function mergeSemanticFacts(current: ConversationState, delta: Parameters<typeof mergeFactsDelta>[1], turns: TranscriptTurn[]): ConversationState {
+  const lookup = Object.fromEntries(turns.filter(t => t.speaker === 'client').map(t => [t.id, t.text]));
+  const safe = delta.filter(item => {
+    const canonicalField = item.field === 'client_criteria' ? 'criteria' : item.field.replace(/_([a-z])/g, (_match, letter: string) => letter.toUpperCase());
+    const canonical = (current as any)[canonicalField];
+    const clientText = lookup[item.evidenceTurnId];
+    return clientText && item.evidenceQuote && validateEvidenceQuote(clientText, item.evidenceQuote) &&
+      !canonical?.value && !['objections', 'agreedNextStep', 'agreed_next_step', 'ppi', 'ppv'].includes(item.field);
+  });
+  return mergeFactsDelta(current, safe, current.stage, undefined, current.revision, lookup);
 }

@@ -1,0 +1,451 @@
+import {
+  ActionType,
+  AnalysisResponse,
+  ConversationState,
+  SuggestionMode,
+  TranscriptTurn,
+} from '../types';
+import { applyConversationEvent, detectConversationEvent } from './conversationEventEngine';
+import { mergeFactsDelta } from './conversationStore';
+import { classifyClientTurnIntent, detectLocalObjection, getActiveObjectionGuidance, updateObjectionLifecycle } from './objectionEngine';
+import { extractDeterministicFacts } from './deterministicFacts';
+import { evaluateFirstCallScript, getFirstCallSuggestion } from './firstCallScriptEngine';
+import { checkSemanticAntiRepeat, extractSemanticKey } from './semanticAntiRepeat';
+import { isSuggestionAllowedByState } from './suggestionLifecycle';
+import { classifyAgentAction, evaluateSpinAndHpb } from './spinEngine';
+import { getContextualDopamineQuestion } from './dopamineQuestionEngine';
+
+
+function previousMeaningfulAgentTurn(turn: TranscriptTurn, turns: TranscriptTurn[]): TranscriptTurn | undefined {
+  const idx = turns.findIndex((candidate) => candidate.id === turn.id);
+  const agents = turns.slice(0, idx < 0 ? turns.length : idx).filter((candidate) => candidate.speaker === 'agent');
+  for (let i = agents.length - 1; i >= 0; i -= 1) {
+    const text = agents[i].text.trim();
+    if (!text) continue;
+    const meaningful = text.includes('?') || /(?:первоначальн|взнос|бюджет|ипотек|брокер|видеопоказ|формат|срок|локац|занятост|кто.*решен|для чего|что важно)/iu.test(text);
+    if (meaningful) return agents[i];
+    if (text.length > 70) return agents[i];
+  }
+  return agents.at(-1);
+}
+
+/** Recompute amended evidence without undoing the agent's manual use/skip actions. */
+export function restoreStateForAmendedTurn(beforeTurn: ConversationState, current: ConversationState): ConversationState {
+  return { ...beforeTurn, askedQuestions: current.askedQuestions, dismissedSuggestionTexts: current.dismissedSuggestionTexts };
+}
+
+/** Deterministic state transition shared by live STT, simulator and replay tests. */
+export function advanceLocalConversation(current: ConversationState, turn: TranscriptTurn, turns: TranscriptTurn[]) {
+  const previousAgent = previousMeaningfulAgentTurn(turn, turns);
+  const priorBoundaryEvent = current.dialogueControl?.lastEventType || null;
+  let state = current;
+  if (turn.speaker === 'client') {
+    const lookup = Object.fromEntries(turns.filter(t => t.speaker === 'client').map(t => [t.id, t.text]));
+    state = mergeFactsDelta(state, extractDeterministicFacts(turn.text, turn.id, previousAgent?.text), state.stage, undefined, turn.revision, lookup);
+    const lowerClient = turn.text.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
+    const rejectsMortgage = /(?:без\s+ипотек\w*|ипотек\w*[^.!?]{0,40}(?:не\s*(?:рассматрива\w*|собира\w*|хочу|нужн\w*))|не\s*(?:рассматрива\w*|собира\w*|хочу|нужн\w*)[^.!?]{0,30}ипотек\w*)/iu.test(lowerClient);
+    if (rejectsMortgage && /ипотек/iu.test(state.paymentMethod?.value || '')) {
+      state = {
+        ...state,
+        paymentMethod: { value: null, evidenceTurnIds: Array.from(new Set([...(state.paymentMethod?.evidenceTurnIds || []), turn.id])) },
+        confirmedFacts: (state.confirmedFacts || []).map((fact) =>
+          fact.category === 'paymentMethod' && fact.lifecycleStatus !== 'superseded'
+            ? { ...fact, lifecycleStatus: 'superseded' as const }
+            : fact
+        ),
+      };
+    }
+  } else if (turn.speaker === 'agent' && turn.text.includes('?')) {
+    state = { ...state, askedQuestions: Array.from(new Set([...state.askedQuestions, turn.text])) };
+  }
+  const event = detectConversationEvent(turn, turns, state);
+  if (event) state = applyConversationEvent(state, event, turn);
+  const clientIntent = classifyClientTurnIntent(turn.text, state, previousAgent?.text);
+  const localObjection = turn.speaker === 'client' ? detectLocalObjection(turn.text, state, previousAgent?.text) : null;
+
+  // Soft resistance is a temporary mode, not a permanent mute switch. If the
+  // client later gives a real answer/preference/fact, reopen normal guidance.
+  if (
+    turn.speaker === 'client' &&
+    state.dialogueControl?.clientBoundaryActive &&
+    priorBoundaryEvent === 'SOFT_RESISTANCE' &&
+    clientIntent.type !== 'objection' &&
+    !['TIME_CONSTRAINT', 'CLIENT_STOP', 'COMPLIANCE_STOP'].includes(String(event?.type || ''))
+  ) {
+    state = {
+      ...state,
+      dialogueControl: { ...state.dialogueControl, clientBoundaryActive: false },
+    };
+  }
+
+  state = updateObjectionLifecycle(state, turn, clientIntent.type === 'objection' ? localObjection?.category : undefined, event?.nextStepTarget);
+  if (turn.speaker === 'client') {
+    const previousAgentAction = previousAgent ? classifyAgentAction(previousAgent.text) : 'none';
+    const spin = evaluateSpinAndHpb(turn, state.spin, previousAgentAction, previousAgent?.text || '', state);
+    state = { ...state, spin: spin.updatedSpin, spinState: spin.updatedSpin };
+  }
+  const progress = evaluateFirstCallScript(turns, state);
+  state = { ...state, scriptProgress: progress, trustEvaluation: progress.trust, qualityResult: progress.quality };
+  return { state, event, clientIntent, localObjection };
+}
+
+export interface LocalAnalysisInput {
+  sessionId: string;
+  revision: number;
+  newTurns: TranscriptTurn[];
+  recentTurns: TranscriptTurn[];
+  currentState: ConversationState;
+  fallbackReason?: string | null;
+}
+
+function uniqueTurns(...groups: TranscriptTurn[][]): TranscriptTurn[] {
+  const byId = new Map<string, TranscriptTurn>();
+  for (const turn of groups.flat()) {
+    if (turn?.id) byId.set(turn.id, turn);
+  }
+  return Array.from(byId.values()).sort((a, b) => {
+    const revisionDelta = (a.revision ?? 0) - (b.revision ?? 0);
+    return revisionDelta || a.timestamp - b.timestamp;
+  });
+}
+
+function actionForSuggestionMode(mode: SuggestionMode): ActionType {
+  if (mode === 'HPB_PRESENTATION') return 'SHOW_EVIDENCE';
+  if (mode === 'SPIN_IMPLICATION' || mode === 'SPIN_NEED_PAYOFF') return 'DEEPEN';
+  if (mode === 'OBJECTION_CLARIFICATION') return 'OBJECTION_CLARIFICATION';
+  if (mode === 'NEXT_STEP') return 'PROPOSE_NEXT_STEP';
+  if (mode === 'WAIT') return 'WAIT';
+  return 'CLARIFY';
+}
+
+function getBoundarySafeFallback(state: ConversationState, clientText: string): { text: string; reason: string } {
+  const lower = clientText.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
+  const blocked = state.dialogueControl?.blockedNextSteps || [];
+
+  if (blocked.includes('ppv')) {
+    return {
+      text: 'Понял. Видео пока не предлагаю. Отправлю только подходящие варианты по уже названным критериям, а после просмотра коротко сверим, что оставить.',
+      reason: 'Клиент повторно отказался от видео: не молчим, но уважаем границу и даём следующий безопасный ход.',
+    };
+  }
+  if (blocked.includes('ppi')) {
+    return {
+      text: 'Понял. Брокера пока не подключаем. Сначала разберёмся с объектами, а к ставкам вернёмся только по вашему сигналу.',
+      reason: 'Клиент повторно отложил брокера: сохраняем полезный следующий ход без давления.',
+    };
+  }
+  if (/нет времени|некогда|не могу говорить|перезвон/iu.test(lower)) {
+    return {
+      text: 'Понял, не задерживаю. Зафиксирую то, что уже есть. Когда коротко вернуться — сегодня вечером или завтра?',
+      reason: 'Граница времени не должна выключать суфлёра: только короткий возврат вместо анкеты.',
+    };
+  }
+  if (/скинь|пришл|отправ|планиров|цен|материал|подборк/iu.test(lower)) {
+    return {
+      text: 'Понял. Отправлю без лишнего: только 2–3 варианта по уже названным критериям. После просмотра коротко сверим, что оставить.',
+      reason: 'Повторный запрос материалов: подтверждаем действие и не продолжаем длинный опрос.',
+    };
+  }
+  return {
+    text: 'Понял. Не буду расширять разговор: зафиксирую сказанное и вернёмся к одному следующему шагу, когда вам будет удобно.',
+    reason: 'Boundary-safe fallback: клиент ограничил разговор, но агент всё равно получает готовую реплику.',
+  };
+}
+
+/**
+ * Deterministic analysis used for P0 events and whenever Gemini is unavailable.
+ * It intentionally owns policy, facts and lifecycle decisions; an LLM is only an
+ * optional semantic/wording enhancement on top of this result.
+ */
+export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisResponse {
+  const startedAt = Date.now();
+  const allTurns = uniqueTurns(input.recentTurns || [], input.newTurns || []);
+  const clientTurns = (input.newTurns || []).filter(
+    (turn) => turn.speaker === 'client' && turn.isFinal !== false
+  );
+  const lastClientTurn = clientTurns.at(-1) || allTurns.filter((turn) => turn.speaker === 'client').at(-1);
+  const lastAgentTurn = allTurns.filter((turn) => turn.speaker === 'agent').at(-1);
+
+  const events = clientTurns
+    .map((turn) => detectConversationEvent(turn, allTurns, input.currentState))
+    .filter((event): event is NonNullable<typeof event> => Boolean(event))
+    .sort((a, b) => b.priority - a.priority);
+  const dominantEvent = events[0] || null;
+  const activeObjectionGuidance = getActiveObjectionGuidance(input.currentState);
+  const autoObjectionGuidance = activeObjectionGuidance && lastClientTurn &&
+    input.currentState.activeObjection?.evidenceTurnIds?.includes(lastClientTurn.id)
+      ? activeObjectionGuidance
+      : null;
+
+  const factsDelta = clientTurns.flatMap((turn) => {
+    const previousAgent = previousMeaningfulAgentTurn(turn, allTurns);
+    return extractDeterministicFacts(turn.text, turn.id, previousAgent?.text || null);
+  });
+
+  const scriptProgress = evaluateFirstCallScript(allTurns, input.currentState);
+  const calculatedAgentAction = lastAgentTurn ? classifyAgentAction(lastAgentTurn.text) : 'none';
+  const spin = lastClientTurn
+    ? evaluateSpinAndHpb(
+        lastClientTurn,
+        input.currentState.spin || input.currentState.spinState!,
+        calculatedAgentAction,
+        lastAgentTurn?.text || '',
+        input.currentState
+      )
+    : null;
+  const dopamine = lastClientTurn
+    ? getContextualDopamineQuestion({ ...input.currentState, scriptProgress }, allTurns, lastClientTurn.text)
+    : null;
+  const personalContextTurn = lastClientTurn
+    ? /(?:семь|супруг|дет|сочи|отдых|путеше|хобби|увлека|работ|професс|инвест|доход)/iu.test(lastClientTurn.text)
+    : false;
+  const canUseDopamine = Boolean(
+    dopamine && personalContextTurn &&
+    (scriptProgress.trust?.openPersonalQuestionsCount || 0) < 2 &&
+    !input.currentState.activeObjection &&
+    !['asked_implication_question', 'asked_need_payoff_question'].includes(calculatedAgentAction)
+  );
+
+  let suggestedReply: string | null = null;
+  let shortReason: string | null = null;
+  let candidateRuleId: string | null = null;
+  let actionType: ActionType = 'WAIT';
+  let suggestionMode: SuggestionMode = 'WAIT';
+  let closesMetric: string | null = null;
+  let closesMetricLabel: string | null = null;
+  let immediatePriority: string | null = null;
+  let expectedClientMeaning: string | null = null;
+  let priority = 50;
+
+  const objectionShouldOwnReply = Boolean(
+    autoObjectionGuidance &&
+    (!dominantEvent || ['NEXT_STEP_RESISTANCE', 'FACT_CORRECTION', 'RESEARCH_MODE'].includes(dominantEvent.type))
+  );
+
+  if (objectionShouldOwnReply && autoObjectionGuidance) {
+    suggestedReply = autoObjectionGuidance.text;
+    shortReason = autoObjectionGuidance.reason;
+    candidateRuleId = 'active_objection_guidance';
+    actionType = 'OBJECTION_CLARIFICATION';
+    suggestionMode = 'OBJECTION_CLARIFICATION';
+    closesMetric = 'objections';
+    closesMetricLabel = 'Отработка возражений';
+    immediatePriority = autoObjectionGuidance.title;
+    expectedClientMeaning = autoObjectionGuidance.goal;
+    priority = Math.max(76, dominantEvent?.priority || 0);
+  } else if (dominantEvent) {
+    suggestedReply = dominantEvent.suggestedReply;
+    shortReason = dominantEvent.shortReason;
+    candidateRuleId = dominantEvent.ruleId;
+    actionType = dominantEvent.actionType;
+    closesMetric = dominantEvent.closesMetric || null;
+    closesMetricLabel = dominantEvent.closesMetricLabel || null;
+    immediatePriority = `P0: ${dominantEvent.type}`;
+    priority = dominantEvent.priority;
+  } else if (canUseDopamine && dopamine) {
+    suggestedReply = dopamine.text;
+    shortReason = dopamine.reason;
+    suggestionMode = 'CHECK_ALIGNMENT';
+    actionType = 'CLARIFY';
+    closesMetric = 'trust';
+    closesMetricLabel = 'Доверие';
+    immediatePriority = 'Контекстный дофаминовый вопрос';
+    expectedClientMeaning = 'Клиент раскрывает личный контекст, связанный с уже обсуждаемой темой.';
+    priority = 58;
+  } else if (spin && spin.suggestedText) {
+    suggestedReply = spin.suggestedText;
+    shortReason = spin.shortReason;
+    suggestionMode = spin.suggestionMode;
+    actionType = actionForSuggestionMode(spin.suggestionMode);
+    expectedClientMeaning = spin.expectedClientMeaning;
+    priority = 55;
+  }
+
+  const silentEventCanContinue =
+    dominantEvent?.type === 'FACT_CORRECTION' || dominantEvent?.type === 'EXPLICIT_REJECTION';
+
+  if ((!dominantEvent || silentEventCanContinue) && lastClientTurn) {
+    const fallback = getFirstCallSuggestion(scriptProgress, lastClientTurn, {
+      ...input.currentState,
+      scriptProgress,
+    }, allTurns);
+    if (fallback && !suggestedReply) {
+      suggestedReply = fallback.suggestedReply;
+      shortReason = fallback.shortReason;
+      closesMetric = fallback.closesMetric;
+      closesMetricLabel = fallback.closesMetricLabel;
+      immediatePriority = fallback.immediatePriority;
+      expectedClientMeaning = fallback.expectedClientMeaning;
+      actionType = 'CLARIFY';
+      priority = 50;
+    }
+  }
+
+  // Liveness invariant: a client boundary blocks the questionnaire, not the assistant.
+  // Keep one short, ready-to-say line alive even during repeated resistance.
+  if (input.currentState.dialogueControl?.clientBoundaryActive && lastClientTurn) {
+    const boundaryCandidateIsSafe =
+      actionType === 'RESPECT_STOP' ||
+      actionType === 'OBJECTION_CLARIFICATION' ||
+      actionType === 'ANSWER' ||
+      dominantEvent?.type === 'SOFT_RESISTANCE' ||
+      dominantEvent?.type === 'TIME_CONSTRAINT' ||
+      dominantEvent?.type === 'NEXT_STEP_RESISTANCE' ||
+      dominantEvent?.type === 'DIRECT_QUESTION';
+
+    if (!suggestedReply || !boundaryCandidateIsSafe) {
+      const fallback = getBoundarySafeFallback(input.currentState, lastClientTurn.text);
+      suggestedReply = fallback.text;
+      shortReason = fallback.reason;
+      candidateRuleId = 'boundary_safe_liveness';
+      actionType = 'RESPECT_STOP';
+      suggestionMode = 'WAIT';
+      closesMetric = null;
+      closesMetricLabel = null;
+      immediatePriority = 'P0: CLIENT_BOUNDARY_LIVENESS';
+      expectedClientMeaning = null;
+      priority = 112;
+    }
+  }
+
+  if (dominantEvent?.type === 'DIRECT_QUESTION' && !suggestedReply) {
+    suggestedReply = 'Проверю точные данные по актуальным документам выбранного объекта и вернусь с ответом.';
+  }
+  const allowed = (text: string, metric?: string | null) =>
+    isSuggestionAllowedByState({
+      text,
+      closesMetric: metric,
+      actionType,
+      priority,
+      eventType: dominantEvent?.type || null,
+      stage: dominantEvent?.stage || input.currentState.stage,
+    }, input.currentState) &&
+    checkSemanticAntiRepeat(text, input.currentState, allTurns).accepted;
+  if ((!suggestedReply || !allowed(suggestedReply, closesMetric)) && !dominantEvent?.suppressesAnalysis) {
+    const objectionAlternative = autoObjectionGuidance ? getActiveObjectionGuidance(input.currentState, 1) : null;
+    if (objectionAlternative && allowed(objectionAlternative.text, 'objections')) {
+      suggestedReply = objectionAlternative.text;
+      shortReason = objectionAlternative.reason;
+      candidateRuleId = 'active_objection_guidance_variant';
+      actionType = 'OBJECTION_CLARIFICATION';
+      suggestionMode = 'OBJECTION_CLARIFICATION';
+      closesMetric = 'objections';
+      closesMetricLabel = 'Отработка возражений';
+      immediatePriority = objectionAlternative.title;
+      expectedClientMeaning = objectionAlternative.goal;
+      priority = 75;
+    } else {
+    const alternatives: Array<[string, string]> = [
+      ['goal', 'Для чего выбираете недвижимость: отдых, постоянная жизнь или инвестиции?'],
+      ['propertyType', 'Какой формат жилья вам подходит — квартира или апартаменты?'],
+      ['criteria', 'Если оставить только два критерия, по которым вы точно будете отсекать варианты, что это будет?'],
+      ['experience', 'Что из уже просмотренного оказалось ближе всего к вашей задаче, а что точно не подошло?'],
+      ['budget', 'До какой максимальной суммы рассматриваете покупку?'],
+      ['downPayment', 'Средства для первого платежа уже доступны или сумма зависит от выбранной схемы?'],
+      ['urgency', 'К какому сроку планируете определиться с покупкой?'],
+    ];
+    const alternative = alternatives.find(([metric, text]) => allowed(text, metric));
+    if (alternative) { closesMetric = alternative[0]; suggestedReply = alternative[1]; actionType = 'CLARIFY'; priority = 50; }
+    else suggestedReply = null;
+    }
+  }
+
+  // Final liveness invariant: every substantive final client turn should leave
+  // the agent with a useful next line unless the event explicitly suppresses
+  // conversation (hard stop/compliance). This prevents the “Суфлёр готов” blank
+  // state that appeared in RC4.1.
+  if (!suggestedReply && lastClientTurn && !dominantEvent?.suppressesAnalysis) {
+    const guidance = autoObjectionGuidance;
+    if (guidance) {
+      suggestedReply = guidance.text;
+      shortReason = guidance.reason;
+      candidateRuleId = 'liveness_active_objection';
+      actionType = 'OBJECTION_CLARIFICATION';
+      suggestionMode = 'OBJECTION_CLARIFICATION';
+      closesMetric = 'objections';
+      closesMetricLabel = 'Отработка возражений';
+      immediatePriority = guidance.title;
+      expectedClientMeaning = guidance.goal;
+      priority = 74;
+    } else {
+      suggestedReply = 'Понял. Тогда зафиксирую это как критерий и дальше буду сравнивать варианты именно через него.';
+      shortReason = 'Liveness fallback: содержательная реплика клиента не должна оставлять агента без следующей линии.';
+      candidateRuleId = 'semantic_ack_liveness';
+      actionType = 'SUMMARIZE';
+      suggestionMode = 'WAIT';
+      immediatePriority = scriptProgress.quality?.nextScriptStep || 'Сохранить контекст клиента';
+      priority = 45;
+    }
+  }
+
+  return {
+    sessionId: input.sessionId,
+    basedOnRevision: input.revision,
+    stage: dominantEvent?.stage || input.currentState.stage,
+    dealStage: input.currentState.dealStage || 'qualification',
+    conversationTask: input.currentState.conversationTask || 'understand_motive',
+    clientIntent: dominantEvent?.type,
+    actionType,
+    suggestionMode,
+    agentAction: calculatedAgentAction,
+    selectedRuleId: candidateRuleId,
+    factsDelta,
+    fact_updates: factsDelta,
+    activeConcern: null,
+    objection: dominantEvent?.type === 'SOFT_RESISTANCE' ? 'soft_resistance' : null,
+    candidateRuleId,
+    suggestedReply,
+    shortReason,
+    expectedClientMeaning,
+    evidenceTurnIds: dominantEvent
+      ? [dominantEvent.evidenceTurnId]
+      : lastClientTurn
+        ? [lastClientTurn.id]
+        : [],
+    missingCriticalField: scriptProgress.quality?.immediatePriorityMetric || null,
+    shouldSuggest: Boolean(suggestedReply),
+    spinDelta: spin?.updatedSpin,
+    hpb: spin?.hpb || null,
+    scriptProgress,
+    qualityResult: scriptProgress.quality,
+    closesMetric,
+    closesMetricLabel,
+    immediatePriority,
+    latencyMs: Date.now() - startedAt,
+    modelUsed: 'local-deterministic',
+    priority,
+    eventType: dominantEvent?.type || null,
+    fallbackReason: input.fallbackReason || null,
+  };
+}
+
+/** Bounded Gemini context. Local state retains the full evidence ledger. */
+export function buildCompactAnalysisContext(state: Partial<ConversationState>, turns: TranscriptTurn[] = []) {
+  const fields = ['goal', 'primaryGoal', 'location', 'budget', 'paymentMethod', 'downPayment', 'downPaymentSource', 'familyMortgage', 'purchaseTimeline', 'decisionMakers', 'criteria', 'propertyType', 'searchExperience'];
+  const facts = Object.fromEntries(fields.flatMap(field => {
+    const entry = (state as any)[field];
+    return entry?.value ? [[field, { value: entry.value, needsClarification: !!entry.needsClarification }]] : [];
+  }));
+  const activeFacts = new Map<string, object>();
+  for (const fact of state.confirmedFacts || []) {
+    if (fact.lifecycleStatus === 'superseded' || fact.lifecycleStatus === 'rejected') continue;
+    activeFacts.set(fact.category, { category: fact.category, value: fact.value, evidenceQuote: fact.evidenceQuote, turnId: fact.turnId });
+  }
+  const uniqueTurns = new Map(turns.map(turn => [turn.id, turn]));
+  return {
+    stage: state.stage, task: state.conversationTask, revision: state.revision,
+    facts, confirmedFacts: [...activeFacts.values()].slice(-20),
+    openCoreMetrics: Object.values(state.scriptProgress?.metrics || {}).filter(metric => metric.isCoreCriteria && !['confirmed', 'not_applicable'].includes(metric.status)).map(metric => ({ id: metric.id, status: metric.status })),
+    activeObjection: state.activeObjection ? { ...state.activeObjection, evidenceTurnIds: state.activeObjection.evidenceTurnIds.slice(-3) } : null,
+    resistance: state.dialogueControl?.nextStepResistance ? { ...state.dialogueControl.nextStepResistance, evidenceTurnIds: state.dialogueControl.nextStepResistance.evidenceTurnIds.slice(-3) } : null,
+    blockedNextSteps: state.dialogueControl?.blockedNextSteps || [],
+    rejectedBranches: state.dialogueControl?.rejectedBranches || [],
+    clientBoundaryActive: state.dialogueControl?.clientBoundaryActive || false,
+    researchMode: state.dialogueControl?.researchMode || state.spin?.researchMode || false,
+    spin: state.spin ? { currentStage: state.spin.currentStage, completedStages: state.spin.completedStages, lastClientEvidence: state.spin.lastClientEvidence,
+      problem: state.spin.problem.slice(-2), implication: state.spin.implication.slice(-2), needPayoff: state.spin.needPayoff.slice(-2) } : null,
+    nextStep: state.nextStepAgreement,
+    semanticKeys: [...new Set((state.askedQuestions || []).map(extractSemanticKey))].slice(-8),
+    recentTurns: [...uniqueTurns.values()].slice(-6).map(({ id, speaker, text }) => ({ id, speaker, text })),
+  };
+}

@@ -3,6 +3,7 @@ import {
   ConversationState,
   TranscriptTurn,
 } from '../types';
+import { buildLocalAnalysisResponse } from './localAnalysisEngine';
 import { isSubstantiveClientTurn } from './objectionEngine';
 
 export interface AnalysisPayload {
@@ -24,6 +25,7 @@ export class AnalysisProvider {
   private activeAbortController: AbortController | null = null;
   private softThresholdTimer: any = null;
   private hardTimeoutTimer: any = null;
+  private requestGeneration: number = 0;
 
   // Stage 2: 1 in-flight, 1 pending batch & memory_only backlog
   private pendingBatchTurns: TranscriptTurn[] = [];
@@ -43,8 +45,10 @@ export class AnalysisProvider {
   private lastValidResponse: AnalysisResponse | null = null;
 
   // Constants
-  public static readonly HARD_TIMEOUT_MS: number = 11000; // 10000-12000ms safety limit
-  public static readonly SOFT_THRESHOLD_MS: number = 1200; // 1200ms soft indicator
+  public static readonly HARD_TIMEOUT_MS: number = 3200; // semantic enhancement is useless if it trails the live call for many seconds
+  public static readonly SOFT_THRESHOLD_MS: number = 900; // UI may show that cloud refinement is still running
+  public static readonly ENHANCEMENT_DEADLINE_MS: number = 1200; // after this, Gemini may update facts but cannot replace the visible hint
+  public static readonly REMOTE_MIN_INTERVAL_MS: number = 5000; // do not send every transcript fragment/turn to cloud analysis
 
   // Diagnostics counters
   private analysisRequests: number = 0;
@@ -87,6 +91,38 @@ export class AnalysisProvider {
     this.totalAnalysisRequestsCount = 0;
     this.cancelledRequestsCount = 0;
     this.rejectedRequestsCount = 0;
+  }
+
+  public scheduleLocalFirst(payload: AnalysisPayload, onSuccess: (result: AnalysisResponse) => void, onError: (error: any) => void, onRefiningChange?: (value: boolean) => void, options: { amendment?: boolean; suppressRemote?: boolean } = {}) {
+    const local = buildLocalAnalysisResponse(payload);
+    onSuccess(local);
+    if (options.amendment) {
+      this.amendTurn(payload.newTurns.at(-1)!, payload.currentState);
+      return;
+    }
+    if (options.suppressRemote) return;
+
+    const last = payload.newTurns.at(-1);
+    const text = (last?.text || '').toLowerCase();
+    const simpleResistance = /(?:скиньте|пришлите|отправьте|нет времени|не до разговоров|не хочу видео|без видео|я подумаю)/iu.test(text) && text.length < 220;
+    const boundaryActive = Boolean(payload.currentState.dialogueControl?.clientBoundaryActive);
+    const cloudUseful = !boundaryActive && !simpleResistance && (
+      !local.shouldSuggest ||
+      (local.factsDelta || []).length === 0 ||
+      /(?:сомнен|дорог|риск|доходност|окупаем|гарант|не уверен|почему|сравни)/iu.test(text) ||
+      text.length > 260
+    );
+    const throttled = Date.now() - this.lastAnalysisTimestamp < AnalysisProvider.REMOTE_MIN_INTERVAL_MS;
+    if (cloudUseful && !throttled) this.scheduleAnalysis(payload, onSuccess, onError, onRefiningChange, 120);
+  }
+
+  public amendTurn(turn: TranscriptTurn, state: ConversationState) {
+    const replace = (turns: TranscriptTurn[]) => turns.map(t => t.id === turn.id ? turn : t);
+    this.memoryBacklog = replace(this.memoryBacklog);
+    this.pendingBatchTurns = replace(this.pendingBatchTurns);
+    this.pendingRecentTurns = replace(this.pendingRecentTurns);
+    if (this.pendingPayload) this.pendingPayload = { ...this.pendingPayload, newTurns: replace(this.pendingPayload.newTurns), recentTurns: replace(this.pendingPayload.recentTurns), currentState: state };
+    if (this.pendingLatestState) this.pendingLatestState = state;
   }
 
   public getMemoryBacklog(): TranscriptTurn[] {
@@ -138,7 +174,8 @@ export class AnalysisProvider {
    */
   public checkEligibility(
     turn: TranscriptTurn,
-    revision: number
+    revision: number,
+    previousAgentTurnText?: string | null
   ): { eligible: boolean; reason: string; canReuseLast: boolean } {
     let rejectionReason: string | null = null;
 
@@ -146,7 +183,7 @@ export class AnalysisProvider {
       rejectionReason = 'Реплика Андрея (анализ отключен)';
     } else if (!turn.isFinal) {
       rejectionReason = 'Промежуточная транскрипция';
-    } else if (!isSubstantiveClientTurn(turn.text)) {
+    } else if (!isSubstantiveClientTurn(turn.text, previousAgentTurnText)) {
       rejectionReason = 'Бессодержательная реплика / междометие';
     } else if (this.analyzedTurnIds.has(turn.id)) {
       rejectionReason = 'Реплика уже проанализирована';
@@ -157,7 +194,7 @@ export class AnalysisProvider {
     if (rejectionReason) {
       this.rejectedRequestsCount++;
       this.lastRejectedReason = rejectionReason;
-      return { eligible: false, reason: rejectionReason, canReuseLast: true };
+      return { eligible: false, reason: rejectionReason, canReuseLast: false };
     }
 
     return {
@@ -207,38 +244,71 @@ export class AnalysisProvider {
       this.memoryBacklog = this.memoryBacklog.slice(-AnalysisProvider.MAX_MEMORY_BACKLOG);
     }
 
+    const contextTurns = [...(payload.recentTurns || []), ...(payload.newTurns || [])];
+    const eligibleTurns = (payload.newTurns || []).filter((turn) => {
+      const turnIndex = contextTurns.findIndex((candidate) => candidate.id === turn.id);
+      const previousAgent = contextTurns
+        .slice(0, Math.max(0, turnIndex))
+        .filter((candidate) => candidate.speaker === 'agent')
+        .at(-1);
+      return this.checkEligibility(turn, turn.revision ?? payload.revision, previousAgent?.text).eligible;
+    });
+
+    if (eligibleTurns.length === 0) return;
+    const eligiblePayload: AnalysisPayload = { ...payload, newTurns: eligibleTurns };
+
     // STAGE 2 SCHEDULER:
     // If a request is already in-flight, DO NOT ABORT!
     // Instead, accumulate into pendingBatch and remember latest state/revision and recent context.
     if (this.isInFlight) {
-      if (payload.newTurns && payload.newTurns.length > 0) {
-        for (const t of payload.newTurns) {
+      if (eligiblePayload.newTurns.length > 0) {
+        for (const t of eligiblePayload.newTurns) {
           if (!this.pendingBatchTurns.some((b) => b.id === t.id)) {
             this.pendingBatchTurns.push(t);
           }
         }
       }
-      this.pendingRecentTurns = payload.recentTurns && payload.recentTurns.length > 0
-        ? [...payload.recentTurns]
+      this.pendingRecentTurns = eligiblePayload.recentTurns && eligiblePayload.recentTurns.length > 0
+        ? [...eligiblePayload.recentTurns]
         : [...this.memoryBacklog.slice(-10)];
-      this.pendingLatestState = payload.currentState;
-      this.pendingRevision = Math.max(this.pendingRevision, payload.revision);
+      this.pendingLatestState = eligiblePayload.currentState;
+      this.pendingRevision = Math.max(this.pendingRevision, eligiblePayload.revision);
       this.pendingSuccessCb = onSuccess;
       this.pendingErrorCb = onError;
       this.pendingRefiningCb = onRefiningChange || null;
       return;
     }
 
-    // If not in-flight, prepare pending payload and debounce
-    this.pendingPayload = payload;
-
-    if (this.debounceTimer) {
-      clearTimeout(this.debounceTimer);
+    // Non-sliding debounce: the first substantive turn starts the clock. Later
+    // turns join the same batch and update the state/callbacks without delaying it.
+    if (this.pendingPayload) {
+      const mergedTurns = [...this.pendingPayload.newTurns];
+      for (const turn of eligiblePayload.newTurns) {
+        if (!mergedTurns.some((candidate) => candidate.id === turn.id)) mergedTurns.push(turn);
+      }
+      this.pendingPayload = {
+        ...eligiblePayload,
+        newTurns: mergedTurns,
+        recentTurns: eligiblePayload.recentTurns?.length
+          ? [...eligiblePayload.recentTurns]
+          : this.pendingPayload.recentTurns,
+      };
+    } else {
+      this.pendingPayload = eligiblePayload;
     }
+    this.pendingSuccessCb = onSuccess;
+    this.pendingErrorCb = onError;
+    this.pendingRefiningCb = onRefiningChange || null;
 
-    this.debounceTimer = setTimeout(() => {
-      this.executeAnalysis(onSuccess, onError, onRefiningChange);
-    }, debounceMs);
+    if (!this.debounceTimer) {
+      this.debounceTimer = setTimeout(() => {
+        this.debounceTimer = null;
+        const success = this.pendingSuccessCb || onSuccess;
+        const error = this.pendingErrorCb || onError;
+        const refining = this.pendingRefiningCb || onRefiningChange;
+        this.executeAnalysis(success, error, refining);
+      }, debounceMs);
+    }
   }
 
   private async executeAnalysis(
@@ -251,23 +321,14 @@ export class AnalysisProvider {
     const payload = this.pendingPayload;
     this.pendingPayload = null;
 
-    const targetTurn = payload.newTurns?.[0];
-    if (targetTurn) {
-      const check = this.checkEligibility(targetTurn, payload.revision);
-      if (!check.eligible) {
-        console.log(`[AnalysisProvider] Пропуск запроса: ${check.reason}`);
-        if (check.canReuseLast && this.lastValidResponse) {
-          onSuccess(this.lastValidResponse);
-        }
-        return;
-      }
-    }
+    const targetTurn = payload.newTurns.at(-1);
 
     this.isInFlight = true;
     this.inFlightRevision = payload.revision;
 
     // Update timestamps and reason
     this.lastAnalysisTimestamp = Date.now();
+    const requestStartedAt = this.lastAnalysisTimestamp;
     this.lastRequestTimestamp = this.lastAnalysisTimestamp;
     this.lastRequestReason =
       payload.reason || (targetTurn ? `Клиент: "${targetTurn.text.slice(0, 35)}..."` : 'Анализ контекста');
@@ -279,25 +340,29 @@ export class AnalysisProvider {
     const currentSignal = this.activeAbortController.signal;
     const reqSessionId = payload.sessionId;
     const reqRevision = payload.revision;
+    const requestGeneration = this.requestGeneration;
 
     // Soft threshold: after 1200ms show "Уточняю контекст..." without aborting
-    this.softThresholdTimer = setTimeout(() => {
+    const softTimer = setTimeout(() => {
       onRefiningChange?.(true);
     }, AnalysisProvider.SOFT_THRESHOLD_MS);
+    this.softThresholdTimer = softTimer;
 
-    // Hard network timeout: 10000-12000ms safety limit (11000ms)
+    // Hard network timeout: remote semantic analysis may finish later, but it must never block the local hint.
     let isHardTimedOut = false;
-    this.hardTimeoutTimer = setTimeout(() => {
+    const requestController = this.activeAbortController;
+    const hardTimer = setTimeout(() => {
       isHardTimedOut = true;
       this.analysisHardTimeouts++;
-      if (this.activeAbortController) {
+      if (requestController) {
         try {
-          this.activeAbortController.abort();
+          requestController.abort();
         } catch (e) {
           // ignore
         }
       }
     }, AnalysisProvider.HARD_TIMEOUT_MS);
+    this.hardTimeoutTimer = hardTimer;
 
     try {
       const response = await fetch('/api/analyze', {
@@ -313,6 +378,9 @@ export class AnalysisProvider {
       }
 
       const data: AnalysisResponse = await response.json();
+      const aiResponseElapsedMs = Math.max(0, Date.now() - requestStartedAt);
+      data.aiResponseElapsedMs = aiResponseElapsedMs;
+      data.suggestionExpired = aiResponseElapsedMs > AnalysisProvider.ENHANCEMENT_DEADLINE_MS;
 
       // Discard stale response if session changed
       if (data.sessionId !== this.currentSessionId || data.sessionId !== reqSessionId) {
@@ -320,17 +388,19 @@ export class AnalysisProvider {
         return;
       }
 
-      // State versioning: if superseded by a strictly newer acknowledged revision, log warning
-      if (data.basedOnRevision < this.latestAcknowledgedRevision) {
-        console.warn(`[AnalysisProvider] Outdated revision ${data.basedOnRevision} < ${this.latestAcknowledgedRevision}`);
-      } else {
-        this.latestAcknowledgedRevision = data.basedOnRevision;
+      // Exact request/response pairing prevents stale cards from an older batch.
+      if (data.basedOnRevision !== reqRevision || reqRevision < this.latestAcknowledgedRevision) {
+        console.warn(
+          `[AnalysisProvider] Discarded stale revision response=${data.basedOnRevision}, request=${reqRevision}, acknowledged=${this.latestAcknowledgedRevision}`
+        );
+        return;
       }
+      // An extended STT final can amend an in-flight turn without launching another batch.
+      if (payload.newTurns.some(t => this.memoryBacklog.find(m => m.id === t.id)?.text !== t.text)) return;
+      this.latestAcknowledgedRevision = data.basedOnRevision;
 
       // MARK AS ANALYZED ONLY ON SUCCESSFUL RESPONSE (HTTP 2xx)
-      if (targetTurn?.id) {
-        this.analyzedTurnIds.add(targetTurn.id);
-      }
+      for (const turn of payload.newTurns) this.analyzedTurnIds.add(turn.id);
       this.analyzedRevisions.add(payload.revision);
 
       this.lastValidResponse = data;
@@ -352,17 +422,18 @@ export class AnalysisProvider {
       console.error('Analysis execution failed:', err);
       onError(err);
     } finally {
-      if (this.softThresholdTimer) {
-        clearTimeout(this.softThresholdTimer);
+      clearTimeout(softTimer);
+      clearTimeout(hardTimer);
+      if (this.softThresholdTimer === softTimer) {
         this.softThresholdTimer = null;
       }
-      if (this.hardTimeoutTimer) {
-        clearTimeout(this.hardTimeoutTimer);
+      if (this.hardTimeoutTimer === hardTimer) {
         this.hardTimeoutTimer = null;
       }
+      if (requestGeneration !== this.requestGeneration) return;
       this.isInFlight = false;
       this.inFlightRevision = null;
-      this.activeAbortController = null;
+      if (this.activeAbortController === requestController) this.activeAbortController = null;
 
       // STAGE 2 SCHEDULER DRAIN:
       // If new substantive turns accumulated while this request was in-flight,
@@ -404,6 +475,13 @@ export class AnalysisProvider {
   }
 
   public cancelPending() {
+    this.requestGeneration += 1;
+    this.pendingBatchTurns = [];
+    this.pendingLatestState = null;
+    this.pendingRevision = 0;
+    this.pendingSuccessCb = null;
+    this.pendingErrorCb = null;
+    this.pendingRefiningCb = null;
     this.pendingRecentTurns = [];
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
@@ -429,5 +507,6 @@ export class AnalysisProvider {
     }
     this.pendingPayload = null;
     this.inFlightRevision = null;
+    this.isInFlight = false;
   }
 }

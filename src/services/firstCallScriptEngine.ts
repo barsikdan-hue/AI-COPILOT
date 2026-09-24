@@ -14,6 +14,12 @@ import {
 
 export { isMetricClosed };
 import { isSubstantiveClientTurn } from './objectionEngine';
+import { getContextualDopamineQuestion } from './dopamineQuestionEngine';
+import {
+  classifyTrustQuestion,
+  detectSearchExperience,
+  extractSemanticCriteria,
+} from './semanticEvidence';
 import { checkSemanticAntiRepeat, extractSemanticKey } from './semanticAntiRepeat';
 import {
   hasWholeWord,
@@ -74,6 +80,9 @@ export const FIRST_CALL_METRICS_LIST: MetricDefinition[] = [
  */
 export function isOpenTechnicalQuestion(text: string): boolean {
   if (!text) return false;
+  const semanticKind = classifyTrustQuestion(text);
+  if (semanticKind === 'technical') return true;
+  if (semanticKind === 'personal') return false;
   const lower = text.toLowerCase();
 
   // Exclude financial qualifications, closing deadlines, origin inquiries
@@ -149,7 +158,22 @@ export function isOpenTechnicalQuestion(text: string): boolean {
     lower.includes('где именно') ||
     lower.includes('какая инфраструктура') ||
     lower.includes('близость к морю') ||
-    lower.includes('горы или побережье')
+    lower.includes('горы или побережье') ||
+    lower.includes('что стало причиной') ||
+    lower.includes('какой ошибки') ||
+    lower.includes('что вызывает') && lower.includes('сомнен') ||
+    lower.includes('что смущает') ||
+    lower.includes('что мешает') ||
+    lower.includes('что оттолкнуло') ||
+    lower.includes('что понравилось') ||
+    lower.includes('что уже успели посмотреть') ||
+    lower.includes('сколько времени') && lower.includes('дорог') ||
+    lower.includes('что из этого') && lower.includes('теря') ||
+    lower.includes('как это влияет') ||
+    lower.includes('как этот') && lower.includes('повлияет') ||
+    lower.includes('что для вас изменится') ||
+    lower.includes('какой результат') ||
+    lower.includes('главным признаком')
   );
 }
 
@@ -159,6 +183,9 @@ export function isOpenTechnicalQuestion(text: string): boolean {
  */
 export function isOpenPersonalQuestion(text: string): boolean {
   if (!text) return false;
+  const semanticKind = classifyTrustQuestion(text);
+  if (semanticKind === 'personal') return true;
+  if (semanticKind === 'technical') return false;
   const lower = text.toLowerCase();
 
   const isOpenForm =
@@ -191,7 +218,21 @@ export function isOpenPersonalQuestion(text: string): boolean {
     lower.includes('уже покупали недвижимость') ||
     lower.includes('почему решили инвестировать') ||
     lower.includes('что вас привело к мысли о покупке') ||
-    lower.includes('почему именно недвижимость')
+    lower.includes('почему именно недвижимость') ||
+    lower.includes('что понравилось в сочи') ||
+    lower.includes('что вам нравится в сочи') ||
+    lower.includes('в каких районах') && lower.includes('были') ||
+    lower.includes('когда последний раз были в сочи') ||
+    lower.includes('где проводили время') ||
+    lower.includes('какие достопримечательности') ||
+    lower.includes('чем увлекаетесь') ||
+    lower.includes('свободное время') ||
+    lower.includes('как давно в этой профессии') ||
+    lower.includes('что нравится в вашей профессии') ||
+    lower.includes('чем увлекаются') && lower.includes('дет') ||
+    lower.includes('как любите проводить время вместе') ||
+    lower.includes('что для вашей семьи') && lower.includes('важ') ||
+    lower.includes('квартира мечты')
   );
 }
 
@@ -437,9 +478,33 @@ export function isConcreteTimeline(text: string): boolean {
     lower.includes('в течение года') ||
     lower.includes('в течение двух') ||
     lower.includes('до конца') ||
+    /(?:до|к)\s*(?:концу\s*)?(?:января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)/iu.test(lower) ||
+    /(?:в|на)\s*(?:январе|феврале|марте|апреле|мае|июне|июле|августе|сентябре|октябре|ноябре|декабре)/iu.test(lower) ||
     /\d{1,2}[:.]\d{2}/.test(lower) ||
     /\d+\s*(дн|недел|месяц|год)/.test(lower)
   );
+}
+
+function trustQuestionTopic(text: string, kind: 'technical' | 'personal'): string {
+  const lower = normalizeRussianText(text);
+  if (kind === 'personal') {
+    if (/сочи|юг|бываете|последний раз|запомнилось/.test(lower)) return 'personal_sochi';
+    if (/отдых|отпуск|проводите время|путешеств/.test(lower)) return 'personal_leisure';
+    if (/работ|професс|сфер|бизнес|занимаетесь/.test(lower)) return 'personal_work';
+    if (/семь|дет|с кем|кто будет пользоваться/.test(lower)) return 'personal_family';
+    if (/увлека|хобби|свободное время/.test(lower)) return 'personal_hobby';
+    return `personal_${extractSemanticKey(text)}`;
+  }
+
+  if (/цель|для чего|под какую задачу|использовать|отдых|инвест/.test(lower)) return 'technical_goal';
+  if (/формат|квартир|апартамент|дом|комнат|площад/.test(lower)) return 'technical_format';
+  if (/критери|важно|принципиаль|требован|пожелан/.test(lower)) return 'technical_criteria';
+  if (/локац|район|море|инфраструктур/.test(lower)) return 'technical_location';
+  if (/смотрел|посмотрет|агент|опыт|рынок/.test(lower)) return 'technical_experience';
+  if (/смущ|мешает|не устро|оттолк|сомнен|ошибк/.test(lower)) return 'technical_problem';
+  if (/к чему|влияет|последств|теря|приходится/.test(lower)) return 'technical_implication';
+  if (/что.*измен|какой результат|что это даст/.test(lower)) return 'technical_need_payoff';
+  return `technical_${extractSemanticKey(text)}`;
 }
 
 /**
@@ -456,6 +521,8 @@ export function evaluateFirstCallScript(
   let clientSubstantiveTurns = 0;
   const technicalQuestions: string[] = [];
   const personalQuestions: string[] = [];
+  const technicalQuestionTopics = new Set<string>();
+  const personalQuestionTopics = new Set<string>();
   const agentAskedMetricMap: Record<string, { quote: string }> = {};
 
   for (const turn of turns) {
@@ -466,10 +533,18 @@ export function evaluateFirstCallScript(
     if (turn.speaker === 'agent') {
       agentWords += wordCount;
       if (isOpenTechnicalQuestion(text)) {
-        if (!technicalQuestions.includes(text)) technicalQuestions.push(text);
+        const topic = trustQuestionTopic(text, 'technical');
+        if (!technicalQuestionTopics.has(topic)) {
+          technicalQuestionTopics.add(topic);
+          technicalQuestions.push(text);
+        }
       }
       if (isOpenPersonalQuestion(text)) {
-        if (!personalQuestions.includes(text)) personalQuestions.push(text);
+        const topic = trustQuestionTopic(text, 'personal');
+        if (!personalQuestionTopics.has(topic)) {
+          personalQuestionTopics.add(topic);
+          personalQuestions.push(text);
+        }
       }
 
       const coveredMetric = detectAgentQuestionForMetric(text);
@@ -555,7 +630,7 @@ export function evaluateFirstCallScript(
     category: 'trust',
     status: trustStatus,
     isCoreCriteria: true,
-    value: `${trustScore}% (${technicalQuestions.length}/3 техн., ${personalQuestions.length}/2 личн., речь клиента: ${Math.round(clientSpeechRatio * 100)}%)`,
+    value: `${trustScore}% (${Math.min(technicalQuestions.length, 3)}/3 техн., ${Math.min(personalQuestions.length, 2)}/2 личн., речь клиента: ${Math.round(clientSpeechRatio * 100)}%)`,
     semanticReason:
       trustStatus === 'confirmed'
         ? 'Критерий доверия выполнен: открытый диалог, >=3 техн. и >=2 личн. вопросов, клиент говорит >=40% времени'
@@ -576,7 +651,7 @@ export function evaluateFirstCallScript(
   let goalReason: string | null = null;
   let goalNeedsClarification = false;
 
-  const goalFact = state.confirmedFacts.find(
+  const goalFact = state.confirmedFacts.filter(f => f.lifecycleStatus !== 'superseded' && f.lifecycleStatus !== 'rejected').find(
     (f) => f.category === 'goal' || f.category === 'clientGoal'
   );
 
@@ -590,7 +665,14 @@ export function evaluateFirstCallScript(
   }
 
   // Semantic checks on goal text
-  const goalCheckText = ((goalValue || '') + ' ' + allClientText).toLowerCase();
+  // Once a canonical goal exists, do not re-derive it from the whole transcript.
+  // Otherwise a historical/negated phrase such as “постоянно жить не планируем”
+  // can override the current evidence simply because it contains the words
+  // “постоянно жить”.
+  const goalCheckText = (goalValue
+    ? `${goalValue} ${goalQuote || ''}`
+    : allClientText
+  ).toLowerCase();
 
   if (
     goalCheckText.includes('лето') &&
@@ -680,7 +762,7 @@ export function evaluateFirstCallScript(
   let propReason: string | null = null;
   let propNeedsClarification = false;
 
-  const propFact = state.confirmedFacts.find(
+  const propFact = state.confirmedFacts.filter(f => f.lifecycleStatus !== 'superseded' && f.lifecycleStatus !== 'rejected').find(
     (f) => f.category === 'property_type' || f.category === 'propertyType'
   );
 
@@ -739,7 +821,23 @@ export function evaluateFirstCallScript(
   // -------------------------------------------------------------
   let critStatus: MetricStatus = 'not_confirmed';
   let critValue: string | null = null;
+  let critEvidenceQuote: string | null = null;
+  let critEvidenceTurnId: string | null = null;
   const identifiedCriteria: string[] = [];
+
+  // Shared semantic evidence layer: collect criteria from natural wording, not
+  // only from the literal script question. This is intentionally evaluated
+  // per client turn so we retain the evidence source.
+  for (const clientTurn of clientTurns) {
+    const semanticCriteria = extractSemanticCriteria(clientTurn.text);
+    for (const criterion of semanticCriteria) {
+      if (!identifiedCriteria.includes(criterion.label)) identifiedCriteria.push(criterion.label);
+      if (!critEvidenceQuote) {
+        critEvidenceQuote = criterion.evidenceQuote;
+        critEvidenceTurnId = clientTurn.id;
+      }
+    }
+  }
 
   if (allClientText.includes('окна выходили на дорогу') || allClientText.includes('шум') || allClientText.includes('тишин')) {
     identifiedCriteria.push('Тишина / отсутствие дорожного шума');
@@ -753,14 +851,26 @@ export function evaluateFirstCallScript(
   if (allClientText.includes('вид на море') || allClientText.includes('красивый вид')) {
     identifiedCriteria.push('Видовые характеристики (море/горы)');
   }
+  if (
+    allClientText.includes('близость к морю') ||
+    allClientText.includes('недалеко от моря') ||
+    allClientText.includes('рядом с морем') ||
+    (allClientText.includes('море') && (allClientText.includes('бонус') || allClientText.includes('желатель') || allClientText.includes('важно')))
+  ) {
+    identifiedCriteria.push('Близость к морю (желательно)');
+  }
   if (allClientText.includes('парковк') || allClientText.includes('машиноместо')) {
     identifiedCriteria.push('Наличие паркинга');
   }
 
-  const existingCritCount = state.criteria?.items?.length || 0;
-  if (identifiedCriteria.length > 0 || existingCritCount > 0) {
+  const existingCriteria = state.criteria?.items?.map((item) => item.text).filter(Boolean) || [];
+  const allCriteria = Array.from(new Set([...existingCriteria, ...identifiedCriteria]));
+  if (allCriteria.length > 0) {
     critStatus = 'confirmed';
-    critValue = state.criteria?.value || identifiedCriteria.join('; ');
+    critValue = allCriteria.join('; ');
+    if (!critEvidenceTurnId && state.criteria?.evidenceTurnIds?.length) {
+      critEvidenceTurnId = state.criteria.evidenceTurnIds.at(-1) || null;
+    }
   }
 
   metrics['criteria'] = {
@@ -771,6 +881,8 @@ export function evaluateFirstCallScript(
     status: critStatus,
     isCoreCriteria: false,
     value: critValue,
+    evidenceQuote: critEvidenceQuote || undefined,
+    evidenceTurnId: critEvidenceTurnId || undefined,
     semanticReason: critStatus === 'confirmed' ? 'Критерии клиента зафиксированы по смыслу высказываний' : 'Критерии пока не озвучены',
     confidence: critStatus === 'confirmed' ? 0.85 : 0.5,
     agentQuestionAsked: Boolean(agentAskedMetricMap['criteria']),
@@ -918,7 +1030,7 @@ export function evaluateFirstCallScript(
     ) && !noChildUnder7Markers;
 
   // Check state confirmedFacts for family mortgage / children facts
-  const famFact = state.confirmedFacts.find(
+  const famFact = state.confirmedFacts.filter(f => f.lifecycleStatus !== 'superseded' && f.lifecycleStatus !== 'rejected').find(
     (f) => f.category === 'familyMortgage' || f.category === 'family_mortgage'
   );
 
@@ -964,6 +1076,13 @@ export function evaluateFirstCallScript(
     famNeedsClarification = true;
   }
 
+  if (state.familyMortgage?.value && !state.familyMortgage.needsClarification) {
+    famValue = state.familyMortgage.value;
+    famNeedsClarification = false;
+    famStatus = /не примен|нет детей|детей нет/iu.test(famValue) ? 'not_applicable' : 'confirmed';
+    famReason = 'Сохранён конкретный подтверждённый факт клиента.';
+  }
+
   metrics['familyMortgage'] = {
     id: 'familyMortgage',
     field: 'familyMortgage',
@@ -987,11 +1106,17 @@ export function evaluateFirstCallScript(
   let dpReason: string | null = null;
   let dpNeedsClarification = false;
 
-  const dpFact = state.confirmedFacts.find((f) => f.category === 'downPayment' || f.category === 'down_payment');
-  if (dpFact && dpFact.value) {
-    dpStatus = 'confirmed';
+  const dpFact = state.confirmedFacts.filter(f => f.lifecycleStatus !== 'superseded' && f.lifecycleStatus !== 'rejected').find((f) => f.category === 'downPayment' || f.category === 'down_payment');
+  if (state.downPayment?.value) {
+    dpStatus = state.downPayment.needsClarification ? 'partially_confirmed' : 'confirmed';
+    dpValue = state.downPayment.value;
+    dpReason = 'Готовность средств / первоначального платежа подтверждена в каноническом состоянии.';
+    dpNeedsClarification = Boolean(state.downPayment.needsClarification);
+  } else if (dpFact && dpFact.value) {
+    dpStatus = dpFact.needsClarification ? 'partially_confirmed' : 'confirmed';
     dpValue = dpFact.value;
     dpReason = 'Первоначальный взнос подтверждён';
+    dpNeedsClarification = Boolean(dpFact.needsClarification);
   } else if (
     allClientText.includes('миллион') &&
     (allClientText.includes('на руках') || allClientText.includes('первоначальн') || allClientText.includes('взнос'))
@@ -1048,6 +1173,10 @@ export function evaluateFirstCallScript(
     dpsReason = 'Источник подтверждён: личные накопления на руках.';
   }
 
+  if (state.downPaymentSource?.value) {
+    dpsValue = state.downPaymentSource.value;
+    dpsStatus = state.downPaymentSource.needsClarification ? 'partially_confirmed' : 'confirmed';
+  }
   metrics['downPaymentSource'] = {
     id: 'downPaymentSource',
     field: 'downPaymentSource',
@@ -1137,6 +1266,16 @@ export function evaluateFirstCallScript(
     pmReason = `Способ покупки зафиксирован: ${pmValue}`;
   }
 
+  if (state.paymentMethod?.value && !mortgageNegationInClientText) {
+    pmValue = state.paymentMethod.value;
+    pmStatus = state.paymentMethod.needsClarification ? 'partially_confirmed' : 'confirmed';
+    pmReason = 'Способ оплаты из подтверждённого состояния диалога.';
+  }
+  if (state.dialogueControl?.rejectedBranches?.includes('ипотеку') && /ипотек/iu.test(pmValue || '')) {
+    pmValue = null;
+    pmStatus = 'not_confirmed';
+    pmReason = 'Ипотека явно отвергнута клиентом; способ покупки требуется уточнить без возврата к ипотечной ветке.';
+  }
   metrics['paymentMethod'] = {
     id: 'paymentMethod',
     field: 'paymentMethod',
@@ -1200,11 +1339,19 @@ export function evaluateFirstCallScript(
   let empReason: string | null = null;
   let empNeedsClarification = false;
 
-  const hasIpWord = hasWholeWord(allClientText, 'ип');
-  const hasBizWord = hasAnyWholeWord(allClientText, ['ооо', 'бизнес', 'бизнеса', 'предприниматель', 'предпринимателем', 'самозанятый', 'самозанятость']);
-  const hasHireWord = hasAnyWholeWord(allClientText, ['найм', 'найме', 'компании', 'официально', 'работа']);
+  const canonicalEmployment = state.employment?.value || null;
+  const employmentText = canonicalEmployment ? canonicalEmployment.toLowerCase() : allClientText;
+  const explicitIpNegative = /(?:никак(?:ого|их)\s+ип|ип[^.!?]{0,25}(?:нет|не\s+(?:оформлен|зарегистрирован))|не\s+(?:ип|предприниматель))/iu.test(allClientText);
+  const explicitBusinessNegative = /(?:никак(?:ого|их)\s+(?:ооо|бизнеса)|(?:ооо|бизнес)[^.!?]{0,25}нет)/iu.test(allClientText);
+  const hasIpWord = !explicitIpNegative && hasWholeWord(employmentText, 'ип');
+  const hasBizWord = !explicitBusinessNegative && hasAnyWholeWord(employmentText, ['ооо', 'бизнес', 'бизнеса', 'предприниматель', 'предпринимателем', 'самозанятый', 'самозанятость']);
+  const hasHireWord = hasAnyWholeWord(employmentText, ['найм', 'найме', 'компании', 'официально', 'работа']);
 
-  if (hasAnyPhrase(allClientText, ['сам на себя', 'частная практика'])) {
+  if (canonicalEmployment) {
+    empStatus = 'confirmed';
+    empValue = canonicalEmployment;
+    empReason = 'Занятость взята из канонического подтверждённого состояния клиента.';
+  } else if (hasAnyPhrase(allClientText, ['сам на себя', 'частная практика'])) {
     empStatus = 'partially_confirmed';
     empValue = 'Работает на себя (форма дохода требует уточнения: ИП или самозанятость)';
     empReason = 'Озвучена работа на себя, юридическая форма дохода (ИП/самозанятость) не уточнена.';
@@ -1238,23 +1385,25 @@ export function evaluateFirstCallScript(
   // METRIC 13: EXPERIENCE (Опыт выбора или покупки)
   // -------------------------------------------------------------
   let expStatus: MetricStatus = 'not_confirmed';
-  let expValue: string | null = null;
+  let expValue: string | null = state.searchExperience?.value || null;
   let expReason: string | null = null;
+  let expEvidenceQuote: string | null = null;
+  let expEvidenceTurnId: string | null = state.searchExperience?.evidenceTurnIds?.at(-1) || null;
 
-  if (
-    allClientText.includes('уже смотрел') ||
-    allClientText.includes('были на показах') ||
-    allClientText.includes('изучал цены') ||
-    allClientText.includes('покупал недвижимость') ||
-    allClientText.includes('только начал') ||
-    allClientText.includes('первый раз') ||
-    allClientText.includes('несколько жк')
-  ) {
-    expStatus = 'confirmed';
-    expValue = allClientText.includes('первый раз') || allClientText.includes('только начал')
-      ? 'Первый опыт выбора недвижимости в Сочи'
-      : 'Есть опыт изучения рынка / просмотров объектов';
-    expReason = 'Опыт выбора и знание рынка зафиксированы со слов клиента.';
+  if (expValue) {
+    expStatus = state.searchExperience?.needsClarification ? 'partially_confirmed' : 'confirmed';
+    expReason = 'Опыт выбора взят из канонического состояния диалога.';
+  } else {
+    for (let i = clientTurns.length - 1; i >= 0; i -= 1) {
+      const experience = detectSearchExperience(clientTurns[i].text);
+      if (!experience) continue;
+      expStatus = 'confirmed';
+      expValue = experience.value;
+      expReason = 'Опыт выбора и взаимодействия с рынком зафиксирован по смыслу высказывания клиента.';
+      expEvidenceQuote = experience.evidenceQuote;
+      expEvidenceTurnId = clientTurns[i].id;
+      break;
+    }
   }
 
   metrics['experience'] = {
@@ -1265,8 +1414,10 @@ export function evaluateFirstCallScript(
     status: expStatus,
     isCoreCriteria: true,
     value: expValue,
+    evidenceQuote: expEvidenceQuote || undefined,
+    evidenceTurnId: expEvidenceTurnId || undefined,
     semanticReason: expReason || (expStatus === 'confirmed' ? 'Опыт выбора озвучен' : 'Опыт выбора не выяснен'),
-    confidence: expStatus === 'confirmed' ? 0.9 : 0.5,
+    confidence: expStatus === 'confirmed' ? 0.92 : 0.5,
     agentQuestionAsked: Boolean(agentAskedMetricMap['experience']),
     agentQuestionQuote: agentAskedMetricMap['experience']?.quote || null,
   };
@@ -1280,8 +1431,13 @@ export function evaluateFirstCallScript(
   let urgReason: string | null = null;
   let urgNeedsClarification = false;
 
-  if (purchaseDependency) {
-    // Spec rule: do NOT turn asset sale condition into exact purchase timeline!
+  if (urgValue && isConcreteTimeline(urgValue)) {
+    // A client-confirmed calendar deadline (for example “до декабря”) wins over a vague dependency.
+    urgStatus = 'confirmed';
+    urgReason = `Конкретный срок подтверждён: ${urgValue}`;
+    urgNeedsClarification = false;
+  } else if (purchaseDependency) {
+    // A sale condition is not an exact deadline unless the client also named one.
     urgStatus = 'needs_clarification';
     urgValue = 'Срок обусловлен продажей текущего жилья (точная дата не определена)';
     urgReason = 'Срок покупки привязан к завершению продажи текущей недвижимости. Требуется уточнить стадию продажи.';
@@ -1290,9 +1446,6 @@ export function evaluateFirstCallScript(
     urgStatus = 'confirmed';
     urgValue = 'Быстрая готовность к сделке при нахождении целевого варианта';
     urgReason = 'Клиент подтвердил готовность к оперативной сделке при наличии подходящего объекта.';
-  } else if (urgValue && isConcreteTimeline(urgValue)) {
-    urgStatus = 'confirmed';
-    urgReason = `Конкретный срок подтверждён: ${urgValue}`;
   } else if (urgValue) {
     urgStatus = 'partially_confirmed';
     urgReason = `Срок назван в ориентировочном формате: ${urgValue}`;
@@ -1330,10 +1483,13 @@ export function evaluateFirstCallScript(
     dmStatus = 'confirmed';
     dmValue = 'Разделение ролей: выбор за клиентом, финансирование за супругом';
     dmReason = 'Роли в сделке чётко распределены: пользователь и плательщик определены.';
-  } else if (hasAnyPhrase(allClientText, ['с мужем', 'с женой', 'с супругом', 'с супругой', 'решаем вместе', 'с семьей', 'с семьёй', 'вместе с мужем', 'вместе с женой'])) {
+  } else if (
+    hasAnyPhrase(allClientText, ['решаем вместе', 'обсудим с мужем', 'обсудим с женой', 'обсудим с супругом', 'обсудим с супругой', 'обсудим с семьей', 'обсудим с семьёй', 'посоветуюсь с мужем', 'посоветуюсь с женой', 'посоветуюсь с семьей', 'посоветуюсь с семьёй', 'согласую с мужем', 'согласую с женой']) ||
+    /(?:муж|жена|супруг(?:а)?)[^.!?]{0,25}(?:тоже\s+)?(?:решает|участвует\s+в\s+решении)/iu.test(allClientText)
+  ) {
     dmStatus = 'confirmed';
     dmValue = 'Совместное решение с семьёй / супругом';
-    dmReason = 'Подтверждено участие членов семьи в принятии решения.';
+    dmReason = 'Клиент прямо подтвердил участие другого человека в принятии решения.';
   } else if (hasAnyPhrase(allClientText, ['сам принимаю', 'сама принимаю', 'сам решаю', 'сама решаю', 'один выбираю', 'одна выбираю', 'решаю сам', 'решаю сама'])) {
     dmStatus = 'confirmed';
     dmValue = 'Принимает решение единолично (самостоятельный ЛПР)';
@@ -1362,15 +1518,25 @@ export function evaluateFirstCallScript(
   // -------------------------------------------------------------
   let objStatus: MetricStatus = 'not_applicable';
   const objCount = state.objections?.items?.length || 0;
-  if (objCount > 0) {
-    objStatus = 'confirmed';
-  } else if (
+  const objectionExists =
+    objCount > 0 ||
     allClientText.includes('дорого') ||
     allClientText.includes('надо подумать') ||
     allClientText.includes('пришлите фото') ||
-    allClientText.includes('скиньте информацию')
-  ) {
-    objStatus = 'confirmed';
+    allClientText.includes('скиньте информацию');
+  const objectionActuallyHandled = state.lastAgentAction === 'handled_objection';
+
+  if (objectionExists) {
+    // Presence, diagnosis, deferral and branch blocking are NOT the same as a
+    // resolved objection. Only a real resolved/handled lifecycle closes it.
+    if (state.activeObjection) {
+      const lifecycle = state.activeObjection.status;
+      if (lifecycle === 'resolved' || lifecycle === 'handled') objStatus = 'confirmed';
+      else if (lifecycle === 'detected' || lifecycle === 'diagnosing') objStatus = 'needs_clarification';
+      else objStatus = 'partially_confirmed';
+    } else {
+      objStatus = objectionActuallyHandled ? 'confirmed' : 'partially_confirmed';
+    }
   }
 
   metrics['objections'] = {
@@ -1380,8 +1546,14 @@ export function evaluateFirstCallScript(
     category: 'qualification',
     status: objStatus,
     isCoreCriteria: false,
-    value: state.objections?.value || (objStatus === 'confirmed' ? 'Зафиксированы и изолированы сомнения клиента' : 'Возражений пока не зафиксировано'),
-    semanticReason: objStatus === 'confirmed' ? 'Возражения клиента зафиксированы и обрабатываются' : 'Возражений со стороны клиента не поступало',
+    value: state.objections?.value || (objStatus === 'confirmed' ? 'Возражение отработано' : objectionExists ? 'Есть возражение — отработка не завершена' : 'Возражений пока не зафиксировано'),
+    semanticReason: objStatus === 'confirmed'
+      ? 'Возражение отработано и снятие подтверждено последующей реакцией клиента'
+      : objectionExists
+      ? state.activeObjection?.status === 'blocked' || state.activeObjection?.status === 'deferred'
+        ? 'Возражение/граница клиента зафиксирована и уважена, но не считается снятым возражением'
+        : 'Возражение клиента зафиксировано, но факт снятия не подтверждён'
+      : 'Возражений со стороны клиента не поступало',
     confidence: 0.9,
     agentQuestionAsked: Boolean(agentAskedMetricMap['objections']),
     agentQuestionQuote: agentAskedMetricMap['objections']?.quote || null,
@@ -1412,8 +1584,46 @@ export function evaluateFirstCallScript(
     allAgentText.includes('ипотечного брокера') ||
     allAgentText.includes('кредитного специалиста');
 
-  const ppiStatus: MetricStatus =
-    explainedOpportunities.length >= 3 && specialistOffered
+  let ppiClientAgreed = false;
+  for (let i = 1; i < turns.length; i += 1) {
+    const clientTurn = turns[i];
+    const priorTurn = turns[i - 1];
+    if (clientTurn.speaker !== 'client' || priorTurn.speaker !== 'agent') continue;
+    const prior = priorTurn.text.toLowerCase();
+    const answer = clientTurn.text.toLowerCase();
+    const offeredConsultation =
+      prior.includes('ипотечного специалиста') ||
+      prior.includes('ипотечного брокера') ||
+      prior.includes('кредитного специалиста') ||
+      prior.includes('ипотечную консультац');
+    const accepted =
+      hasAnyWholeWord(answer.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'«»]/g, '').trim(), ['да', 'ок', 'окей']) ||
+      hasAnyPhrase(answer, ['давайте', 'согласен', 'согласна', 'подходит', 'хорошо']);
+    const rejected = hasAnyPhrase(answer, ['не надо', 'не нужно', 'не интересно', 'не хочу', 'не требуется']);
+    if (offeredConsultation && accepted && !rejected) ppiClientAgreed = true;
+  }
+
+  const unresolvedResistance = (target: 'ppi' | 'ppv') => {
+    const branch = state.dialogueControl?.nextStepResistanceHistory?.[target];
+    return state.dialogueControl?.blockedNextSteps?.includes(target) || (branch && branch.status !== 'handled');
+  };
+  if (unresolvedResistance('ppi')) ppiClientAgreed = false;
+  // PPI is primarily a conversion metric: if the client explicitly agreed to a
+  // consultation with the mortgage specialist, the step is completed.
+  // Product/program education is useful quality context, but must not erase an
+  // already agreed specialist call.
+  const brokerStepConfirmed = Boolean(
+    state.confirmedFacts?.some((fact: any) =>
+      fact.lifecycleStatus !== 'superseded' &&
+      (fact.category === 'next_step_broker' || fact.field === 'next_step_broker') &&
+      fact.status === 'confirmed'
+    )
+  );
+  if (brokerStepConfirmed) ppiClientAgreed = true;
+  const ppiNotApplicable = mortgageNegationInClientText && !mortgageExplicitIntent;
+  const ppiStatus: MetricStatus = ppiNotApplicable
+    ? 'not_applicable'
+    : !unresolvedResistance('ppi') && specialistOffered && ppiClientAgreed
       ? 'confirmed'
       : explainedOpportunities.length > 0 || specialistOffered
       ? 'partially_confirmed'
@@ -1435,13 +1645,19 @@ export function evaluateFirstCallScript(
     status: ppiStatus,
     isCoreCriteria: false,
     value:
-      ppiStatus === 'confirmed'
-        ? `Раскрыто ${explainedOpportunities.length}/4 программ, предложен специалист`
+      ppiStatus === 'not_applicable'
+        ? 'Ипотека клиентом исключена — ППИ не требуется'
+        : ppiStatus === 'confirmed'
+        ? `Ипотечная консультация согласована${explainedOpportunities.length ? `; раскрыто возможностей: ${explainedOpportunities.length}` : ''}`
         : 'Не завершено',
     semanticReason:
-      ppiStatus === 'confirmed'
-        ? 'ППИ успешно проведена: раскрыты кредитные программы и предложен эксперт'
-        : 'Требуется раскрыть 3 ипотечные программы и предложить расчёт у брокера',
+      ppiStatus === 'not_applicable'
+        ? 'Клиент прямо отказался от ипотеки. Не возвращаем ипотечную ветку без нового сигнала клиента.'
+        : ppiStatus === 'confirmed'
+        ? 'ППИ выполнено: клиент явно согласился на консультацию ипотечного специалиста; раскрытие программ учитывается отдельно как качество презентации'
+        : specialistOffered && !ppiClientAgreed
+        ? 'Консультация предложена, но клиент её не согласовал'
+        : 'Требуется раскрыть ипотечные возможности только если ипотека актуальна клиенту',
     confidence: ppiStatus === 'confirmed' ? 0.9 : 0.5,
     agentQuestionAsked: Boolean(agentAskedMetricMap['ppi']),
     agentQuestionQuote: agentAskedMetricMap['ppi']?.quote || null,
@@ -1451,6 +1667,7 @@ export function evaluateFirstCallScript(
   // METRIC 18: PPV (Вывод на видеопрезентацию) - MANDATORY CORE #2
   // Must have: tied to need, value explained, specialist connected, concrete slot, client agreed
   // -------------------------------------------------------------
+  const canonicalNextStepText = `${state.agreedNextStep?.value || ''} ${state.nextStepAgreement?.action || ''} ${state.nextStepAgreement?.timeOrDeadline || ''}`.toLowerCase();
   const concreteTimeProposed =
     allAgentText.includes('в 18:00') ||
     allAgentText.includes('в 12:00') ||
@@ -1458,12 +1675,11 @@ export function evaluateFirstCallScript(
     allAgentText.includes('завтра в') ||
     allAgentText.includes('завтра утром') ||
     allAgentText.includes('после шести') ||
-    /\d{1,2}[:.]\d{2}/.test(allAgentText);
+    /\d{1,2}[:.]\d{2}/.test(allAgentText) ||
+    /\d{1,2}[:.]\d{2}/.test(canonicalNextStepText);
 
   const developerSpecialistConnected =
-    allAgentText.includes('специалиста застройщика') ||
-    allAgentText.includes('эксперта застройщика') ||
-    allAgentText.includes('представителя застройщика');
+    /(?:специалист|эксперт|представител)\p{L}*(?:\s*[-—]\s*|\s+)застройщик\p{L}*/iu.test(allAgentText);
 
   const valueExplained =
     allAgentText.includes('видеопоказ') ||
@@ -1474,11 +1690,13 @@ export function evaluateFirstCallScript(
 
   const tiedToClientNeed = goalStatus === 'confirmed' || critStatus === 'confirmed';
 
+  const canonicalPpvAgreement =
+    ((state.nextStepAgreement?.status === 'agreed' || state.nextStepAgreement?.status === 'done') &&
+      /видео|показ|встреч|созвон/iu.test(state.nextStepAgreement?.action || '')) ||
+    Boolean(state.agreedNextStep?.value && /видео|показ/iu.test(state.agreedNextStep.value));
+
   let clientAgreed = false;
-  if (
-    state.agreedNextStep?.value &&
-    (state.agreedNextStep.value.toLowerCase().includes('видео') || state.agreedNextStep.value.toLowerCase().includes('показ'))
-  ) {
+  if (canonicalPpvAgreement) {
     clientAgreed = true;
   } else {
     const lastText = lastClientTurn?.text?.toLowerCase() || '';
@@ -1511,7 +1729,15 @@ export function evaluateFirstCallScript(
     }
   }
 
-  const ppvConfirmed = tiedToClientNeed && valueExplained && developerSpecialistConnected && concreteTimeProposed && clientAgreed;
+  if (unresolvedResistance('ppv') || state.dialogueControl?.rejectedBranches?.includes('видеоформат')) clientAgreed = false;
+  // The first-call PPV criterion is agreement to a concrete videopresentation,
+  // not the fact that the developer specialist has already joined the current
+  // call. If the canonical next-step contract already contains an agreed video
+  // slot, that contract is the source of truth and must not be downgraded by a
+  // later unrelated client turn.
+  const canonicalScheduledPpv = canonicalPpvAgreement && concreteTimeProposed;
+  const ppvConfirmed = !unresolvedResistance('ppv') && tiedToClientNeed && valueExplained && clientAgreed &&
+    (canonicalScheduledPpv || (developerSpecialistConnected && concreteTimeProposed));
   const ppvStatus: MetricStatus = ppvConfirmed
     ? 'confirmed'
     : valueExplained || concreteTimeProposed
@@ -1524,6 +1750,8 @@ export function evaluateFirstCallScript(
     valueExplained,
     developerSpecialistConnected,
     concreteTimeProposed,
+    concreteTimeValue: state.nextStepAgreement?.timeOrDeadline ||
+      (state.agreedNextStep?.value?.match(/(?:сегодня|завтра|послезавтра)?\s*в\s*\d{1,2}:\d{2}/iu)?.[0] || null),
     clientAgreed,
   };
 
@@ -1534,7 +1762,9 @@ export function evaluateFirstCallScript(
     category: 'conversion',
     status: ppvStatus,
     isCoreCriteria: true,
-    value: ppvConfirmed ? 'Согласован видеопоказ со специалистом застройщика' : 'Не согласован',
+    value: ppvConfirmed
+      ? `Согласован видеопоказ${state.nextStepAgreement?.timeOrDeadline ? ` — ${state.nextStepAgreement.timeOrDeadline}` : ''}`
+      : 'Не согласован',
     semanticReason:
       ppvStatus === 'confirmed'
         ? 'Обязательный критерий ППВ выполнен: согласован видеопоказ на экране с экспертом застройщика в конкретный слот'
@@ -1585,11 +1815,22 @@ export function evaluateFirstCallScript(
     immediatePriorityMetric = 'objections';
     immediatePriorityHint = 'Признать сомнение клиента, изолировать причину и предложить пользу видеопоказа';
     nextScriptStep = 'Отработка возражения';
-  } else if (state.spin?.currentStage === 'PROBLEM' && state.spin.problem.length === 0) {
+  } else if (
+    state.spin?.currentStage === 'PROBLEM' &&
+    state.spin.problem.length === 0 &&
+    clientSubstantiveTurns >= 3 &&
+    isMetricClosed(metrics['goal'].status) &&
+    isMetricClosed(metrics['propertyType'].status)
+  ) {
     immediatePriorityMetric = 'criteria';
-    immediatePriorityHint = 'Углубить проблему и скрытые риски текущего опыта поиска';
+    immediatePriorityHint = state.spin?.researchMode ? 'Уточнить риск будущего выбора по критериям клиента' : 'Углубить проблему и скрытые риски текущего опыта поиска';
     nextScriptStep = 'SPIN: Проблема';
-  } else if (state.spin?.currentStage === 'IMPLICATION' && state.spin.implication.length === 0) {
+  } else if (
+    state.spin?.currentStage === 'IMPLICATION' &&
+    state.spin.implication.length === 0 &&
+    clientSubstantiveTurns >= 3 &&
+    isMetricClosed(metrics['goal'].status)
+  ) {
     immediatePriorityMetric = 'criteria';
     immediatePriorityHint = 'Показать последствия проблемы: потери времени, упущенная выгода или риски';
     nextScriptStep = 'SPIN: Последствия';
@@ -1629,11 +1870,11 @@ export function evaluateFirstCallScript(
     immediatePriorityMetric = 'decisionMaker';
     immediatePriorityHint = 'Кто ещё участвует в выборе и распоряжается бюджетом';
     nextScriptStep = 'Проверка ЛПР';
-  } else if (!isMetricClosed(metrics['ppi'].status) && metrics['paymentMethod'].value?.toLowerCase().includes('ипотек')) {
+  } else if (!state.dialogueControl?.blockedNextSteps?.includes('ppi') && !isMetricClosed(metrics['ppi'].status) && metrics['paymentMethod'].value?.toLowerCase().includes('ипотек')) {
     immediatePriorityMetric = 'ppi';
-    immediatePriorityHint = 'Озвучить 3 возможности и предложить эксперта по ипотеке';
+    immediatePriorityHint = 'Выяснить задачу по ипотеке и предложить короткую консультацию специалиста без давления';
     nextScriptStep = 'ППИ';
-  } else if (!isMetricClosed(metrics['ppv'].status)) {
+  } else if (!state.dialogueControl?.blockedNextSteps?.includes('ppv') && !isMetricClosed(metrics['ppv'].status)) {
     immediatePriorityMetric = 'ppv';
     immediatePriorityHint = 'Предложить 15-минутный онлайн-показ со специалистом застройщика на выбор: сегодня или завтра';
     nextScriptStep = 'Вывод на видеопоказ (ППВ)';
@@ -1641,6 +1882,12 @@ export function evaluateFirstCallScript(
     immediatePriorityMetric = 'ppv';
     immediatePriorityHint = 'Подтвердить дату, время и отправку ссылки в мессенджер';
     nextScriptStep = 'Фиксация договорённости';
+  }
+
+  if (state.dialogueControl?.blockedNextSteps?.includes(immediatePriorityMetric)) {
+    immediatePriorityMetric = 'criteria';
+    immediatePriorityHint = 'Сузить выбор до 2–3 объектов по критериям клиента';
+    nextScriptStep = 'Подбор вариантов';
   }
 
   // 6. Route Stage
@@ -1657,9 +1904,9 @@ export function evaluateFirstCallScript(
     routeStage = 'lpr_check';
   } else if (state.objections?.items && state.objections.items.length > 0) {
     routeStage = 'objections';
-  } else if (!isMetricClosed(metrics['ppi'].status) && metrics['paymentMethod'].value?.toLowerCase().includes('ипотек')) {
+  } else if (!state.dialogueControl?.blockedNextSteps?.includes('ppi') && !isMetricClosed(metrics['ppi'].status) && metrics['paymentMethod'].value?.toLowerCase().includes('ипотек')) {
     routeStage = 'ppi';
-  } else if (!isMetricClosed(metrics['ppv'].status)) {
+  } else if (!state.dialogueControl?.blockedNextSteps?.includes('ppv') && !isMetricClosed(metrics['ppv'].status)) {
     routeStage = 'ppv';
   } else {
     routeStage = 'next_step';
@@ -1695,7 +1942,8 @@ export function evaluateFirstCallScript(
 export function getFirstCallSuggestion(
   progress: FirstCallScriptProgress,
   lastClientTurn: TranscriptTurn | undefined,
-  state: ConversationState
+  state: ConversationState,
+  turns: TranscriptTurn[] = []
 ): {
   closesMetric: string;
   closesMetricLabel: string;
@@ -1706,6 +1954,23 @@ export function getFirstCallSuggestion(
   expectedClientMeaning: string;
 } | null {
   const lastClientText = lastClientTurn?.text?.toLowerCase() || '';
+
+  // Contextual dopamine/personal question from the uploaded sales playbook.
+  // It is used only when Trust is still open and there is no active objection.
+  const dopamine = lastClientTurn
+    ? getContextualDopamineQuestion(state, turns, lastClientTurn.text)
+    : null;
+  if (dopamine && progress.trust?.openPersonalQuestionsCount < 2 && turns.filter(t => t.speaker === 'client').length >= 6) {
+    return {
+      closesMetric: 'trust',
+      closesMetricLabel: 'Доверие',
+      immediatePriority: 'Укрепление доверия через естественный вопрос из контекста клиента',
+      suggestedReply: dopamine.text,
+      shortReason: dopamine.reason,
+      recognizedMeaning: 'Контекст позволяет задать личный вопрос без разрыва логики разговора.',
+      expectedClientMeaning: 'Клиент раскрывает личный контекст, который помогает точнее подобрать сценарий и укрепляет доверие.',
+    };
+  }
 
   const candidates: Array<{
     closesMetric: string;
@@ -1804,6 +2069,7 @@ export function getFirstCallSuggestion(
   ];
 
   for (const c of candidates) {
+    if (state.dialogueControl?.blockedNextSteps?.includes(c.closesMetric)) continue;
     if (c.condition()) {
       // Validate with Semantic Anti-Repeat
       const check = checkSemanticAntiRepeat(
@@ -1824,113 +2090,5 @@ export function getFirstCallSuggestion(
     }
   }
 
-  // Liveness fallback: the prompter must never go silent after a substantive client turn.
-  // These are deterministic, low-latency next actions selected from the first-call metric
-  // that is actually open. Gemini can later enrich the state, but is not required to
-  // produce a usable line for the agent.
-  const priority = progress.quality?.immediatePriorityMetric || 'goal';
-  const generic: Record<string, {
-    label: string;
-    priority: string;
-    reply: string;
-    reason: string;
-    expected: string;
-  }> = {
-    goal: {
-      label: 'Цель покупки',
-      priority: 'Следующий приоритет: понять реальную задачу клиента',
-      reply: lastClientText.includes('деньг') || lastClientText.includes('влож')
-        ? 'Правильно понимаю, вы хотите, чтобы деньги не лежали без дела, но объект при этом был полезен и для вас лично? Что сейчас важнее — доход, сохранение капитала или возможность самому приезжать?'
-        : 'Если отбросить конкретные ЖК, что вы хотите получить от этой покупки в первую очередь — отдых, проживание, доход или сохранение капитала?',
-      reason: 'Цель ещё не подтверждена. Уточняем результат покупки по смыслу последней реплики.',
-      expected: 'Клиент формулирует основной сценарий и приоритет покупки.',
-    },
-    propertyType: {
-      label: 'Тип недвижимости',
-      priority: 'Следующий приоритет: уточнить подходящий формат',
-      reply: 'По формату для вас принципиальна именно квартира, или апартаменты тоже готовы рассматривать, если экономика и локация сильнее?',
-      reason: 'Формат объекта ещё не подтверждён.',
-      expected: 'Клиент обозначает допустимые типы недвижимости.',
-    },
-    location: {
-      label: 'Город или локация',
-      priority: 'Следующий приоритет: сузить географию',
-      reply: 'По локации что для вас важнее всего: море, инфраструктура, тишина, центр или инвестиционная ликвидность?',
-      reason: 'Локация или её критерии ещё не подтверждены.',
-      expected: 'Клиент обозначает приоритет локации.',
-    },
-    trust: {
-      label: 'Доверие',
-      priority: 'Следующий приоритет: добавить личный контекст',
-      reply: 'А когда сами приезжаете на юг, какой формат отдыха вам обычно действительно нравится?',
-      reason: 'Нужен естественный личный вопрос без ухода в анкетирование.',
-      expected: 'Клиент раскрывает личный контекст использования недвижимости.',
-    },
-    criteria: {
-      label: 'Важные критерии',
-      priority: 'Следующий приоритет: зафиксировать критерии сравнения',
-      reply: 'Какие два-три критерия для вас будут решающими, чтобы сразу отсечь лишние варианты?',
-      reason: 'Критерии выбора ещё не зафиксированы.',
-      expected: 'Клиент называет конкретные критерии сравнения.',
-    },
-    downPayment: {
-      label: 'Первоначальный взнос',
-      priority: 'Следующий приоритет: понять доступный объём собственных средств',
-      reply: 'Какую часть суммы комфортно задействовать сразу, а какую лучше оставить в рассрочке или другом инструменте?',
-      reason: 'Размер собственных средств для сделки ещё не подтверждён.',
-      expected: 'Клиент обозначает доступный объём средств.',
-    },
-    downPaymentSource: {
-      label: 'Источник первоначального взноса',
-      priority: 'Следующий приоритет: подтвердить источник средств',
-      reply: 'Эти средства уже свободны и доступны сейчас или зависят от продажи другого актива?',
-      reason: 'Источник средств ещё не подтверждён.',
-      expected: 'Клиент подтверждает наличие средств или зависимость от продажи.',
-    },
-    paymentMethod: {
-      label: 'Способ покупки',
-      priority: 'Следующий приоритет: определить способ оплаты',
-      reply: 'Как удобнее рассматривать покупку: своими средствами, рассрочкой от застройщика или допускаете ипотеку?',
-      reason: 'Способ покупки ещё не подтверждён.',
-      expected: 'Клиент выбирает допустимый способ оплаты.',
-    },
-    budget: {
-      label: 'Бюджет',
-      priority: 'Следующий приоритет: зафиксировать рабочий диапазон бюджета',
-      reply: 'Какой бюджет для вас комфортный, а какой максимум готовы рассматривать только за действительно сильный вариант?',
-      reason: 'Нужен не один порог, а рабочий и stretch-диапазон бюджета.',
-      expected: 'Клиент называет основной и максимальный бюджет.',
-    },
-    decisionMaker: {
-      label: 'Лицо, принимающее решение (ЛПР)',
-      priority: 'Следующий приоритет: понять участников решения',
-      reply: 'Решение по покупке принимаете сами или ещё кто-то будет участвовать в сравнении вариантов?',
-      reason: 'Участники решения ещё не подтверждены.',
-      expected: 'Клиент обозначает, кто участвует в принятии решения.',
-    },
-    objections: {
-      label: 'Отработка возражений',
-      priority: 'Следующий приоритет: прояснить последнее сомнение',
-      reply: 'Понял. Что именно сейчас больше всего мешает двигаться дальше — цена, сам рынок, формат объекта или недоверие к расчётам?',
-      reason: 'Есть незакрытое сомнение; сначала изолируем реальную причину.',
-      expected: 'Клиент называет корневую причину сомнения.',
-    },
-    ppv: {
-      label: 'ППВ (вывод на видеопрезентацию)',
-      priority: 'Следующий приоритет: согласовать короткий видеопоказ',
-      reply: 'Чтобы не отправлять вам ещё одну пачку материалов, давайте за 15 минут сравним два-три варианта на экране. Сегодня вечером или завтра удобнее?',
-      reason: 'Следующий целевой шаг — короткий видеопоказ вместо бесконечных подборок.',
-      expected: 'Клиент выбирает удобный слот или называет причину отказа.',
-    },
-  };
-
-  const fallback = generic[priority] || generic.goal;
-  return {
-    closesMetric: priority,
-    closesMetricLabel: fallback.label,
-    immediatePriority: fallback.priority,
-    suggestedReply: fallback.reply,
-    shortReason: fallback.reason,
-    expectedClientMeaning: fallback.expected,
-  };
+  return null;
 }

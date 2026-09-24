@@ -130,8 +130,6 @@ export const SuggestionCard: React.FC<SuggestionCardProps> = ({
 
   const canShowSuggestion =
     isCallRunning && !isPaused && !isCompleted && shouldSuggest && Boolean(suggestion?.text);
-  const actionBadge = getActionTypeBadge(suggestion?.actionType);
-  const modeBadge = getSuggestionModeBadge(suggestion?.suggestionMode);
 
   // Compact Waiting State (Height <= 54px)
   if (!canShowSuggestion || !suggestion?.text) {
@@ -158,13 +156,13 @@ export const SuggestionCard: React.FC<SuggestionCardProps> = ({
               : isAgentSpeaking
               ? 'Андрей говорит...'
               : isCallRunning
-              ? 'Ожидаю содержательную реплику клиента'
+              ? 'Суфлёр готов'
               : 'Звонок не начат'}
           </span>
           <span className="hidden sm:inline text-stone-300">•</span>
           <span className="hidden sm:inline text-stone-500 text-xs">
             {isCallRunning
-              ? 'Суфлёр слушает диалог и подскажет следующий шаг'
+              ? 'Следующая подсказка появится после смысловой реплики клиента'
               : 'Нажмите «Начать звонок» в верхней панели'}
           </span>
         </div>
@@ -194,35 +192,6 @@ export const SuggestionCard: React.FC<SuggestionCardProps> = ({
             Следующая реплика суфлёра
           </span>
 
-          {modeBadge && (
-            <span className={`px-2 py-0.2 rounded text-[11px] font-semibold border ${modeBadge.class}`}>
-              {modeBadge.label}
-            </span>
-          )}
-
-          {suggestion.closesMetricLabel && (
-            <span className="px-2 py-0.2 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-900 border border-emerald-300 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
-              <span>{suggestion.closesMetricLabel}</span>
-            </span>
-          )}
-
-          {actionBadge && (
-            <span className={`px-2 py-0.2 rounded text-[11px] font-semibold border ${actionBadge.class}`}>
-              {actionBadge.label}
-            </span>
-          )}
-
-          {suggestion.candidateRuleId && (
-            <span
-              className={`px-2 py-0.2 rounded text-[11px] font-semibold border ${getRuleBadgeColor(
-                suggestion.candidateRuleId
-              )}`}
-              title={activeRule ? activeRule.title : undefined}
-            >
-              {suggestion.candidateRuleId}
-            </span>
-          )}
         </div>
 
         {/* State Badges (Locked, Refining) */}
@@ -289,12 +258,6 @@ export const SuggestionCard: React.FC<SuggestionCardProps> = ({
         >
           «{suggestion.text}»
         </p>
-        {suggestion.expectedClientMeaning && (
-          <div className="mt-1.5 pt-1 border-t border-teal-100/60 text-[11px] text-teal-900/80 flex items-baseline gap-1">
-            <span className="font-semibold text-teal-950">Ожидаемый ответ:</span>
-            <span className="italic">{suggestion.expectedClientMeaning}</span>
-          </div>
-        )}
       </div>
 
       {/* Action Bar (Buttons: min-h 36px) */}

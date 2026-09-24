@@ -1,4 +1,5 @@
 import { SalesRule, SuggestedReply, CallStage, ConversationState } from '../types';
+import { isSuggestionAllowedByState } from './suggestionLifecycle';
 import { ANDREI_OS_RULES } from './andreiRules';
 
 export const DEFAULT_RULES: SalesRule[] = ANDREI_OS_RULES;
@@ -194,7 +195,12 @@ export class SalesDecisionEngine {
   /**
    * Fallback reply generator when offline or API timeout occurs
    */
-  public generateFallbackReply(
+  public generateFallbackReply(ruleId: string | null, stage: CallStage, state: ConversationState, evidenceTurnId: string, revision: number, sessionId: string): SuggestedReply | null {
+    const result = this.generateUncheckedFallbackReply(ruleId, stage, state, evidenceTurnId, revision, sessionId);
+    return result && isSuggestionAllowedByState(result, state, revision) ? result : null;
+  }
+
+  private generateUncheckedFallbackReply(
     ruleId: string | null,
     stage: CallStage,
     state: ConversationState,

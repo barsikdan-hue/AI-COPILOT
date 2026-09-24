@@ -17,6 +17,8 @@ export type RealEstatePainCategory =
   | 'security_risks'
   | 'yield_rental'
   | 'space_crowded'
+  | 'comparison_overload'
+  | 'market_uncertainty'
   | 'general';
 
 export function detectRealEstatePainCategory(text: string): RealEstatePainCategory {
@@ -85,7 +87,82 @@ export function detectRealEstatePainCategory(text: string): RealEstatePainCatego
   ) {
     return 'space_crowded';
   }
+
+  if (
+    lower.includes('запутал') ||
+    lower.includes('кучу вариантов') ||
+    lower.includes('много вариантов') ||
+    lower.includes('20 объектов') ||
+    lower.includes('20 презентац') ||
+    lower.includes('не понимаю, чем') ||
+    lower.includes('не понимаю чем') ||
+    lower.includes('каждый агент') ||
+    lower.includes('все самое лучшее') ||
+    lower.includes('всё самое лучшее')
+  ) {
+    return 'comparison_overload';
+  }
+  if (
+    lower.includes('рынок остын') ||
+    lower.includes('цены упад') ||
+    lower.includes('есть смысл переплачивать') ||
+    lower.includes('подождать год') ||
+    lower.includes('рынок непонят')
+  ) {
+    return 'market_uncertainty';
+  }
   return 'general';
+}
+
+
+/**
+ * Contextual manual SPIN hint for the UI stepper. The stage is fixed by the
+ * agent, but the wording is derived from the conversation state so clicking a
+ * SPIN stage does not keep replaying the same canned question.
+ */
+export function getContextualSpinQuestion(
+  stage: 'SITUATION' | 'PROBLEM' | 'IMPLICATION' | 'NEED_PAYOFF',
+  state: ConversationState
+): string {
+  const lastSituation = state.spin?.situation?.[state.spin.situation.length - 1]?.evidenceQuote || '';
+  const lastProblem = state.spin?.problem?.[state.spin.problem.length - 1]?.evidenceQuote || '';
+  const lastImplication = state.spin?.implication?.[state.spin.implication.length - 1]?.evidenceQuote || '';
+  const lastEvidence = state.spin?.lastClientEvidence || lastProblem || lastSituation || '';
+  const pain = detectRealEstatePainCategory(lastProblem || lastEvidence);
+  const hasExperience = Boolean((state as any).searchExperience?.value);
+  const hasCriteria = Boolean(state.criteria?.items?.length || state.criteria?.value);
+
+  if (stage === 'SITUATION') {
+    if (!hasExperience) return 'Что уже успели посмотреть или с кем уже общались по рынку, и что из этого было полезно?';
+    if (!hasCriteria) return 'Из всего, что уже видели, какие два-три параметра для вас реально определяют выбор?';
+    if (!state.goal?.value && !state.primaryGoal?.value) return 'Если убрать сами объекты, какую задачу эта покупка должна решить для вас в первую очередь?';
+    return 'Что в вашей текущей ситуации важно учесть, чтобы я не предлагал лишнее?';
+  }
+
+  if (stage === 'PROBLEM') {
+    if (pain === 'comparison_overload') return 'Из того, что уже присылали, что больше всего мешало нормально сравнить варианты — слишком большой выбор, отсутствие цифр или непонятные отличия?';
+    if (pain === 'market_uncertainty') return 'Что именно сейчас заставляет сомневаться в покупке — текущая цена, ожидание снижения рынка или отсутствие понятного ориентира?';
+    if (pain === 'yield_rental') return 'Что в доходности вызывает больше вопросов — реальная загрузка, чистый доход после расходов или рост стоимости самого объекта?';
+    if (pain === 'security_risks') return 'Какого риска в такой покупке вы больше всего хотите избежать?';
+    if (pain === 'traffic_logistics') return 'Что в локации или логистике сейчас создаёт для вас наибольшее неудобство?';
+    return 'Что из того, что вы уже увидели на рынке, вас пока не устраивает больше всего?';
+  }
+
+  if (stage === 'IMPLICATION') {
+    if (pain === 'comparison_overload') return 'И в итоге из-за такого количества вариантов решение просто откладывается или есть риск выбрать по случайному признаку?';
+    if (pain === 'market_uncertainty') return 'Если просто ждать снижения без понятного ориентира, как вы поймёте, что момент для решения уже наступил?';
+    if (pain === 'yield_rental') return 'Если фактическая доходность окажется ниже ожиданий, что для вас тогда теряет смысл в этой покупке?';
+    if (pain === 'security_risks') return 'Если этот риск не снять заранее, как он повлияет на готовность принимать решение?';
+    if (lastProblem) return `Если вопрос «${lastProblem.slice(0, 90)}${lastProblem.length > 90 ? '…' : ''}» останется нерешённым, к чему это приведёт для вас?`;
+    return 'Если оставить эту ситуацию как есть, что вы в итоге теряете — время, деньги или уверенность в решении?';
+  }
+
+  if (pain === 'comparison_overload') return 'Если оставить только 2–3 варианта и показать их различия по вашим критериям в одном сравнении, этого будет достаточно, чтобы спокойно принимать решение?';
+  if (pain === 'market_uncertainty') return 'Если показать два сценария — купить сейчас и подождать — с одинаковыми допущениями и цифрами, это поможет понять, какой путь для вас разумнее?';
+  if (pain === 'yield_rental') return 'Если расчёт покажет чистый денежный поток, рост стоимости и риски в одной модели, какой результат будет для вас достаточным, чтобы проект имел смысл?';
+  if (pain === 'security_risks') return 'Если мы заранее проверим документы и снимем именно этот риск фактами, что это изменит в вашем решении?';
+  if (lastImplication) return 'Если убрать именно это последствие, какой результат для вас будет признаком, что решение действительно правильное?';
+  return 'Если эту проблему решить, что для вас изменится в первую очередь?';
 }
 
 export function createInitialSpinState(): SpinState {
@@ -109,13 +186,15 @@ export function createInitialSpinState(): SpinState {
  */
 export function classifyAgentAction(text: string): AgentActionType {
   const lower = text.toLowerCase().trim();
+  const isQuestion = text.includes('?') || /^(?:а\s+)?(?:что|как|кто|когда|какой|какая|какие|почему|зачем|насколько|если)/iu.test(lower);
 
   // Резюмирование
   if (
     lower.startsWith('итак') ||
     lower.includes('резюмирую') ||
     lower.includes('давайте зафиксируем') ||
-    lower.includes('правильно я понимаю')
+    lower.includes('правильно я понимаю') ||
+    lower.includes('правильно понимаю')
   ) {
     return 'summarized';
   }
@@ -123,26 +202,119 @@ export function classifyAgentAction(text: string): AgentActionType {
   // Следующий шаг
   if (
     lower.includes('видеовстреч') ||
-    lower.includes('показ') ||
+    lower.includes('видеопоказ') ||
     lower.includes('встретимся') ||
     lower.includes('созвонимся') ||
+    lower.includes('подключим') && lower.includes('брокер') ||
     lower.includes('пришлю планировк') ||
     lower.includes('отправлю подборк')
   ) {
     return 'asked_next_step';
   }
 
-  // Обработка возражения
+  // Обработка / диагностика возражения
   if (
     lower.includes('дорого относительно') ||
     lower.includes('над чем конкретно хотите подумать') ||
     lower.includes('с чем связана пауза') ||
-    lower.includes('квартира уже выставлена в рекламу')
+    lower.includes('что именно вас смущает') ||
+    lower.includes('правильно понимаю, саму ипотеку') ||
+    lower.includes('брокера пока не')
   ) {
     return 'handled_objection';
   }
 
-  // Презентация объекта (ХПВ или описание преимуществ)
+  if (isQuestion) {
+    // SPIN Need-Payoff
+    if (
+      /что\s+(?:для вас\s+)?измен/iu.test(lower) ||
+      /если.{0,45}(?:решить|удалось|получится).{0,45}(?:что|как).{0,25}(?:измен|даст)/iu.test(lower) ||
+      lower.includes('какой результат') ||
+      lower.includes('что для вас будет идеальным') ||
+      lower.includes('что это даст вам')
+    ) {
+      return 'asked_need_payoff_question';
+    }
+
+    // SPIN Implication
+    if (
+      /к чему это (?:приводит|привед[её]т)/iu.test(lower) ||
+      lower.includes('как это влияет') ||
+      /как.{0,45}(?:повлияет|скажется|отразится)/iu.test(lower) ||
+      /что.{0,35}(?:может|будет).{0,25}(?:повлиять|изменить|ухудшить)/iu.test(lower) ||
+      /в перспективе.{0,45}(?:повлияет|скажется|будет)/iu.test(lower) ||
+      /сколько времени.{0,40}(?:уходит|теряете|тратите)/iu.test(lower) ||
+      /что.{0,30}(?:приходилось|приходится).{0,25}(?:откладывать|терпеть)/iu.test(lower) ||
+      lower.includes('что больше всего страдает') ||
+      lower.includes('если ничего не менять') ||
+      lower.includes('что из этого теряете') ||
+      lower.includes('приходится терпеть') ||
+      lower.includes('какие последствия') ||
+      lower.includes('чем это оборачивается')
+    ) {
+      return 'asked_implication_question';
+    }
+
+    // SPIN Problem
+    if (
+      lower.includes('что не устраивает') ||
+      lower.includes('с чем основные сложности') ||
+      lower.includes('что самое сложное') ||
+      lower.includes('почему хотите поменять') ||
+      lower.includes('какие трудности') ||
+      /что.{0,25}вызывает.{0,25}сомнен/iu.test(lower) ||
+      lower.includes('что смущает') ||
+      lower.includes('что мешает') ||
+      lower.includes('что оттолкнуло') ||
+      /какой ошибки.{0,30}избеж/iu.test(lower) ||
+      /какой риск.{0,30}важ/iu.test(lower)
+    ) {
+      return 'asked_problem_question';
+    }
+
+    // SPIN Situation: фактический контекст клиента. Важно: реальные вопросы
+    // агента засчитываются по последующему ответу клиента, даже если агент
+    // сформулировал их своими словами, а не нажал кнопку SPIN.
+    if (
+      /давно.{0,25}(?:рассматрива|присматрива)|только начали.{0,20}(?:изуч|смотр)/iu.test(lower) ||
+      lower.includes('что стало причиной') ||
+      lower.includes('для себя выбираете') ||
+      lower.includes('для семьи') && lower.includes('инвест') ||
+      lower.includes('какой формат жилья') ||
+      /кто.{0,30}(?:участвовать|пользоваться|обсудить)/iu.test(lower) ||
+      lower.includes('как обычно проводите') ||
+      lower.includes('как планируете проводить досуг') ||
+      lower.includes('что уже успели посмотреть') ||
+      lower.includes('ключевым приоритетом') ||
+      lower.includes('что для вас сейчас является ключевым') ||
+      lower.includes('что для вас важно в локации') ||
+      lower.includes('под какую задачу') ||
+      lower.includes('какая цель') ||
+      lower.includes('для чего подбираете') ||
+      lower.includes('какие районы') ||
+      lower.includes('где сейчас')
+    ) {
+      return 'asked_situation_question';
+    }
+
+    // Квалификационные вопросы (бюджет, сроки, ЛПР, форма оплаты)
+    if (
+      lower.includes('бюджет') ||
+      lower.includes('максимальной суммы') ||
+      lower.includes('порядок суммы') ||
+      lower.includes('сроки') ||
+      lower.includes('когда планируете') ||
+      lower.includes('ипотек') ||
+      lower.includes('первоначальн') ||
+      lower.includes('самостоятельно принимаете решение') ||
+      lower.includes('официально трудоустро')
+    ) {
+      return 'asked_qualification_question';
+    }
+  }
+
+  // Презентация объекта (ХПВ или описание преимуществ). Не ставим её раньше
+  // вопросной классификации, иначе вопрос со словом «комплекс» ломает SPIN.
   if (
     lower.includes('в проекте') ||
     lower.includes('комплекс') ||
@@ -159,64 +331,67 @@ export function classifyAgentAction(text: string): AgentActionType {
     return 'presented_object';
   }
 
-  // SPIN Need-Payoff вопрос Андрея
-  if (
-    lower.includes('что изменится') ||
-    lower.includes('если бы удалось') ||
-    lower.includes('какой результат') ||
-    lower.includes('что для вас будет идеальным') ||
-    lower.includes('в первую очередь')
-  ) {
-    return 'asked_need_payoff_question';
-  }
-
-  // SPIN Implication вопрос Андрея
-  if (
-    lower.includes('к чему это приводит') ||
-    lower.includes('как это влияет') ||
-    lower.includes('что больше всего страдает') ||
-    lower.includes('если ничего не менять') ||
-    lower.includes('самым неприятным')
-  ) {
-    return 'asked_implication_question';
-  }
-
-  // SPIN Problem вопрос Андрея
-  if (
-    lower.includes('что не устраивает') ||
-    lower.includes('с чем основные сложности') ||
-    lower.includes('что самое сложное') ||
-    lower.includes('почему хотите поменять') ||
-    lower.includes('какие трудности')
-  ) {
-    return 'asked_problem_question';
-  }
-
-  // Квалификационные вопросы (бюджет, сроки, ЛПР, форма оплаты)
-  if (
-    lower.includes('бюджет') ||
-    lower.includes('порядок суммы') ||
-    lower.includes('сроки') ||
-    lower.includes('когда планируете') ||
-    lower.includes('ипотек') ||
-    lower.includes('самостоятельно принимаете решение')
-  ) {
-    return 'asked_qualification_question';
-  }
-
-  // SPIN Situation вопрос Андрея
-  if (
-    lower.includes('под какую задачу') ||
-    lower.includes('какая цель') ||
-    lower.includes('для чего подбираете') ||
-    lower.includes('какие районы') ||
-    lower.includes('где сейчас') ||
-    lower.includes('что для вас важно в локации')
-  ) {
-    return 'asked_situation_question';
-  }
-
   return 'none';
+}
+
+function spinStageFromAgentAction(action: AgentActionType): SpinStageType | null {
+  if (action === 'asked_situation_question') return 'SITUATION';
+  if (action === 'asked_problem_question') return 'PROBLEM';
+  if (action === 'asked_implication_question') return 'IMPLICATION';
+  if (action === 'asked_need_payoff_question') return 'NEED_PAYOFF';
+  return null;
+}
+
+function recomputeSpinProgress(spin: SpinState): SpinState {
+  const next = spin;
+  const situationDone = next.situation.length >= 2 || next.problem.length > 0 || next.implication.length > 0 || next.needPayoff.length > 0;
+  const problemDone = next.problem.length > 0;
+  const implicationDone = next.implication.length > 0;
+  const needPayoffDone = next.needPayoff.length > 0;
+  const completed: SpinStageType[] = [];
+  if (situationDone) completed.push('SITUATION');
+  if (problemDone) completed.push('PROBLEM');
+  if (implicationDone) completed.push('IMPLICATION');
+  if (needPayoffDone) completed.push('NEED_PAYOFF');
+  next.completedStages = completed;
+  next.currentStage = !situationDone
+    ? 'SITUATION'
+    : !problemDone
+      ? 'PROBLEM'
+      : !implicationDone
+        ? 'IMPLICATION'
+        : !needPayoffDone
+          ? 'NEED_PAYOFF'
+          : 'NEED_PAYOFF';
+  next.missingStage = completed.length === 4 ? 'COMPLETE' : next.currentStage;
+  next.confidence = Math.min(1, completed.length / 4);
+  return next;
+}
+
+function addSpinEvidence(
+  spin: SpinState,
+  stage: SpinStageType,
+  clientTurn: TranscriptTurn,
+  meaningText?: string
+): SpinState {
+  const key = stage === 'SITUATION'
+    ? 'situation'
+    : stage === 'PROBLEM'
+      ? 'problem'
+      : stage === 'IMPLICATION'
+        ? 'implication'
+        : 'needPayoff';
+  if (!spin[key].some((item) => item.evidenceTurnId === clientTurn.id)) {
+    spin[key].push({
+      text: meaningText || clientTurn.text.trim(),
+      evidenceQuote: clientTurn.text.trim(),
+      evidenceTurnId: clientTurn.id,
+      source: 'client',
+      confidence: 0.95,
+    });
+  }
+  spin.lastClientEvidence = clientTurn.text.trim();
+  return recomputeSpinProgress(spin);
 }
 
 /**
@@ -295,8 +470,19 @@ export function extractClientSpinMeaning(
     lower.includes('будем спокойны') ||
     lower.includes('это снимет риски') ||
     lower.includes('это решит вопрос') ||
+    lower.includes('понял, куда разумнее вложить') ||
+    lower.includes('понял куда разумнее вложить') ||
+    lower.includes('был понятный выбор') ||
+    lower.includes('понятный выбор') ||
+    lower.includes('не тратил столько времени') ||
+    lower.includes('уже принимал решение') ||
     lower.includes('снимет риски') ||
-    lower.includes('тогда все риски сняты')
+    lower.includes('тогда все риски сняты') ||
+    /буду уверен.{0,80}(?:спокойно|комфорт|доволен)/iu.test(lower) ||
+    /сможем спокойно.{0,60}(?:отдыхать|жить|пользоваться)/iu.test(lower) ||
+    /будет доволен.{0,40}(?:семь|член)/iu.test(lower) ||
+    /это будет.{0,50}(?:то, что мы ищем|идеальн|нужн)/iu.test(lower) ||
+    /если.{0,60}соответств.{0,60}(?:потребност|ожидани).{0,60}(?:комфорт|устраива)/iu.test(lower)
   ) {
     const painCat = detectRealEstatePainCategory(text);
     let meaning = 'Потребность в решении ключевой задачи проживания';
@@ -305,6 +491,8 @@ export function extractClientSpinMeaning(
     else if (painCat === 'security_risks') meaning = 'Потребность в надёжности застройщика и юридической чистоте сделки';
     else if (painCat === 'yield_rental') meaning = 'Потребность в гарантированной окупаемости и прозрачном пассивном доходе';
     else if (painCat === 'space_crowded') meaning = 'Потребность в просторе и приватном пространстве для всей семьи';
+    else if (painCat === 'comparison_overload') meaning = 'Потребность в понятном сравнении и сокращении выбора до нескольких решений';
+    else if (painCat === 'market_uncertainty') meaning = 'Потребность понять обоснованность цены и момент входа в рынок';
 
     return {
       stage: 'NEED_PAYOFF',
@@ -332,13 +520,24 @@ export function extractClientSpinMeaning(
     lower.includes('дети капризничают') ||
     lower.includes('постоянно подстраиваться') ||
     lower.includes('тратим кучу времени') ||
+    lower.includes('теряю время') ||
+    lower.includes('теряем время') ||
+    lower.includes('надоело') && (lower.includes('вариант') || lower.includes('агент')) ||
+    lower.includes('откладываю решение') ||
+    lower.includes('решение откладывается') ||
     lower.includes('теряем деньги') ||
     lower.includes('устали стоять в пробках') ||
     lower.includes('время жалко') ||
     lower.includes('боюсь потерять деньги') ||
     lower.includes('боюсь что заморозят') ||
     lower.includes('простаивает без арендаторов') ||
-    lower.includes('друг у друга на головах')
+    lower.includes('друг у друга на головах') ||
+    /(?:сильно|плохо|негативно).{0,30}(?:скажется|повлияет|отразится)/iu.test(lower) ||
+    /(?:будем|буду).{0,35}(?:неудовлетвор|некомфорт|испытывать дискомфорт)/iu.test(lower) ||
+    /(?:усложнит|затруднит).{0,30}(?:продаж|перепродаж|жизн|отдых)/iu.test(lower) ||
+    /подрывать.{0,30}(?:удовольствие|комфорт|отдых)/iu.test(lower) ||
+    /(?:постоянн|регулярн).{0,30}(?:спешк|дискомфорт|неудобств)/iu.test(lower) ||
+    /из-за этого.{0,45}(?:откладывал|теря|трат)/iu.test(lower)
   ) {
     return {
       stage: 'IMPLICATION',
@@ -369,7 +568,15 @@ export function extractClientSpinMeaning(
     lower.includes('боюсь нарваться') ||
     lower.includes('не верю застройщикам') ||
     lower.includes('мало места') ||
-    lower.includes('не сезон')
+    lower.includes('не сезон') ||
+    lower.includes('запутал') ||
+    lower.includes('не понимаю чем они отличаются') ||
+    lower.includes('не понимаю, чем они отличаются') ||
+    lower.includes('кучу вариантов') ||
+    lower.includes('каждый агент') ||
+    lower.includes('есть смысл переплачивать') ||
+    lower.includes('рынок остын') ||
+    lower.includes('цены упад')
   ) {
     const painCat = detectRealEstatePainCategory(text);
     let meaning = 'Ограничение или неудобство в текущей ситуации';
@@ -378,6 +585,8 @@ export function extractClientSpinMeaning(
     else if (painCat === 'security_risks') meaning = 'Опасения за надежность застройщика и риски недостроя';
     else if (painCat === 'yield_rental') meaning = 'Неуверенность в доходности и заполняемости объекта';
     else if (painCat === 'space_crowded') meaning = 'Теснота и нехватка жилой площади для семьи';
+    else if (painCat === 'comparison_overload') meaning = 'Перегруз вариантами и отсутствие понятной системы сравнения';
+    else if (painCat === 'market_uncertainty') meaning = 'Сомнение в цене и моменте входа в рынок';
 
     return {
       stage: 'PROBLEM',
@@ -421,59 +630,62 @@ export function buildHpbPresentation(
 } {
   const painCat = detectRealEstatePainCategory(evidenceQuote || clientNeed);
 
+  // ХПВ из пользовательского регламента: Характеристика -> Преимущество -> Выгода.
+  // В realtime-подсказке нельзя придумывать характеристику конкретного объекта,
+  // поэтому без подтвержденных project facts характеристикой является проверяемый
+  // формат сравнения/показа, а не несуществующее свойство ЖК.
   let hpb: HpbLink;
   if (painCat === 'traffic_logistics') {
     hpb = {
-      clientNeed: clientNeed || 'Удобная логистика и экономия времени на дорогу',
+      clientNeed: clientNeed || 'Удобная логистика и экономия времени',
       evidenceQuote,
-      characteristic: 'Комплекс расположен в точке с прямым выездом на ключевые магистрали и развитой пешей доступностью',
-      advantage: 'Вам не придётся ежедневно терять часы в пиковых пробках',
-      benefit: 'Это сохраняет до 2-3 часов каждый день для личной жизни и семьи',
+      characteristic: 'На видеопоказе сравним фактическое время до нужных вам точек и инфраструктуру вокруг каждого варианта',
+      advantage: 'Вы сразу увидите, какой объект реально сокращает лишние поездки, а не выбираете по рекламному описанию',
+      benefit: 'Так вы сохраняете время семьи и снижаете риск купить неудобную локацию',
     };
   } else if (painCat === 'security_risks') {
     hpb = {
-      clientNeed: clientNeed || 'Надёжность сделки, прозрачность документов и защита капитала',
+      clientNeed: clientNeed || 'Проверяемость и безопасность решения',
       evidenceQuote,
-      characteristic: 'Строительство ведётся строго по ФЗ-214 с эскроу-счетами в ведущем государственном банке',
-      advantage: 'Ваши средства заблокированы до официальной сдачи объекта, а риски долгостроя исключены',
-      benefit: 'Полное спокойствие за вложенные средства и юридическая чистота на каждом этапе',
+      characteristic: 'По конкретному объекту отдельно проверим документы, схему сделки и заявленные сроки по актуальным источникам',
+      advantage: 'Решение будет опираться на проверяемые данные, а не на обещания',
+      benefit: 'Это снижает риск ошибки и помогает спокойнее принимать решение о капитале',
     };
   } else if (painCat === 'yield_rental') {
     hpb = {
-      clientNeed: clientNeed || 'Стабильная доходность и круглогодичная арендная загрузка',
+      clientNeed: clientNeed || 'Понятная экономика и пассивный сценарий',
       evidenceQuote,
-      characteristic: 'Объектом управляет профессиональный отельный оператор с подтвержденной моделью заполняемости',
-      advantage: 'Маркетинг, клининг и управление полностью закрываются оператором по договору',
-      benefit: 'Вы получаете прогнозируемый пассивный доход без необходимости лично заниматься бытовыми вопросами',
+      characteristic: 'По выбранному объекту разберём ADR, загрузку, расходы, условия управления и сценарий дохода',
+      advantage: 'Можно сравнить финансовую модель по одинаковым показателям и увидеть, из чего складывается результат',
+      benefit: 'Вы понимаете реалистичный денежный поток и риски до решения, без неподтвержденных обещаний доходности',
     };
   } else if (painCat === 'space_crowded') {
     hpb = {
-      clientNeed: clientNeed || 'Простор, приватность и комфорт для каждого члена семьи',
+      clientNeed: clientNeed || 'Комфорт и пространство для семьи',
       evidenceQuote,
-      characteristic: 'Продуманные мастер-спальни с отдельными гардеробными и просторные кухни-гостиные',
-      advantage: 'Каждый член семьи получает комфортное личное пространство',
-      benefit: 'Уютная атмосфера дома и отсутствие бытового дискомфорта',
+      characteristic: 'На планировках сравним реальные размеры комнат, хранение, общие и приватные зоны',
+      advantage: 'Сразу видно, насколько планировка подходит именно вашему составу семьи',
+      benefit: 'Вы снижаете риск бытового дискомфорта после покупки',
     };
   } else if (painCat === 'noise_sleep') {
     hpb = {
-      clientNeed: clientNeed || 'Тишина и возможность нормально отдыхать ночью',
+      clientNeed: clientNeed || 'Тишина и полноценный отдых',
       evidenceQuote,
-      characteristic: 'В проекте предусмотрены варианты с ориентацией во внутренний закрытый двор и усиленной звукоизоляцией',
-      advantage: 'Они меньше контактируют с основной дорогой и активной общественной зоной',
-      benefit: 'Для вас это означает более спокойный сон и возможность нормально отдыхать без постороннего шума',
+      characteristic: 'При сравнении вариантов отдельно проверим ориентацию окон, окружение и источники шума вокруг комплекса',
+      advantage: 'Можно заранее отсеять варианты, которые конфликтуют с вашим сценарием спокойного отдыха',
+      benefit: 'Это повышает шанс получить именно тот уровень тишины и комфорта, который вы описали',
     };
   } else {
     hpb = {
-      clientNeed: clientNeed || 'Точное соответствие объекта вашим жизненным задачам',
+      clientNeed: clientNeed || 'Соответствие объекта реальным критериям клиента',
       evidenceQuote,
-      characteristic: 'Планировочные и локационные решения, подобранные индивидуально под ваши критерии',
-      advantage: 'Закрывает ключевые требования без лишних компромиссов',
-      benefit: 'Вы получаете именно тот комфорт и функционал, на который рассчитывали',
+      characteristic: 'Сравним 2–3 варианта по вашим подтвержденным критериям на одном экране',
+      advantage: 'Разница между вариантами будет видна по фактам, а не по объему рекламных материалов',
+      benefit: 'Вы быстрее понимаете, какой вариант действительно соответствует вашему сценарию',
     };
   }
 
-  const fullSpeech = `Вы сказали: «${evidenceQuote}». В данном предложении предусмотрено: ${hpb.characteristic.toLowerCase()} — ${hpb.advantage.toLowerCase()}. ${hpb.benefit}. Насколько это соответствует тому, что вы описывали?`;
-
+  const fullSpeech = `Вы сказали: «${evidenceQuote}». Поэтому предлагаю сравнить варианты именно по этому критерию: ${hpb.characteristic.toLowerCase()}. ${hpb.benefit}. Насколько это вам подходит?`;
   return { hpb, fullSpeech };
 }
 
@@ -500,12 +712,18 @@ export function evaluateSpinAndHpb(
   clientTurn: TranscriptTurn,
   currentSpinState: SpinState,
   lastAgentAction: AgentActionType = 'none',
-  lastAgentTurnText: string = ''
+  lastAgentTurnText: string = '',
+  context?: Pick<ConversationState, 'criteria' | 'dialogueControl'>
 ): SpinEvaluationResult {
   const text = clientTurn.text.trim();
   const lower = text.toLowerCase();
 
-  const nextSpin: SpinState = JSON.parse(JSON.stringify(currentSpinState || createInitialSpinState()));
+  const nextSpin: SpinState = structuredClone(currentSpinState || createInitialSpinState());
+  const pairedStage = spinStageFromAgentAction(lastAgentAction);
+
+  const noPastExperience = /(?:ничего|еще ничего|ещё ничего).{0,15}не смотрел|неудобств.{0,15}не было|не было.{0,15}неудобств|только начал.{0,20}(?:изуч|рын)/iu.test(text);
+  if (noPastExperience) { nextSpin.researchMode = true; nextSpin.pastExperienceQuestionClosed = true; }
+  if (context?.dialogueControl?.researchMode) nextSpin.researchMode = true;
 
   // 1. ПРОВЕРКА: Если клиент ответил «Надо подумать»
   if (lower.includes('надо подумать') || lower.includes('я подумаю') || lower.includes('мне нужно подумать')) {
@@ -528,6 +746,9 @@ export function evaluateSpinAndHpb(
     !lower.includes('постоянно');
 
   if (isOnlyForMyself) {
+    if (pairedStage === 'SITUATION' && isSubstantiveSpinAnswer(text)) {
+      addSpinEvidence(nextSpin, 'SITUATION', clientTurn, 'Личное использование: формат отдыха/проживания уточняется');
+    }
     // Не считаем раскрытым ПМЖ/переезд!
     return {
       suggestionMode: 'SPIN_SITUATION',
@@ -559,7 +780,48 @@ export function evaluateSpinAndHpb(
     };
   }
 
-  // 4. ПРОВЕРКА: Если Андрей сам долго объяснял преимущества объекта
+  // 4. Связываем РЕАЛЬНЫЙ вопрос агента с последующим ответом клиента.
+  // Это ключ к SPIN: прогресс не зависит от того, нажал ли агент кнопку SPIN
+  // и повторил ли подсказку дословно.
+  const extracted = extractClientSpinMeaning(clientTurn);
+  const explicitlyNoProblem = /(?:ничего|пока ничего).{0,25}(?:не беспокоит|не смущает|не отталкивает)|сомнений\s+нет|проблем\s+нет/iu.test(text);
+  let newEvidenceStage: SpinStageType | null = null;
+  if (pairedStage && !(pairedStage === 'PROBLEM' && explicitlyNoProblem)) {
+    addSpinEvidence(nextSpin, pairedStage, clientTurn, extracted?.meaningText || text);
+    newEvidenceStage = pairedStage;
+  }
+  if (extracted?.stage && extracted.stage !== pairedStage) {
+    addSpinEvidence(nextSpin, extracted.stage, clientTurn, extracted.meaningText || text);
+    newEvidenceStage = extracted.stage;
+  } else if (extracted?.stage) {
+    newEvidenceStage = extracted.stage;
+  }
+
+  // Research mode means there may be no historical pain yet. After preserving
+  // the Situation evidence, ask about a future risk instead of inventing a
+  // negative past experience.
+  if (
+    nextSpin.researchMode &&
+    nextSpin.situation.length >= 2 &&
+    nextSpin.problem.length === 0 &&
+    pairedStage !== 'IMPLICATION' &&
+    pairedStage !== 'NEED_PAYOFF' &&
+    (noPastExperience || !/(?:боюсь|не устраивает|мешает|страдаю|раздражает|сомнен)/iu.test(text))
+  ) {
+    const criterion = context?.criteria?.items?.[0]?.text;
+    return {
+      suggestionMode: 'SPIN_PROBLEM',
+      suggestedText: criterion
+        ? `Если смотреть вперёд и учитывать «${criterion}», какой ошибки при выборе вы больше всего хотите избежать?`
+        : 'Если смотреть вперёд, какой ошибки вы больше всего хотите избежать при выборе — переплатить, ошибиться с локацией или получить неудобную планировку?',
+      shortReason: 'Клиент ещё изучает рынок; выясняем будущие риски без предположения о прошлом негативном опыте.',
+      evidenceQuote: text,
+      expectedClientMeaning: 'Клиент называет риск будущего выбора.',
+      updatedSpin: recomputeSpinProgress(nextSpin),
+    };
+  }
+
+  // 5. ПРОВЕРКА: Если Андрей сам долго объяснял преимущества объекта
   if (lastAgentAction === 'presented_object') {
     return {
       suggestionMode: 'CHECK_ALIGNMENT',
@@ -571,54 +833,20 @@ export function evaluateSpinAndHpb(
     };
   }
 
-  // 5. ИЗВЛЕЧЕНИЕ СМЫСЛА КЛИЕНТА (SPIN)
-  const extracted = extractClientSpinMeaning(clientTurn);
+  recomputeSpinProgress(nextSpin);
 
-  if (extracted) {
-    const spinItem: SpinItem = {
-      text: extracted.meaningText || text,
-      evidenceQuote: extracted.evidenceQuote || text,
-      evidenceTurnId: clientTurn.id,
-      source: 'client',
-      confidence: 0.95,
+  // Once a complete SPIN chain has already been collected, do not replay the
+  // same ХПВ speech on every later client turn. New problems/implications can
+  // open a fresh micro-chain, otherwise the script engine chooses the next step.
+  if (nextSpin.completedStages.length === 4 && !['PROBLEM', 'IMPLICATION', 'NEED_PAYOFF'].includes(newEvidenceStage || '')) {
+    return {
+      suggestionMode: 'WAIT',
+      suggestedText: '',
+      shortReason: 'SPIN-цепочка уже завершена; не повторяем ХПВ без новой боли или ценности.',
+      evidenceQuote: text,
+      expectedClientMeaning: '',
+      updatedSpin: nextSpin,
     };
-
-    // Обновляем спин-состояние строго по ответу клиента
-    if (extracted.stage === 'PROBLEM') {
-      if (!nextSpin.problem.some((p) => p.text === spinItem.text)) {
-        nextSpin.problem.push(spinItem);
-      }
-      if (!nextSpin.completedStages.includes('PROBLEM')) {
-        nextSpin.completedStages.push('PROBLEM');
-      }
-      nextSpin.currentStage = 'IMPLICATION';
-      nextSpin.lastClientEvidence = spinItem.evidenceQuote;
-    } else if (extracted.stage === 'IMPLICATION') {
-      if (!nextSpin.implication.some((i) => i.text === spinItem.text)) {
-        nextSpin.implication.push(spinItem);
-      }
-      if (!nextSpin.completedStages.includes('IMPLICATION')) {
-        nextSpin.completedStages.push('IMPLICATION');
-      }
-      nextSpin.currentStage = 'NEED_PAYOFF';
-      nextSpin.lastClientEvidence = spinItem.evidenceQuote;
-    } else if (extracted.stage === 'NEED_PAYOFF') {
-      if (!nextSpin.needPayoff.some((n) => n.text === spinItem.text)) {
-        nextSpin.needPayoff.push(spinItem);
-      }
-      if (!nextSpin.completedStages.includes('NEED_PAYOFF')) {
-        nextSpin.completedStages.push('NEED_PAYOFF');
-      }
-      nextSpin.lastClientEvidence = spinItem.evidenceQuote;
-    } else if (extracted.stage === 'SITUATION') {
-      if (!nextSpin.situation.some((s) => s.text === spinItem.text)) {
-        nextSpin.situation.push(spinItem);
-      }
-      if (!nextSpin.completedStages.includes('SITUATION')) {
-        nextSpin.completedStages.push('SITUATION');
-      }
-      nextSpin.lastClientEvidence = spinItem.evidenceQuote;
-    }
   }
 
   // =========================================================================
@@ -627,7 +855,7 @@ export function evaluateSpinAndHpb(
   // =========================================================================
 
   // Сценарий 4: Клиент назвал желаемый результат (Need-payoff раскрыт) -> ПЕРЕХОД В ХПВ!
-  if (nextSpin.needPayoff.length > 0 || extracted?.stage === 'NEED_PAYOFF') {
+  if (newEvidenceStage === 'NEED_PAYOFF') {
     const needQuote =
       nextSpin.needPayoff[nextSpin.needPayoff.length - 1]?.evidenceQuote ||
       extracted?.evidenceQuote ||
@@ -650,7 +878,7 @@ export function evaluateSpinAndHpb(
   }
 
   // Сценарий 3: Клиент раскрыл последствия (Implication раскрыт, но Need-payoff ещё нет)
-  if (nextSpin.implication.length > 0 || extracted?.stage === 'IMPLICATION') {
+  if (newEvidenceStage === 'IMPLICATION' || (nextSpin.problem.length > 0 && nextSpin.implication.length > 0 && nextSpin.needPayoff.length === 0 && pairedStage === 'IMPLICATION')) {
     const impQuote =
       nextSpin.implication[nextSpin.implication.length - 1]?.evidenceQuote ||
       extracted?.evidenceQuote ||
@@ -668,6 +896,10 @@ export function evaluateSpinAndHpb(
       question = 'Если финансовая модель подтвердится исторической загрузкой и договором отельного оператора, это сделает проект интересным?';
     } else if (painCat === 'space_crowded') {
       question = 'Если у каждого появится своя изолированная зона плюс просторная гостиная, как это повлияет на атмосферу дома?';
+    } else if (painCat === 'comparison_overload') {
+      question = 'Если вместо десятков презентаций оставить 2–3 варианта и показать разницу по вашим критериям в одной таблице, этого будет достаточно, чтобы спокойно принять решение?';
+    } else if (painCat === 'market_uncertainty') {
+      question = 'Если мы отделим реальную цену объекта от рекламной и покажем сценарий «купить сейчас / подождать», это поможет вам понять, когда решение действительно разумно?';
     }
 
     return {
@@ -681,7 +913,7 @@ export function evaluateSpinAndHpb(
   }
 
   // Сценарий 2: Клиент назвал проблему/боль (Problem назван, но Implication ещё не раскрыт)
-  if (nextSpin.problem.length > 0 || extracted?.stage === 'PROBLEM') {
+  if (newEvidenceStage === 'PROBLEM' || (nextSpin.problem.length > 0 && nextSpin.implication.length === 0)) {
     const probQuote =
       nextSpin.problem[nextSpin.problem.length - 1]?.evidenceQuote ||
       extracted?.evidenceQuote ||
@@ -706,6 +938,12 @@ export function evaluateSpinAndHpb(
     } else if (painCat === 'space_crowded') {
       question = 'Как теснота сказывается на повседневной жизни семьи и возможности уединиться?';
       reason = 'Обнаружена нехватка площади. Исследуем влияние на комфорт семьи.';
+    } else if (painCat === 'comparison_overload') {
+      question = 'В итоге из-за такого количества вариантов решение просто откладывается или вы рискуете выбрать по случайному признаку?';
+      reason = 'Клиент перегружен подборками. Уточняем цену хаотичного выбора вместо ещё одной презентации.';
+    } else if (painCat === 'market_uncertainty') {
+      question = 'Если просто ждать снижения рынка без понятного ориентира, по какому признаку вы поймёте, что момент для покупки уже наступил?';
+      reason = 'Сомнение в рынке: переводим ожидание снижения цены в критерий принятия решения.';
     }
 
     return {
@@ -718,13 +956,46 @@ export function evaluateSpinAndHpb(
     };
   }
 
-  // Сценарий 1 / Обычная ситуация: выявление критериев или проблем
+  // Сценарий 1 / Обычная ситуация.
+  // Не перескакиваем в Problem после приветствия/первого факта: сначала собираем
+  // минимум два содержательных элемента Situation. Это делает первый звонок
+  // естественным: контакт -> цель/контекст -> критерии -> проблема.
+  if (nextSpin.situation.length < 2) {
+    const situationQuestions = [
+      'Сочи давно рассматриваете или только начали изучать рынок?',
+      'Что стало причиной заняться вопросом недвижимости именно сейчас?',
+      'Для себя выбираете, для семьи, отдыха или как инвестицию?',
+      'Что уже успели посмотреть и что из этого вам откликнулось или не подошло?',
+      'Если коротко: какой результат от покупки для вас будет самым правильным?',
+    ];
+    const normalized = text.toLowerCase();
+    let index = nextSpin.situation.length % situationQuestions.length;
+    if (normalized.includes('только начал') || normalized.includes('давно')) index = 1;
+    if (normalized.includes('сейчас') || normalized.includes('возник')) index = 2;
+    if (normalized.includes('для себя') || normalized.includes('инвест')) index = 3;
+
+    return {
+      suggestionMode: 'SPIN_SITUATION',
+      suggestedText: situationQuestions[index],
+      shortReason: 'Сначала собираем контекст клиента; переход в Problem пока преждевременный.',
+      evidenceQuote: text,
+      expectedClientMeaning: 'Клиент раскрывает причину обращения, сценарий покупки или предыдущий опыт.',
+      updatedSpin: nextSpin,
+    };
+  }
+
+  const finalPain = detectRealEstatePainCategory(text);
+  const problemQuestion = finalPain === 'comparison_overload'
+    ? 'Из того, что уже присылали, что больше всего мешало сравнить варианты — отсутствие цифр, понятных отличий или слишком большой выбор?'
+    : finalPain === 'market_uncertainty'
+      ? 'Что именно заставляет сомневаться в текущей цене — динамика рынка, сравнение с другими локациями или ощущение, что объект переоценён?'
+      : 'Что из того, что вы уже видели или пробовали, вас не устроило больше всего?';
   return {
     suggestionMode: 'SPIN_PROBLEM',
-    suggestedText: 'А что в текущей ситуации или в прежнем опыте для вас было самым неудобным?',
-    shortReason: 'Исследование скрытых ограничений и проблем в текущей ситуации.',
+    suggestedText: problemQuestion,
+    shortReason: 'Контекст уже собран; переходим к Problem через смысл последней реплики, а не через один фиксированный вопрос.',
     evidenceQuote: text,
-    expectedClientMeaning: 'Клиент называет конкретное ограничение или дискомфорт.',
+    expectedClientMeaning: 'Клиент называет конкретное ограничение, риск или неудобство.',
     updatedSpin: nextSpin,
   };
 }

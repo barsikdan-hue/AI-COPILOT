@@ -18,6 +18,11 @@ export class LiveTranscriptionChannel {
   private reconnectAttempts = 0;
   private maxReconnects = 3;
   private reconnectTimer: any = null;
+  private audioFlushTimer: any = null;
+  private audioQueue: ArrayBuffer[] = [];
+  private readonly maxQueuedChunks = 30;
+  private readonly highWaterMarkBytes = 256 * 1024;
+  private longestInterimText = '';
   public droppedAudioChunksCount: number = 0;
 
   public get reconnectCount(): number {
@@ -67,15 +72,32 @@ export class LiveTranscriptionChannel {
       this.ws.onopen = () => {
         this.reconnectAttempts = 0;
         this.callbacks.onStatusChange?.(this.role, 'connected');
+        this.flushAudioQueue();
       };
 
       this.ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
           if (data.type === 'interim') {
-            this.callbacks.onInterimText?.(this.role, data.text);
+            const interimText = String(data.text || '').trim();
+            if (interimText.length >= this.longestInterimText.length) this.longestInterimText = interimText;
+            this.callbacks.onInterimText?.(this.role, interimText);
           } else if (data.type === 'final') {
-            this.callbacks.onFinalTurn?.(this.role, data.text, data.timestamp || Date.now());
+            const finalText = String(data.text || '').trim();
+            const interimText = this.longestInterimText.trim();
+            const norm = (value: string) => value.toLowerCase().replace(/[^а-яёa-z0-9\s]/giu, ' ').replace(/\s+/g, ' ').trim();
+            const normalizedFinal = norm(finalText);
+            const normalizedInterim = norm(interimText);
+            const finalTokens = new Set(normalizedFinal.split(' ').filter(Boolean));
+            const interimTokens = new Set(normalizedInterim.split(' ').filter(Boolean));
+            const shared = [...finalTokens].filter((token) => interimTokens.has(token)).length;
+            const overlap = finalTokens.size ? shared / finalTokens.size : 0;
+            const interimLooksLikeRicherSameUtterance =
+              interimText.length > finalText.length * 1.15 &&
+              (normalizedInterim.includes(normalizedFinal) || overlap >= 0.7);
+            const preservedText = interimLooksLikeRicherSameUtterance ? interimText : finalText;
+            this.longestInterimText = '';
+            this.callbacks.onFinalTurn?.(this.role, preservedText, data.timestamp || Date.now());
           } else if (data.type === 'voiceActivity') {
             const active = data.activity?.type === 'ACTIVITY_START';
             this.callbacks.onVoiceActivity?.(this.role, active);
@@ -116,18 +138,25 @@ export class LiveTranscriptionChannel {
   }
 
   public sendAudioChunk(pcmChunk: ArrayBuffer) {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      // Backpressure protection: drop audio chunks if socket buffer exceeds 64KB
-      if (this.ws.bufferedAmount > 64 * 1024) {
-        this.droppedAudioChunksCount++;
-        if (this.droppedAudioChunksCount % 25 === 1) {
-          console.warn(
-            `[STT ${this.role}] High WebSocket bufferedAmount (${this.ws.bufferedAmount} bytes). Dropping chunk.`
-          );
-        }
-        return;
-      }
-      this.ws.send(pcmChunk);
+    if (this.audioQueue.length >= this.maxQueuedChunks) {
+      this.audioQueue.shift();
+      this.droppedAudioChunksCount++;
+    }
+    this.audioQueue.push(pcmChunk);
+    this.flushAudioQueue();
+  }
+
+  private flushAudioQueue() {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    while (this.audioQueue.length > 0 && this.ws.bufferedAmount < this.highWaterMarkBytes) {
+      const next = this.audioQueue.shift();
+      if (next) this.ws.send(next);
+    }
+    if (this.audioQueue.length > 0 && !this.audioFlushTimer) {
+      this.audioFlushTimer = setTimeout(() => {
+        this.audioFlushTimer = null;
+        this.flushAudioQueue();
+      }, 20);
     }
   }
 
@@ -137,6 +166,12 @@ export class LiveTranscriptionChannel {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+    if (this.audioFlushTimer) {
+      clearTimeout(this.audioFlushTimer);
+      this.audioFlushTimer = null;
+    }
+    this.audioQueue = [];
+    this.longestInterimText = '';
     if (this.ws) {
       try {
         this.ws.close(1000, 'Normal closure');

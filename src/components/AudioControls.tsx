@@ -33,7 +33,7 @@ interface AudioControlsProps {
   onEndCall: () => void;
   onTogglePause: () => void;
   onOpenDiagnostics: () => void;
-  analysisLatencyMs: number | null;
+  firstHintLatencyMs: number | null;
   isAnalyzing?: boolean;
   hasAnalysisError?: boolean;
   isTranscribing?: boolean;
@@ -60,7 +60,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
   onEndCall,
   onTogglePause,
   onOpenDiagnostics,
-  analysisLatencyMs,
+  firstHintLatencyMs,
   conversationMode,
   onChangeMode,
   onOpenHistory,
@@ -200,11 +200,11 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
             id="open-diagnostics-badge-btn"
             onClick={onOpenDiagnostics}
             className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs transition-colors cursor-pointer border border-stone-200"
-            title="Задержка Gemini. Нажмите для системной диагностики"
+            title="Полная задержка: конец реплики клиента → готовая подсказка. Нажмите для диагностики"
           >
-            <Zap className="w-3 h-3 text-teal-600" />
+            <Zap className="w-3 h-3 text-teal-600" /><span>Подсказка</span>
             <span className="font-mono text-[11px]">
-              {analysisLatencyMs ? `${Math.round(analysisLatencyMs)} мс` : '—'}
+              {firstHintLatencyMs != null ? `${Math.round(firstHintLatencyMs)} мс` : '—'}
             </span>
           </button>
         </div>

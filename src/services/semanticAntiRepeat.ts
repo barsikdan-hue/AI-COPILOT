@@ -27,6 +27,12 @@ export function extractSemanticKey(replyOrText: Partial<SuggestedReply> | string
   const text = typeof replyOrText === 'string' ? replyOrText : replyOrText.text || '';
   const lower = text.toLowerCase();
 
+  if (/давно.*(?:рассматрива|присматрива)|только начал.*(?:изуч|рын)|давно присматриваетесь|давно.*или только начали/iu.test(lower)) return 'ask_search_experience';
+  if (/что из.*(?:видели|увиденного|пробовали)|(?:прошл|негативн).*опыт|что.*не устроило/iu.test(lower)) return 'ask_past_experience_problem';
+  if (/если смотреть впер[её]д|какой ошибки.*избежать/iu.test(lower)) return 'ask_future_risk';
+  if (/правильно понимаю.*(?:показ|брокер)/iu.test(lower)) return lower.includes('брокер') ? 'clarify_next_step_ppi' : 'clarify_next_step_ppv';
+  if (/сузим выбор|сначала.*отбер[её]м/iu.test(lower)) return 'shortlist_criteria';
+
   // 1. Goal / motive
   if (
     lower.includes('для чего выбираете') ||
@@ -167,6 +173,13 @@ export function checkSemanticAntiRepeat(
   const text = replyObj.text || '';
   const metrics = state.scriptProgress?.metrics;
 
+  if (state.dismissedSuggestionTexts?.some(value => normalizeRussianText(value) === normalizeRussianText(text))) {
+    return { accepted: false, semanticKey: key, rejectionReason: 'Формулировка пропущена агентом.' };
+  }
+  if (key === 'ask_past_experience_problem' && (state.spin?.pastExperienceQuestionClosed || state.spin?.researchMode || state.dialogueControl?.researchMode)) {
+    return { accepted: false, semanticKey: key, rejectionReason: 'Клиент сообщил об отсутствии прошлого опыта.' };
+  }
+
   // 1. Check against ALREADY CONFIRMED facts in state
   if (key === 'ask_goal') {
     if (state.goal?.value && !state.goal.needsClarification) {
@@ -176,7 +189,7 @@ export function checkSemanticAntiRepeat(
         rejectionReason: `Цель покупки уже подтверждена: "${state.goal.value}". Повторный вопрос запрещён.`,
       };
     }
-    if (metrics?.['goal']?.status === 'confirmed' || metrics?.['goal']?.agentQuestionAsked) {
+    if (metrics?.['goal']?.status === 'confirmed') {
       return {
         accepted: false,
         semanticKey: key,
@@ -203,7 +216,7 @@ export function checkSemanticAntiRepeat(
         rejectionReason: `Локация уже подтверждена: "${state.location.value}".`,
       };
     }
-    if (metrics?.['location']?.status === 'confirmed' || metrics?.['location']?.agentQuestionAsked) {
+    if (metrics?.['location']?.status === 'confirmed') {
       return {
         accepted: false,
         semanticKey: key,
@@ -220,7 +233,7 @@ export function checkSemanticAntiRepeat(
         rejectionReason: `Бюджет уже подтвержден: "${state.budget.value}".`,
       };
     }
-    if (metrics?.['budget']?.status === 'confirmed' || metrics?.['budget']?.agentQuestionAsked) {
+    if (metrics?.['budget']?.status === 'confirmed') {
       return {
         accepted: false,
         semanticKey: key,
@@ -237,7 +250,7 @@ export function checkSemanticAntiRepeat(
         rejectionReason: `Способ покупки уже подтвержден: "${state.paymentMethod.value}".`,
       };
     }
-    if (metrics?.['paymentMethod']?.status === 'confirmed' || metrics?.['paymentMethod']?.agentQuestionAsked) {
+    if (metrics?.['paymentMethod']?.status === 'confirmed') {
       return {
         accepted: false,
         semanticKey: key,
@@ -254,7 +267,7 @@ export function checkSemanticAntiRepeat(
         rejectionReason: `Первоначальный взнос уже подтверждён: "${state.downPayment.value}".`,
       };
     }
-    if (metrics?.['downPayment']?.status === 'confirmed' || metrics?.['downPayment']?.agentQuestionAsked) {
+    if (metrics?.['downPayment']?.status === 'confirmed') {
       return {
         accepted: false,
         semanticKey: key,
@@ -264,7 +277,7 @@ export function checkSemanticAntiRepeat(
   }
 
   if (key === 'ask_down_payment_source') {
-    if (metrics?.['downPaymentSource']?.status === 'confirmed' || metrics?.['downPaymentSource']?.agentQuestionAsked) {
+    if (metrics?.['downPaymentSource']?.status === 'confirmed') {
       return {
         accepted: false,
         semanticKey: key,
@@ -288,13 +301,6 @@ export function checkSemanticAntiRepeat(
         rejectionReason: `Семейная ипотека закрыта в профиле клиента (${state.familyMortgage.value || 'не применима или подтверждена'}). Повторный вопрос запрещен!`,
       };
     }
-    if (metrics?.['familyMortgage']?.agentQuestionAsked) {
-      return {
-        accepted: false,
-        semanticKey: key,
-        rejectionReason: `Статус семейной ипотеки уже уточнялся риелтором.`,
-      };
-    }
   }
 
   if (key === 'ask_decision_makers') {
@@ -305,7 +311,7 @@ export function checkSemanticAntiRepeat(
         rejectionReason: `ЛПР уже подтвержден: "${state.decisionMakers.value}".`,
       };
     }
-    if (metrics?.['decisionMaker']?.status === 'confirmed' || metrics?.['decisionMaker']?.agentQuestionAsked) {
+    if (metrics?.['decisionMaker']?.status === 'confirmed') {
       return {
         accepted: false,
         semanticKey: key,
@@ -322,7 +328,7 @@ export function checkSemanticAntiRepeat(
         rejectionReason: `Тип недвижимости уже подтвержден: "${state.propertyType.value}".`,
       };
     }
-    if (metrics?.['propertyType']?.status === 'confirmed' || metrics?.['propertyType']?.agentQuestionAsked) {
+    if (metrics?.['propertyType']?.status === 'confirmed') {
       return {
         accepted: false,
         semanticKey: key,
@@ -349,7 +355,7 @@ export function checkSemanticAntiRepeat(
 
   // 2. Check against state.askedQuestions
   if (state.askedQuestions && state.askedQuestions.length > 0) {
-    if (state.askedQuestions.includes(key)) {
+    if (state.askedQuestions.some(asked => asked === key || extractSemanticKey(asked) === key)) {
       return {
         accepted: false,
         semanticKey: key,

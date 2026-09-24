@@ -18,6 +18,8 @@ export class DualAudioCapture {
 
   private micProcessor: ScriptProcessorNode | null = null;
   private callProcessor: ScriptProcessorNode | null = null;
+  private micWorklet: AudioWorkletNode | null = null;
+  private callWorklet: AudioWorkletNode | null = null;
 
   private callbacks: AudioCaptureCallbacks;
 
@@ -43,6 +45,40 @@ export class DualAudioCapture {
 
   public set isPaused(val: boolean) {
     this._isPaused = val;
+    this.micWorklet?.port.postMessage({ type: 'pause', value: val });
+    this.callWorklet?.port.postMessage({ type: 'pause', value: val });
+  }
+
+  private async connectWorklet(
+    context: AudioContext,
+    source: MediaStreamAudioSourceNode,
+    kind: 'microphone' | 'call_audio'
+  ): Promise<AudioWorkletNode | null> {
+    if (!context.audioWorklet || typeof AudioWorkletNode === 'undefined') return null;
+    try {
+      await context.audioWorklet.addModule('/audio-capture-worklet.js');
+      const worklet = new AudioWorkletNode(context, 'pcm16-capture-processor', {
+        numberOfInputs: 1,
+        numberOfOutputs: 1,
+        outputChannelCount: [1],
+      });
+      worklet.port.onmessage = (event) => {
+        if (event.data?.type === 'chunk' && event.data.buffer instanceof ArrayBuffer) {
+          if (kind === 'microphone') this.callbacks.onMicChunk?.(event.data.buffer);
+          else this.callbacks.onCallChunk?.(event.data.buffer);
+        } else if (event.data?.type === 'level') {
+          if (kind === 'microphone') this.callbacks.onMicLevel?.(event.data.level, event.data.db);
+          else this.callbacks.onCallLevel?.(event.data.level, event.data.db);
+        }
+      };
+      worklet.port.postMessage({ type: 'pause', value: this._isPaused });
+      source.connect(worklet);
+      worklet.connect(context.destination);
+      return worklet;
+    } catch (error) {
+      console.warn(`[AudioCapture] AudioWorklet unavailable for ${kind}; using compatibility path.`, error);
+      return null;
+    }
   }
 
   /**
@@ -74,10 +110,12 @@ export class DualAudioCapture {
       });
 
       const source = this.micContext.createMediaStreamSource(this.micStream);
-      // ScriptProcessor for robust 16kHz PCM16 conversion
-      this.micProcessor = this.micContext.createScriptProcessor(2048, 1, 1);
+      this.micWorklet = await this.connectWorklet(this.micContext, source, 'microphone');
+      if (!this.micWorklet) {
+        // Compatibility path for older browsers without AudioWorklet.
+        this.micProcessor = this.micContext.createScriptProcessor(2048, 1, 1);
 
-      this.micProcessor.onaudioprocess = (e) => {
+        this.micProcessor.onaudioprocess = (e) => {
         if (this._isPaused) {
           if (this.callbacks.onMicLevel) {
             this.callbacks.onMicLevel(0, -100);
@@ -108,10 +146,11 @@ export class DualAudioCapture {
         if (this.callbacks.onMicChunk) {
           this.callbacks.onMicChunk(pcm16.buffer as ArrayBuffer);
         }
-      };
+        };
 
-      source.connect(this.micProcessor);
-      this.micProcessor.connect(this.micContext.destination);
+        source.connect(this.micProcessor);
+        this.micProcessor.connect(this.micContext.destination);
+      }
 
       this.isMicActive = true;
       return true;
@@ -180,9 +219,11 @@ export class DualAudioCapture {
       });
 
       const source = this.callContext.createMediaStreamSource(this.callStream);
-      this.callProcessor = this.callContext.createScriptProcessor(2048, 1, 1);
+      this.callWorklet = await this.connectWorklet(this.callContext, source, 'call_audio');
+      if (!this.callWorklet) {
+        this.callProcessor = this.callContext.createScriptProcessor(2048, 1, 1);
 
-      this.callProcessor.onaudioprocess = (e) => {
+        this.callProcessor.onaudioprocess = (e) => {
         if (this._isPaused) {
           if (this.callbacks.onCallLevel) {
             this.callbacks.onCallLevel(0, -100);
@@ -212,10 +253,11 @@ export class DualAudioCapture {
         if (this.callbacks.onCallChunk) {
           this.callbacks.onCallChunk(pcm16.buffer as ArrayBuffer);
         }
-      };
+        };
 
-      source.connect(this.callProcessor);
-      this.callProcessor.connect(this.callContext.destination);
+        source.connect(this.callProcessor);
+        this.callProcessor.connect(this.callContext.destination);
+      }
 
       this.isCallActive = true;
       return true;
@@ -236,6 +278,13 @@ export class DualAudioCapture {
 
   public stopMicrophone() {
     this.isMicActive = false;
+    if (this.micWorklet) {
+      try {
+        this.micWorklet.disconnect();
+      } catch (e) {}
+      this.micWorklet.port.onmessage = null;
+      this.micWorklet = null;
+    }
     if (this.micProcessor) {
       try {
         this.micProcessor.disconnect();
@@ -259,6 +308,13 @@ export class DualAudioCapture {
 
   public stopCallAudio() {
     this.isCallActive = false;
+    if (this.callWorklet) {
+      try {
+        this.callWorklet.disconnect();
+      } catch (e) {}
+      this.callWorklet.port.onmessage = null;
+      this.callWorklet = null;
+    }
     if (this.callProcessor) {
       try {
         this.callProcessor.disconnect();

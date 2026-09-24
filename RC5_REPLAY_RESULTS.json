@@ -1,0 +1,19 @@
+{
+  "version": "4.0.2-rc.5",
+  "source": "session5 headless replay (62 turns)",
+  "substantive_client_turns_without_hint": 0,
+  "family_mortgage": "not_applicable_adult_children",
+  "false_decision_maker": false,
+  "budget": "30m target / 35-40m stretch",
+  "criteria": "confirmed",
+  "search_experience": "confirmed",
+  "funds_available": "confirmed",
+  "ppi": "not_applicable_mortgage_rejected",
+  "ppv": "confirmed_18_00",
+  "video_refusal_guidance": "contextual_15_minute_reframe",
+  "market_objection_guidance": "contextual",
+  "yield_vs_deposit_guidance": "contextual",
+  "core_typescript_compile": "pass",
+  "client_context_panel_tsx_parse": "pass",
+  "full_npm_ci": "blocked_by_environment_EAI_AGAIN"
+}

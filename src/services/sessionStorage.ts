@@ -128,6 +128,17 @@ export function exportSessionToTxt(session: CallSessionRecord): string {
       });
       out += `\n`;
     }
+
+    if (session.summary.handoff) {
+      const handoff = session.summary.handoff;
+      out += `КОНТЕКСТ ДЛЯ СЛЕДУЮЩЕГО КОНТАКТА:\n`;
+      out += `• Следующий шаг: ${handoff.nextStep}\n`;
+      handoff.boundaries.forEach((item) => { out += `  - Граница: ${item}\n`; });
+      handoff.rejectedBranches.forEach((item) => { out += `  - Не предлагать повторно: ${item}\n`; });
+      handoff.openItems.forEach((item) => { out += `  - Открытый вопрос: ${item}\n`; });
+      handoff.riskFlags.forEach((item) => { out += `  - Риск: ${item}\n`; });
+      out += `\n`;
+    }
   }
 
   out += `====================================================\n`;

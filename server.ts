@@ -19,12 +19,21 @@ import {
 import { checkSemanticAntiRepeat } from './src/services/semanticAntiRepeat';
 import { selectCandidateRules } from './src/services/candidateRules';
 import { validateEvidenceQuote } from './src/services/textUtils';
+import { buildCompactAnalysisContext, buildLocalAnalysisResponse } from './src/services/localAnalysisEngine';
+import { createInitialState } from './src/services/conversationStore';
+import { redactSensitiveText } from './src/services/privacy';
+import { buildSessionHandoff } from './src/services/sessionHandoff';
 
 dotenv.config();
 
 const PORT = Number(process.env.PORT || 3000);
 const TRANSCRIBE_MODEL = 'gemini-3.5-transcribe-live';
 const ANALYSIS_MODELS = ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.8-flash'];
+const ANALYSIS_MODE = ['auto', 'local', 'gemini'].includes(
+  String(process.env.COPILOT_ANALYSIS_MODE || 'auto').toLowerCase()
+)
+  ? String(process.env.COPILOT_ANALYSIS_MODE || 'auto').toLowerCase()
+  : 'auto';
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
@@ -69,7 +78,12 @@ app.get('/api/health', (req, res) => {
     status: 'ok',
     hasKey: !!process.env.GEMINI_API_KEY,
     transcribeModel: TRANSCRIBE_MODEL,
-    analysisModel: ANALYSIS_MODELS[0],
+    analysisMode: ANALYSIS_MODE,
+    analysisModel:
+      ANALYSIS_MODE === 'local' || !process.env.GEMINI_API_KEY
+        ? 'local-deterministic'
+        : ANALYSIS_MODELS[0],
+    localFallbackReady: true,
     time: new Date().toISOString(),
   });
 });
@@ -85,7 +99,23 @@ interface RateLimitEntry {
   timestamps: number[];
 }
 
-const rateLimitStore: Record<string, RateLimitEntry> = {};
+const rateLimitStore = new Map<string, RateLimitEntry>();
+const RATE_LIMIT_MAX_KEYS = 1000;
+let rateLimitChecks = 0;
+
+function pruneRateLimitStore(now: number, windowMs: number) {
+  for (const [key, entry] of rateLimitStore) {
+    entry.timestamps = entry.timestamps.filter((timestamp) => now - timestamp < windowMs);
+    if (entry.timestamps.length === 0) rateLimitStore.delete(key);
+  }
+  if (rateLimitStore.size <= RATE_LIMIT_MAX_KEYS) return;
+  const oldestFirst = Array.from(rateLimitStore.entries()).sort(
+    ([, a], [, b]) => (a.timestamps[0] || 0) - (b.timestamps[0] || 0)
+  );
+  for (const [key] of oldestFirst.slice(0, rateLimitStore.size - RATE_LIMIT_MAX_KEYS)) {
+    rateLimitStore.delete(key);
+  }
+}
 
 function checkRateLimit(
   key: string,
@@ -93,21 +123,26 @@ function checkRateLimit(
   windowMs: number
 ): { allowed: boolean; retryAfterMs: number } {
   const now = Date.now();
-  if (!rateLimitStore[key]) {
-    rateLimitStore[key] = { timestamps: [now] };
+  rateLimitChecks += 1;
+  if (rateLimitStore.size > RATE_LIMIT_MAX_KEYS || rateLimitChecks % 64 === 0) {
+    pruneRateLimitStore(now, windowMs);
+  }
+  const entry = rateLimitStore.get(key);
+  if (!entry) {
+    rateLimitStore.set(key, { timestamps: [now] });
     return { allowed: true, retryAfterMs: 0 };
   }
 
   // Filter out timestamps outside window
-  rateLimitStore[key].timestamps = rateLimitStore[key].timestamps.filter((ts) => now - ts < windowMs);
+  entry.timestamps = entry.timestamps.filter((ts) => now - ts < windowMs);
 
-  if (rateLimitStore[key].timestamps.length >= maxRequests) {
-    const oldest = rateLimitStore[key].timestamps[0];
+  if (entry.timestamps.length >= maxRequests) {
+    const oldest = entry.timestamps[0];
     const retryAfterMs = Math.max(0, windowMs - (now - oldest));
     return { allowed: false, retryAfterMs };
   }
 
-  rateLimitStore[key].timestamps.push(now);
+  entry.timestamps.push(now);
   return { allowed: true, retryAfterMs: 0 };
 }
 
@@ -131,6 +166,18 @@ app.get('/api/gemini/check', async (req, res) => {
     preferredAnalysisModel: ANALYSIS_MODELS[0],
     modelsChecked: {},
   };
+
+  if (ANALYSIS_MODE === 'local') {
+    return res.json({
+      ok: true,
+      localOnly: true,
+      latencyMs: Date.now() - startTime,
+      transcribeLiveReady: false,
+      workingAnalysisModel: 'local-deterministic',
+      message: 'Локальное ядро готово; Gemini Live STT в offline-режиме не проверяется.',
+      diagnostics,
+    });
+  }
 
   if (!process.env.GEMINI_API_KEY) {
     return res.status(400).json({
@@ -261,6 +308,34 @@ app.post('/api/analyze', async (req, res) => {
     });
   }
 
+  const localResponse = buildLocalAnalysisResponse({
+    sessionId,
+    revision,
+    newTurns,
+    recentTurns: Array.isArray(recentTurns) ? recentTurns : [],
+    currentState: currentState || createInitialState(),
+    fallbackReason: null,
+  });
+
+  // Safety, consent and boundary events are always deterministic. Normal turns
+  // also stay fully usable when the key/quota is unavailable or local mode is set.
+  if (
+    (localResponse.priority || 0) >= 95 ||
+    ANALYSIS_MODE === 'local' ||
+    !process.env.GEMINI_API_KEY
+  ) {
+    return res.json({
+      ...localResponse,
+      fallbackReason:
+        (localResponse.priority || 0) >= 95
+          ? 'deterministic_priority_event'
+          : ANALYSIS_MODE === 'local'
+            ? 'local_mode'
+            : 'gemini_key_missing',
+      latencyMs: Date.now() - startTime,
+    });
+  }
+
   try {
     const ai = getAI();
     const rules = getSalesRules();
@@ -283,14 +358,6 @@ app.post('/api/analyze', async (req, res) => {
       }
     });
 
-    const formattedRecentTurns = (recentTurns || []).slice(-6).map((t: any) => {
-      return `[ID: ${t.id}] ${t.speaker === 'agent' ? 'Менеджер Андрей' : t.speaker === 'client' ? 'Клиент' : 'Собеседник'}: «${t.text}»`;
-    }).join('\n');
-
-    const formattedNewTurns = newTurns.map((t: any) => {
-      return `[ID: ${t.id}] ${t.speaker === 'agent' ? 'Менеджер Андрей' : t.speaker === 'client' ? 'Клиент' : 'Собеседник'}: «${t.text}»`;
-    }).join('\n');
-
     // Requirement 21: Select 0-4 candidate rules instead of transmitting 15+ full rules
     const lastClientForCandidate = [...newTurns, ...(recentTurns || [])].reverse().find((t: any) => t.speaker === 'client');
     const candidateRules = selectCandidateRules(rules, lastClientForCandidate?.text || '', currentState?.stage || 'contact');
@@ -304,52 +371,22 @@ app.post('/api/analyze', async (req, res) => {
         ).join('\n\n')
       : 'Нет специфического правила (выбирай наиболее подходящий вопрос по скрипту первого звонка).';
 
-    const currentStateSummary = JSON.stringify(currentState || {}, null, 2);
+    const currentStateSummary = redactSensitiveText(JSON.stringify(buildCompactAnalysisContext(currentState || {}, [...(recentTurns || []), ...newTurns])));
 
     const systemInstruction = `
-Ты — речевой суфлёр Андрея, эксперта по недвижимости в компании «Элитный Сочи» (Сочи, Сириус, Красная Поляна, Анапа, юг России).
-ДВИЖОК: ANDREI OS 3.1 (семантический зачёт 18 показателей первого звонка, строгий SPIN и режим ХПВ).
+Ты — семантический аналитик AI Copilot ANDREI OS. Локальный deterministic core уже управляет realtime-подсказкой; твоя задача — только уточнить неоднозначный смысл, факты клиента и при необходимости улучшить формулировку.
 
-СИСТЕМА СЕМАНТИЧЕСКОГО ЗАСЧЁТА (ГЛАВНОЕ ПРАВИЛО):
-AI Copilot ОБЯЗАН засчитывать вопросы и ответы НЕ по дословному совпадению со скриптом, а по общему смыслу, логической связи и фактическому содержанию разговора!
-- Андрей может задавать вопросы своими словами, формулируя их свободно. Если вопрос по смыслу направлен на выяснение нужного показателя, засчитывай его!
-- Клиент может отвечать коротко, разговорно, неполными фразами, через синонимы или логические следствия. Обязательно интерпретируй их смысл!
-- НИКОГДА не требуй от Андрея или клиента точных формулировок из скрипта.
-- НИКОГДА не предлагай задавать вопрос, если смысл показателя УЖЕ раскрыт клиентом ранее в диалоге!
-
-ПРАВИЛА ИНТЕРПРЕТАЦИИ И СТАТУСЫ ФАКТОВ (status: confirmed | partially_confirmed | needs_clarification | not_confirmed | not_applicable):
-1. «ДЛЯ СЕБЯ»: Не додумывать ПМЖ и школы! Статус: needs_clarification. Режим: уточнить формат («Понял. А для себя — это отдых, сезонное пребывание или планируете жить постоянно?»).
-2. ДЕТИ И СЕМЕЙНАЯ ИПОТЕКА:
-   - Если клиент говорит «Дети взрослые», «Сыну 25 лет», «Живут отдельно»: дети есть, но детей до 7 лет НЕТ. Семейная ипотека не подходит по возрасту (статус: not_applicable). НИ В КОЕМ СЛУЧАЕ не говори «детей нет» и не переспрашивай про детей до 7 лет! Сразу переходи к следующему показателю.
-   - Если говорит «Есть ребёнок», но возраст не назван: статус partially_confirmed. Уточнить, есть ли дети до 7 лет.
-   - Если возраст назван («5 лет»): статус confirmed (подходит под семейную ипотеку).
-3. ПЕРВОНАЧАЛЬНЫЙ ВЗНОС И ПРОДАЖА:
-   - Если клиент говорит «Сначала надо продать свою квартиру»: источник ПВ = продажа текущего жилья (confirmed). Срок покупки = не определён, зависит от продажи (needs_clarification, условие).
-4. КРИТЕРИИ И ЛОКАЦИЯ:
-   - Если клиент говорит «Район пока не знаю, главное чтобы было тихо и зелено»: локация = not_confirmed, критерий тишины/зелени = confirmed.
-5. ФОРМАТ НЕДВИЖИМОСТИ:
-   - Если клиент говорит «Смотрим дом, но квартиру тоже можно»: оба формата допустимы (confirmed). Не выбирать искусственно один.
-
-ОБЯЗАТЕЛЬНЫЕ ПРАВИЛА ВЕДЕНИЯ ДИАЛОГА:
-1. НЕ ПРЕВРАЩАЙ РАЗГОВОР В АНКЕТУ:
-   - Запрещено механически задавать вопросы по списку подряд!
-   - Следующий вопрос ВСЕГДА опирается на последний содержательный ответ клиента.
-2. ПРАВИЛО 40/60:
-   - Клиент должен говорить не менее 40% времени (в идеале 60%).
-   - Андрей говорит ёмко, не читает лекции и не устраивает монологов.
-3. ДОВЕРИЕ (TRUST):
-   - Минимум 3 открытых технических вопроса по потребности + 2 открытых личных вопроса.
-4. ОТРАБОТКА ВОЗРАЖЕНИЙ:
-   - «Дорого»: изоляция причины (относительно бюджета, других ЖК или ценности) без автоматического согласия.
-   - «Пришлите фото»: признать, объяснить недостаточность фото, предложить 15-мин видеопоказ со специалистом застройщика.
-   - «Подумаю»: мягко уточнить предмет размышлений (цена, планировка, локация или сама покупка).
-5. СТРОГИЕ ПРАВИЛА SPIN:
-   - Реплики Андрея — это ДЕЙСТВИЯ, а НЕ факты клиента. Слова Андрея НЕ доказывают боль.
-   - Все факты и боли строятся ТОЛЬКО на цитатах клиента (evidenceQuote).
-6. ВЫВОД НА ВИДЕОПРЕЗЕНТАЦИЮ (ППВ):
-   - Обязательный итог первого звонка! 15-минутный видеопоказ с экспертом застройщика с вилкой времени.
-7. ЕДИНЫЙ ПРИОРИТЕТ В КАРТОЧКЕ:
-   - suggestedReply до 25 слов, закрывающий ровно ОДИН следующий показатель (closesMetric).
+ЖЕСТКИЕ ПРАВИЛА:
+- Факты подтверждаются только словами клиента и должны иметь evidenceQuote/evidenceTurnId.
+- Реплики агента — контекст вопроса, но не доказательство факта клиента.
+- Не отменяй уже подтвержденные факты без явной коррекции клиента.
+- Учитывай отрицания и область отрицания: «не планируем жить постоянно», «ИП нет», «раньше не рассматривали» не являются положительными фактами/отказом от текущей покупки.
+- Прямой вопрос, возражение и граница клиента выше SPIN.
+- Возражение detected не равно resolved.
+- SPIN засчитывается по паре реальный вопрос агента → содержательный ответ клиента.
+- ППВ/ППИ: явное согласие клиента на конкретный следующий шаг нельзя понижать из-за отсутствия дополнительных презентационных пунктов.
+- Не придумывай доходность, гарантии, наличие инфраструктуры, условия банка или свойства объекта.
+- suggestedReply: одна короткая естественная реплика, максимум 25–30 слов.
 `;
 
     const userPrompt = `
@@ -358,24 +395,10 @@ AI Copilot ОБЯЗАН засчитывать вопросы и ответы Н
 ТЕКУЩЕЕ СТРУКТУРИРОВАННОЕ СОСТОЯНИЕ РАЗГОВОРА:
 ${currentStateSummary}
 
-УЖЕ ЗАДАННЫЕ ВОПРОСЫ (НЕ ПОВТОРЯТЬ ИХ):
-${JSON.stringify(currentState?.askedQuestions || [])}
-
 ДОСТУПНЫЕ ПРАВИЛА ANDREI OS:
 ${rulesContext}
 
-НЕДАВНИЙ КОНТЕКСТ РАЗГОВОРА:
-${formattedRecentTurns || 'Разговор только начался.'}
-
-НОВЫЕ ЗАВЕРШЁННЫЕ РЕПЛИКИ ДЛЯ АНАЛИЗА:
-${formattedNewTurns}
-
-Проанализируй реплики строго по ANDREI OS, скрипту первого звонка и SPIN/ХПВ:
-1. Определи agentAction для последней реплики Андрея (если была).
-2. Извлеки факты клиента с дословными цитатами (factsDelta). Слова Андрея НЕ являются фактами!
-3. Обнови spinDelta: каждый элемент ОБЯЗАН иметь evidenceQuote из слов клиента.
-4. Сформируй ОДНУ точную реплику Андрея (suggestedReply до 25-30 слов) с обоснованием (shortReason), цитатой клиента (evidenceQuote) и ожидаемым смыслом (expectedClientMeaning).
-5. Обязательно укажи closesMetric (id одного из 18 показателей), closesMetricLabel и immediatePriority.
+Верни только структурированный JSON по схеме: semantic factsDelta с цитатами клиента, agentAction/SPIN delta при необходимости и одну короткую optional suggestedReply. Не дублируй уже подтвержденные факты без изменения смысла.
 `;
 
     const schema = {
@@ -630,7 +653,8 @@ ${formattedNewTurns}
           systemInstruction,
           responseMimeType: 'application/json',
           responseSchema: schema,
-          temperature: 0.2,
+          temperature: 0.15,
+          maxOutputTokens: 900,
         },
       });
       rawResponse = response.text || null;
@@ -649,7 +673,8 @@ ${formattedNewTurns}
               systemInstruction,
               responseMimeType: 'application/json',
               responseSchema: schema,
-              temperature: 0.2,
+              temperature: 0.15,
+              maxOutputTokens: 900,
             },
           });
           rawResponse = response.text || null;
@@ -920,6 +945,7 @@ ${formattedNewTurns}
     parsed.basedOnRevision = revision;
     parsed.latencyMs = Date.now() - startTime;
     parsed.modelUsed = usedModel;
+    parsed.priority = Number(parsed.priority || 60);
 
     // Evaluate First Call Script progress & quality
     try {
@@ -980,9 +1006,9 @@ ${formattedNewTurns}
     res.json(parsed);
   } catch (error: any) {
     console.error('Analysis error:', error);
-    res.status(500).json({
-      error: error.message || 'Внутренняя ошибка анализа',
-      code: error.status || 'ANALYSIS_ERROR',
+    res.json({
+      ...localResponse,
+      fallbackReason: error.message || 'gemini_analysis_failed',
       latencyMs: Date.now() - startTime,
     });
   }
@@ -1042,7 +1068,9 @@ app.post('/api/summary', async (req, res) => {
 
   const emptyFallbackSummary = {
     clientGoal: state?.goal?.value || 'Недостаточно подтверждённых данных',
-    confirmedFacts: Array.isArray(state?.confirmedFacts) ? state.confirmedFacts.map((f: any) => ({
+    confirmedFacts: Array.isArray(state?.confirmedFacts) ? state.confirmedFacts
+      .filter((f: any) => f.lifecycleStatus !== 'superseded' && f.lifecycleStatus !== 'rejected')
+      .map((f: any) => ({
       category: f.category || 'general',
       label: f.category || 'Факт',
       value: f.value,
@@ -1054,7 +1082,10 @@ app.post('/api/summary', async (req, res) => {
     implications: state?.spin?.implication?.map((i: any) => i.text || i) || [],
     criteria: state?.criteria?.items?.map((c: any) => c.text) || [],
     objections: state?.objections?.items || [],
-    agreedNextStep: state?.agreedNextStep?.value || 'Следующий шаг не согласован',
+    agreedNextStep:
+      state?.nextStepAgreement?.action ||
+      state?.agreedNextStep?.value ||
+      'Следующий шаг не согласован',
     unconfirmedData: state?.unconfirmedHypotheses?.map((h: any) => `${h.category}: ${h.text} (${h.reason})`) || [],
     openQuestions: ['Уточнить детали при повторном контакте'],
     strongPoint: 'Спокойный и уважительный тон, отсутствие заискивания',
@@ -1065,27 +1096,49 @@ app.post('/api/summary', async (req, res) => {
       implication: state?.spin?.implication?.map((i: any) => i.text || i) || [],
       needPayoff: state?.spin?.needPayoff?.map((n: any) => n.text || n) || [],
     },
-    durationSeconds: 0,
+    durationSeconds:
+      Array.isArray(turns) && turns.length > 1
+        ? Math.max(0, Math.round((turns.at(-1).timestamp - turns[0].timestamp) / 1000))
+        : 0,
     completedAt: Date.now(),
+    handoff: buildSessionHandoff(state || createInitialState()),
   };
 
   if (!Array.isArray(turns) || turns.length === 0) {
     return res.json({ summary: emptyFallbackSummary });
   }
 
+  if (ANALYSIS_MODE === 'local' || !process.env.GEMINI_API_KEY) {
+    const scriptProgress = evaluateFirstCallScript(turns, state || createInitialState());
+    return res.json({
+      summary: {
+        ...emptyFallbackSummary,
+        qualityResult: scriptProgress.quality,
+        firstCallMetrics: scriptProgress.metrics,
+        trustEvaluation: scriptProgress.trust,
+        ppiEvaluation: scriptProgress.ppi,
+        ppvEvaluation: scriptProgress.ppv,
+        handoff: buildSessionHandoff({
+          ...(state || createInitialState()),
+          scriptProgress,
+        }),
+      },
+    });
+  }
+
   try {
     const ai = getAI();
     const formattedTranscript = turns
-      .map((t: any) => `[ID: ${t.id}] [${t.speaker === 'agent' ? 'Андрей (Агент)' : t.speaker === 'client' ? 'Клиент' : '?'}] ${t.text}`)
+      .map((t: any) => `[ID: ${t.id}] [${t.speaker === 'agent' ? 'Андрей (Агент)' : t.speaker === 'client' ? 'Клиент' : '?'}] ${redactSensitiveText(t.text)}`)
       .join('\n');
 
     const prompt = `
-Составь строгий, профессиональный и объективный итог звонка риелтора Андрея с клиентом по ANDREI OS 3.0 и SPIN-методологии:
+Составь строгий, профессиональный и объективный итог звонка риелтора Андрея с клиентом по ANDREI OS 4 и SPIN-методологии:
 ТРАНСКРИПТ ЗВОНКА:
 ${formattedTranscript}
 
 ТЕКУЩЕЕ СОСТОЯНИЕ РАЗГОВОРА:
-${JSON.stringify(state || {}, null, 2)}
+${JSON.stringify(buildCompactAnalysisContext(state || {}))}
 
 СТРОЖАЙШИЕ ПРАВИЛА:
 1. clientGoal: если цель покупки (для жизни, отдых, инвестиция) подтверждена цитатой клиента, укажи её. Если клиент не озвучил или данных мало, укажи строго: "Недостаточно подтверждённых данных".
@@ -1173,6 +1226,10 @@ ${JSON.stringify(state || {}, null, 2)}
         trustEvaluation: scriptProgress.trust,
         ppiEvaluation: scriptProgress.ppi,
         ppvEvaluation: scriptProgress.ppv,
+        handoff: buildSessionHandoff({
+          ...(state || createInitialState()),
+          scriptProgress,
+        }),
         completedAt: Date.now(),
       },
     });

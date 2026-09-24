@@ -44,10 +44,112 @@ export type SuggestionFeedback = 'useful' | 'irrelevant' | 'already_discussed';
 
 export type HintLifecycleStatus = 'candidate' | 'shown' | 'used' | 'expired' | 'superseded' | 'suppressed';
 
+export type FactOrigin =
+  | 'client_explicit'
+  | 'client_confirmed_agent_proposal'
+  | 'agent_assumption'
+  | 'external_verified';
+
+export type FactLifecycleStatus =
+  | 'candidate'
+  | 'confirmed'
+  | 'rejected'
+  | 'superseded'
+  | 'needs_verification';
+
+export type ConversationEventType =
+  | 'COMPLIANCE_STOP'
+  | 'CLIENT_STOP'
+  | 'TIME_CONSTRAINT'
+  | 'TIME_CONTRACT'
+  | 'TIME_CONTRACT_WARNING'
+  | 'CLAIM_RISK'
+  | 'DIRECT_QUESTION'
+  | 'FACT_CORRECTION'
+  | 'AMBIGUOUS_CONFIRMATION'
+  | 'EXPLICIT_REJECTION'
+  | 'MEETING_CONTRACT'
+  | 'RESEARCH_MODE'
+  | 'SOFT_RESISTANCE'
+  | 'NEXT_STEP_RESISTANCE'
+  | 'NEXT_STEP_REOPENED'
+  | 'FINANCE_VERIFY'
+  | 'ASR_GATE';
+
+export type MeetingConsentQuality =
+  | 'none'
+  | 'clear'
+  | 'tentative'
+  | 'forced_or_low_confidence';
+
+export interface ConversationEventRecord {
+  id: string;
+  type: ConversationEventType;
+  priority: number;
+  speaker: SpeakerRole;
+  turnId: string;
+  evidenceQuote: string;
+  createdAt: number;
+  ruleId?: string | null;
+}
+
+export type NextStepTarget = 'ppi' | 'ppv' | 'materials' | 'callback' | 'other';
+export interface NextStepResistance {
+  target: NextStepTarget;
+  count: number;
+  status: 'detected' | 'isolating' | 'deferred' | 'blocked' | 'handled';
+  lastEvidenceTurnId: string;
+  evidenceTurnIds: string[];
+  retryAfter: 'client_reopens' | 'shortlist_ready' | 'new_need' | 'next_call' | null;
+}
+export interface ActiveObjection {
+  category: string;
+  target: NextStepTarget | null;
+  status:
+    | 'detected'
+    | 'diagnosing'
+    | 'cause_identified'
+    | 'response_attempted'
+    | 'waiting_client_reaction'
+    | 'clarified'
+    | 'resolved'
+    | 'handled'
+    | 'unresolved'
+    | 'deferred'
+    | 'blocked';
+  resistanceCount: number;
+  evidenceTurnIds: string[];
+  evidenceQuote?: string | null;
+  lastAgentResponseTurnId: string | null;
+  rootCause?: string | null;
+  lastResponseStrategy?: string | null;
+}
+
+export interface DialogueControlState {
+  lastEventType: ConversationEventType | null;
+  lastEventTurnId: string | null;
+  clientBoundaryActive: boolean;
+  researchMode: boolean;
+  softResistanceCount: number;
+  rejectedBranches: string[];
+  blockedNextSteps?: string[];
+  nextStepResistance?: NextStepResistance | null;
+  nextStepResistanceHistory?: Partial<Record<NextStepTarget, NextStepResistance>>;
+  meetingConsentQuality: MeetingConsentQuality;
+  timeContract?: {
+    promisedSeconds: number;
+    startedAt: number;
+    warningShown: boolean;
+  } | null;
+}
+
 export interface NextStepAgreement {
   action: string;
   assignee?: string;
   timeOrDeadline?: string;
+  channel?: string;
+  participants?: string;
+  expectedResult?: string;
   basisTurnId?: string;
   status: 'proposed' | 'discussing' | 'agreed' | 'done' | 'none';
 }
@@ -78,6 +180,10 @@ export interface ConfirmedFact {
   isFlexible?: boolean;
   comment?: string;
   timestamp?: number;
+  origin?: FactOrigin;
+  lifecycleStatus?: FactLifecycleStatus;
+  supersedesFactId?: string | null;
+  unit?: string | null;
 }
 
 export type MetricStatus =
@@ -244,6 +350,8 @@ export interface SpinItem {
 }
 
 export interface SpinState {
+  researchMode?: boolean;
+  pastExperienceQuestionClosed?: boolean;
   situation: SpinItem[];
   problem: SpinItem[];
   implication: SpinItem[];
@@ -289,6 +397,8 @@ export interface ConversationState {
     evidenceQuote: string;
     turnId: string;
   }>;
+  events?: ConversationEventRecord[];
+  dialogueControl?: DialogueControlState;
   sessionTurnsBacklog?: TranscriptTurn[];
   goal: FactEntry;
   primaryGoal?: FactEntry;
@@ -317,6 +427,7 @@ export interface ConversationState {
     items: string[];
     evidenceTurnIds: string[];
   };
+  activeObjection?: ActiveObjection | null;
   confirmedFacts: ConfirmedFact[];
   spin: SpinState;
   spinState?: SpinState;
@@ -325,6 +436,7 @@ export interface ConversationState {
   suggestionMode?: SuggestionMode;
   unconfirmedHypotheses: UnconfirmedHypothesis[];
   askedQuestions: string[];
+  dismissedSuggestionTexts?: string[];
   agreedNextStep: FactEntry;
   nextStepAgreement?: NextStepAgreement;
   scriptProgress?: FirstCallScriptProgress;
@@ -401,6 +513,9 @@ export interface SuggestedReply {
   ttlMs?: number;
   semanticTarget?: string;
   isNoHint?: boolean;
+  priority?: number;
+  eventType?: ConversationEventType | null;
+  source?: 'local_event' | 'local_engine' | 'gemini';
 }
 
 export interface AnalysisResponse {
@@ -511,7 +626,17 @@ export interface AnalysisResponse {
     reason: string;
   }>;
   latencyMs?: number;
+  /** Wall-clock provider latency measured on the client. */
+  aiResponseElapsedMs?: number;
+  /**
+   * Gemini may still contribute semantic facts after the realtime enhancement
+   * window, but a late response must not replace the visible local hint.
+   */
+  suggestionExpired?: boolean;
   modelUsed?: string;
+  priority?: number;
+  eventType?: ConversationEventType | null;
+  fallbackReason?: string | null;
 }
 
 export interface CallSummary {
@@ -553,6 +678,16 @@ export interface CallSummary {
   ppvEvaluation?: PpvEvaluation;
   durationSeconds: number;
   completedAt: number;
+  handoff?: SessionHandoff;
+}
+
+export interface SessionHandoff {
+  stableFacts: Array<{ category: string; value: string; evidenceQuote: string }>;
+  boundaries: string[];
+  rejectedBranches: string[];
+  openItems: string[];
+  nextStep: string;
+  riskFlags: string[];
 }
 
 export interface CallSessionRecord {
@@ -590,6 +725,9 @@ export interface DiagnosticsData {
   lastErrorMessage: string | null;
   analysisRequestsCount: number;
   analysisLatencyMs: number | null;
+  firstHintLatencyMs?: number | null;
+  geminiLatencyMs?: number | null;
+  localDecisionLatencyMs?: number | null;
   liveSttSessionsCount: number;
   cancelledRequestsCount: number;
   analysisRequests?: number;

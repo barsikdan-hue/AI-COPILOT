@@ -35,6 +35,18 @@ export const METRIC_LABELS: Record<string, string> = {
 };
 
 export const OBJECTION_LABELS: Record<string, string> = {
+  next_step_ppi: 'Ипотечный специалист отложен',
+  next_step_ppv: 'Видеопоказ отложен',
+  next_step_materials: 'Материалы отложены',
+  next_step_callback: 'Повторный звонок отложен',
+  next_step_other: 'Следующий шаг отложен',
+  objection_think: 'Нужно подумать',
+  objection_timeline: 'Пауза в выборе',
+  objection_condition: 'Условие покупки',
+  objection_yield: 'Сомнения в доходности',
+  objection_market: 'Сомнение в рынке / ожидание снижения',
+  objection_compare: 'Сравнение вариантов',
+  objection_channel: 'Канал общения', 
   objection_price: 'Цена / Высокая стоимость',
   objection_timing: 'Сроки / Надо подумать',
   objection_security: 'Надёжность и безопасность сделки',

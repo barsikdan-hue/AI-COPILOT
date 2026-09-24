@@ -78,7 +78,7 @@ export const SummaryModal: React.FC<SummaryModalProps> = ({
             <div className="py-12 text-center text-stone-500">
               <div className="w-8 h-8 border-3 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
               <p className="font-medium text-stone-800">Формирование структурированного итога...</p>
-              <p className="text-xs text-stone-400 mt-1">Анализ реплик и извлечение фактов через Gemini</p>
+              <p className="text-xs text-stone-400 mt-1">Анализ реплик детерминированным ядром и доступной AI-моделью</p>
             </div>
           ) : summary ? (
             <>
@@ -104,6 +104,33 @@ export const SummaryModal: React.FC<SummaryModalProps> = ({
                   </p>
                 </div>
               </div>
+
+              {summary.handoff && (
+                <div className="bg-sky-50/60 border border-sky-200 rounded-xl p-3.5 space-y-2">
+                  <div className="flex items-center space-x-2 text-xs font-semibold text-sky-950">
+                    <ShieldCheck className="w-4 h-4 text-sky-700" />
+                    <span>Контекст для следующего контакта</span>
+                  </div>
+                  <p className="text-xs text-stone-800">
+                    <span className="font-semibold">Шаг:</span> {summary.handoff.nextStep}
+                  </p>
+                  {[
+                    ...summary.handoff.boundaries.map((text) => `Граница: ${text}`),
+                    ...summary.handoff.rejectedBranches.map((text) => `Не предлагать повторно: ${text}`),
+                    ...summary.handoff.riskFlags.map((text) => `Риск: ${text}`),
+                    ...summary.handoff.openItems.map((text) => `Открыто: ${text}`),
+                  ].length > 0 && (
+                    <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-[11px] text-stone-700 list-disc list-inside">
+                      {[
+                        ...summary.handoff.boundaries.map((text) => `Граница: ${text}`),
+                        ...summary.handoff.rejectedBranches.map((text) => `Не предлагать повторно: ${text}`),
+                        ...summary.handoff.riskFlags.map((text) => `Риск: ${text}`),
+                        ...summary.handoff.openItems.map((text) => `Открыто: ${text}`),
+                      ].map((item) => <li key={item}>{item}</li>)}
+                    </ul>
+                  )}
+                </div>
+              )}
 
               {/* Quality Control & First Call Script System Assessment */}
               {summary.qualityResult && (
@@ -138,7 +165,7 @@ export const SummaryModal: React.FC<SummaryModalProps> = ({
                     <div className="bg-white p-2 rounded-lg border border-stone-200">
                       <span className="text-stone-500 block text-[11px]">Доверие (Trust):</span>
                       <span className="font-bold text-stone-900 text-sm">
-                        {summary.trustEvaluation?.openTechnicalQuestionsCount ?? 0} техн. / {summary.trustEvaluation?.openPersonalQuestionsCount ?? 0} личн.
+                        {Math.min(summary.trustEvaluation?.openTechnicalQuestionsCount ?? 0, 3)} техн. / {Math.min(summary.trustEvaluation?.openPersonalQuestionsCount ?? 0, 2)} личн.
                       </span>
                       <span className="text-[10px] text-stone-400 block mt-0.5">Норма: 3 техн. + 2 личн.</span>
                     </div>

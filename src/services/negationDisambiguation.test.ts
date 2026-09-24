@@ -344,3 +344,11 @@ describe('Regression Tests: Targeted Negation and Fact Disambiguation', () => {
     expect(famMetric.status).toBe('not_confirmed');
   });
 });
+
+
+describe('positive mortgage wording is not swallowed by a negation substring', () => {
+  it('treats “Вполне рассматриваю ипотеку” as positive mortgage intent', () => {
+    const facts = extractDeterministicFacts('Вполне рассматриваю ипотеку.', 'positive-mortgage');
+    expect(facts.some((fact) => fact.field === 'paymentMethod' && fact.value === 'Ипотека')).toBe(true);
+  });
+});

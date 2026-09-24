@@ -34,11 +34,24 @@ import { DualAudioCapture } from './services/audioCapture';
 import { LiveTranscriptionChannel } from './services/transcriptionService';
 import { SalesDecisionEngine, DEFAULT_RULES } from './services/salesDecisionEngine';
 import { AnalysisProvider } from './services/analysisProvider';
-import { createInitialState, mergeFactsDelta } from './services/conversationStore';
-import { evaluateFirstCallScript, getFirstCallSuggestion } from './services/firstCallScriptEngine';
+import { createInitialState, mergeFactsDelta, mergeSemanticFacts } from './services/conversationStore';
+import { evaluateFirstCallScript } from './services/firstCallScriptEngine';
 import { checkSemanticAntiRepeat, extractSemanticKey } from './services/semanticAntiRepeat';
-import { isDuplicateFinalTurn } from './services/sttDedup';
+import { aggregateFinalTurn, FinalTurnBuffer } from './services/sttDedup';
 import { extractDeterministicFacts } from './services/deterministicFacts';
+import {
+  applyConversationEvent,
+  detectConversationEvent,
+  suggestionFromEvent,
+} from './services/conversationEventEngine';
+import {
+  isPendingSuggestionSuperseded,
+  shouldReplaceSuggestion,
+  isSuggestionAllowedByState,
+  recordAnalysisLatency,
+} from './services/suggestionLifecycle';
+import { advanceLocalConversation, buildLocalAnalysisResponse, restoreStateForAmendedTurn } from './services/localAnalysisEngine';
+import { buildSessionHandoff } from './services/sessionHandoff';
 import {
   getAllCallSessions,
   saveCallSession,
@@ -49,10 +62,19 @@ import { AudioControls } from './components/AudioControls';
 import { SuggestionCard } from './components/SuggestionCard';
 import { TranscriptFeed } from './components/TranscriptFeed';
 import { ClientContextPanel } from './components/ClientContextPanel';
-import { DiagnosticsDrawer } from './components/DiagnosticsDrawer';
-import { SummaryModal } from './components/SummaryModal';
-import { HistoryDrawer } from './components/HistoryDrawer';
-import { CallSimulatorModal } from './components/CallSimulatorModal';
+
+const DiagnosticsDrawer = React.lazy(() =>
+  import('./components/DiagnosticsDrawer').then((module) => ({ default: module.DiagnosticsDrawer }))
+);
+const SummaryModal = React.lazy(() =>
+  import('./components/SummaryModal').then((module) => ({ default: module.SummaryModal }))
+);
+const HistoryDrawer = React.lazy(() =>
+  import('./components/HistoryDrawer').then((module) => ({ default: module.HistoryDrawer }))
+);
+const CallSimulatorModal = React.lazy(() =>
+  import('./components/CallSimulatorModal').then((module) => ({ default: module.CallSimulatorModal }))
+);
 
 export const App: React.FC = () => {
   // Audio state
@@ -89,7 +111,7 @@ export const App: React.FC = () => {
   const [hasAnalysisError, setHasAnalysisError] = useState<boolean>(false);
   const [analysisErrorMessage, setAnalysisErrorMessage] = useState<string | null>(null);
 
-  // Andrei OS 3.1: Conversation Mode & Suggestion Locking
+  // Andrei OS 4: Conversation Mode & Suggestion Locking
   const [conversationMode, setConversationMode] = useState<ConversationMode>('live_call');
   const conversationModeRef = useRef<ConversationMode>('live_call');
 
@@ -101,10 +123,14 @@ export const App: React.FC = () => {
   });
   const suggestionLockedRef = useRef<boolean>(false);
   const lastClientRevisionRef = useRef<number>(0);
+  const lastSubstantiveClientRevisionRef = useRef<number>(0);
+  const isAgentSpeakingRef = useRef<boolean>(false);
   const currentSuggestionRef = useRef<SuggestedReply | null>(null);
   const pendingSuggestionRef = useRef<SuggestedReply | null>(null);
   const recentShownSemanticKeysRef = useRef<Map<string, number>>(new Map());
-  const HINT_TTL_MS = 45000; // Keep a useful hint visible long enough for a real conversation
+  const clientSpeechEndedAtRef = useRef<number | null>(null);
+  const clientResponseStartByRevisionRef = useRef<Map<number, number>>(new Map());
+  const HINT_TTL_MS = 15000; // 15 seconds TTL for pending suggestions
   const isPausedRef = useRef<boolean>(isPaused);
   const [isRefiningContext, setIsRefiningContext] = useState<boolean>(false);
 
@@ -145,9 +171,13 @@ export const App: React.FC = () => {
 
   // References for deterministic session identity, revisioning, and state
   const sessionIdRef = useRef<string>('');
+  const isCallRunningRef = useRef<boolean>(false);
   const revisionRef = useRef<number>(0);
   const conversationStateRef = useRef<ConversationState>(createInitialState());
   const turnsRef = useRef<TranscriptTurn[]>([]);
+  const turnBaseStateRef = useRef<{ id: string; state: ConversationState } | null>(null);
+  const finalTurnBufferRef = useRef<FinalTurnBuffer | null>(null);
+  useEffect(() => () => finalTurnBufferRef.current?.reset(), []);
   const suggestedRepliesHistoryRef = useRef<SuggestedReply[]>([]);
 
   // References for services
@@ -157,6 +187,7 @@ export const App: React.FC = () => {
   const decisionEngineRef = useRef<SalesDecisionEngine>(new SalesDecisionEngine(DEFAULT_RULES));
   const analysisProviderRef = useRef<AnalysisProvider>(new AnalysisProvider());
   const timerIntervalRef = useRef<any>(null);
+  const timeContractWarningTimerRef = useRef<any>(null);
 
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
@@ -170,6 +201,10 @@ export const App: React.FC = () => {
       audioCaptureRef.current.isPaused = isPaused;
     }
   }, [isPaused]);
+
+  useEffect(() => {
+    isCallRunningRef.current = isCallRunning;
+  }, [isCallRunning]);
 
   // Telemetry diagnostics poll (Requirement 15)
   useEffect(() => {
@@ -255,6 +290,122 @@ export const App: React.FC = () => {
     };
   }, [isCallRunning, isPaused]);
 
+  const publishSuggestion = useCallback((candidate: SuggestedReply, skipAntiRepeat = false): boolean => {
+    const activeSession = sessionIdRef.current;
+    if (!activeSession || candidate.sessionId !== activeSession) return false;
+
+    if (!isSuggestionAllowedByState(candidate, conversationStateRef.current, lastSubstantiveClientRevisionRef.current)) return false;
+    candidate.semanticKey ||= extractSemanticKey(candidate.text);
+    candidate.ttlMs ||= HINT_TTL_MS;
+
+    const current = currentSuggestionRef.current;
+    const pending = pendingSuggestionRef.current;
+    const comparisonTarget = pending && shouldReplaceSuggestion(current, pending) ? pending : current;
+    if (!shouldReplaceSuggestion(comparisonTarget, candidate)) {
+      candidate.lifecycleStatus = 'suppressed';
+      return false;
+    }
+
+    if (!skipAntiRepeat) {
+      const recentAt = recentShownSemanticKeysRef.current.get(candidate.semanticKey);
+      if (recentAt != null) {
+        candidate.lifecycleStatus = 'suppressed';
+        return false;
+      }
+      const antiRepeat = checkSemanticAntiRepeat(
+        candidate,
+        conversationStateRef.current,
+        turnsRef.current.slice(-6)
+      );
+      if (!antiRepeat.accepted) {
+        candidate.lifecycleStatus = 'suppressed';
+        return false;
+      }
+    }
+
+    if (suggestionLockedRef.current || isAgentSpeakingRef.current) {
+      if (pendingSuggestionRef.current) pendingSuggestionRef.current.lifecycleStatus = 'superseded';
+      candidate.lifecycleStatus = 'candidate';
+      pendingSuggestionRef.current = candidate;
+      return true;
+    }
+
+    if (currentSuggestionRef.current) currentSuggestionRef.current.lifecycleStatus = 'superseded';
+    candidate.lifecycleStatus = 'shown';
+    recentShownSemanticKeysRef.current.set(candidate.semanticKey, Date.now());
+    currentSuggestionRef.current = candidate;
+    setCurrentSuggestion(candidate);
+    setShouldSuggest(true);
+    const endToEndStartedAt = clientResponseStartByRevisionRef.current.get(candidate.basedOnRevision);
+    if (endToEndStartedAt != null) {
+      const endToEndLatency = Math.max(0, Date.now() - endToEndStartedAt);
+      setDiagnostics((current) => ({ ...current, analysisLatencyMs: endToEndLatency, firstHintLatencyMs: endToEndLatency }));
+      clientResponseStartByRevisionRef.current.delete(candidate.basedOnRevision);
+    }
+    pendingSuggestionRef.current = null;
+    if (!suggestedRepliesHistoryRef.current.some((item) => item.id === candidate.id)) {
+      suggestedRepliesHistoryRef.current = [candidate, ...suggestedRepliesHistoryRef.current];
+      setSuggestedRepliesHistory(suggestedRepliesHistoryRef.current);
+    }
+    return true;
+  }, []);
+
+  // Warn at 80% of an explicit time promise (for example: “I will take two minutes”).
+  useEffect(() => {
+    if (timeContractWarningTimerRef.current) {
+      clearTimeout(timeContractWarningTimerRef.current);
+      timeContractWarningTimerRef.current = null;
+    }
+    const contract = conversationState.dialogueControl?.timeContract;
+    if (!contract || contract.warningShown) return;
+
+    const warningAt = contract.startedAt + contract.promisedSeconds * 800;
+    const delay = Math.max(0, warningAt - Date.now());
+    timeContractWarningTimerRef.current = setTimeout(() => {
+      const current = conversationStateRef.current;
+      const activeContract = current.dialogueControl?.timeContract;
+      if (!activeContract || activeContract.warningShown) return;
+
+      const updated: ConversationState = {
+        ...current,
+        dialogueControl: {
+          ...current.dialogueControl!,
+          timeContract: { ...activeContract, warningShown: true },
+          lastEventType: 'TIME_CONTRACT_WARNING',
+        },
+      };
+      conversationStateRef.current = updated;
+      setConversationState(updated);
+
+      publishSuggestion({
+        id: `reply_${Date.now()}_time_warning`,
+        sessionId: sessionIdRef.current,
+        basedOnRevision: revisionRef.current,
+        candidateRuleId: 'time_contract_warning',
+        actionType: 'PROPOSE_NEXT_STEP',
+        text: 'Время почти вышло: завершите текущую мысль и зафиксируйте один конкретный следующий шаг.',
+        shortReason: 'Использовано 80% обещанного клиенту времени.',
+        evidenceTurnIds: current.dialogueControl?.lastEventTurnId
+          ? [current.dialogueControl.lastEventTurnId]
+          : [],
+        createdAt: Date.now(),
+        stage: current.stage,
+        confidenceStatus: 'confirmed',
+        lifecycleStatus: 'candidate',
+        priority: 108,
+        eventType: 'TIME_CONTRACT_WARNING',
+        source: 'local_event',
+      });
+    }, delay);
+
+    return () => {
+      if (timeContractWarningTimerRef.current) {
+        clearTimeout(timeContractWarningTimerRef.current);
+        timeContractWarningTimerRef.current = null;
+      }
+    };
+  }, [conversationState.dialogueControl?.timeContract, publishSuggestion]);
+
   // Hint lifecycle: verify and promote pending suggestion after agent speech finishes
   const verifyAndPromotePendingSuggestion = useCallback(() => {
     const pending = pendingSuggestionRef.current;
@@ -272,12 +423,15 @@ export const App: React.FC = () => {
     }
 
     // 2. Revision check: if a newer substantive client turn arrived after pending was created
-    if (pending.basedOnRevision < lastClientRevisionRef.current) {
+    if (isPendingSuggestionSuperseded(
+      pending.basedOnRevision,
+      lastSubstantiveClientRevisionRef.current
+    )) {
       console.log(
         '[HintLifecycle] Discarded pending suggestion: superseded by newer client revision',
         pending.basedOnRevision,
         '<',
-        lastClientRevisionRef.current
+        lastSubstantiveClientRevisionRef.current
       );
       pending.lifecycleStatus = 'superseded';
       pendingSuggestionRef.current = null;
@@ -292,18 +446,7 @@ export const App: React.FC = () => {
       return;
     }
 
-    // 4. Newer client turn check
-    const clientTurnsAfter = turnsRef.current.filter(
-      (t) => t.speaker === 'client' && (t.revision ?? 0) > pending.basedOnRevision
-    );
-    if (clientTurnsAfter.length > 0) {
-      console.log('[HintLifecycle] Discarded pending suggestion: newer client turn exists');
-      pending.lifecycleStatus = 'superseded';
-      pendingSuggestionRef.current = null;
-      return;
-    }
-
-    // 5. Semantic repeat & recent shown semantic keys check
+    // 4. Semantic repeat & recent shown semantic keys check
     const semKey = pending.semanticKey || extractSemanticKey(pending.text);
     const lastShownTime = recentShownSemanticKeysRef.current.get(semKey);
     if (lastShownTime && now - lastShownTime < 30000) {
@@ -329,7 +472,7 @@ export const App: React.FC = () => {
       return;
     }
 
-    // 6. Check if topic is still open
+    // 5. Check if topic is still open
     if (pending.closesMetric) {
       const metric = conversationStateRef.current.scriptProgress?.metrics?.[pending.closesMetric];
       if (metric && isMetricClosed(metric.status)) {
@@ -342,45 +485,40 @@ export const App: React.FC = () => {
       }
     }
 
-    // All checks passed! Promote candidate to shown
-    pending.lifecycleStatus = 'shown';
-    recentShownSemanticKeysRef.current.set(semKey, now);
-
-    setCurrentSuggestion(pending);
-    currentSuggestionRef.current = pending;
-    setShouldSuggest(true);
+    // All checks passed: the central lifecycle still protects a newer/higher-priority card.
     pendingSuggestionRef.current = null;
-    console.log(
-      `[HintLifecycle] Promoted pending suggestion to shown: "${pending.text.slice(0, 40)}..."`
-    );
-  }, [sessionId, HINT_TTL_MS]);
+    if (publishSuggestion(pending, true)) {
+      console.log(
+        `[HintLifecycle] Promoted pending suggestion to shown: "${pending.text.slice(0, 40)}..."`
+      );
+    }
+  }, [sessionId, publishSuggestion]);
 
-  // Turn injection helper (used by STT final turn and Simulator)
+
+  // Deterministic OS 4 turn pipeline used by live STT and the offline simulator.
   const handleAddFinalTurn = useCallback(
     (speaker: SpeakerRole, text: string, timestamp = Date.now()) => {
-      const trimmed = text.trim();
+      let trimmed = text.trim();
       if (!trimmed) return;
 
-      // REQUIREMENT 10: Deduplicate duplicate final turns within 1.5s window
-      const lastTurn = turnsRef.current[turnsRef.current.length - 1];
-      if (isDuplicateFinalTurn(lastTurn, speaker, trimmed, timestamp, 1500)) {
-        console.log(`[Copilot] Отклонен дубликат STT turn (${speaker}): «${trimmed}»`);
-        return;
-      }
+      const previousTurn = turnsRef.current.at(-1);
+      const aggregation = aggregateFinalTurn(previousTurn, speaker, trimmed, timestamp);
+      if (aggregation.kind === 'duplicate') return;
+      const amending = aggregation.kind === 'amend';
+      trimmed = aggregation.text;
 
       if (!sessionIdRef.current) {
         const newId = `session_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
         sessionIdRef.current = newId;
+        analysisProviderRef.current.setSession(newId);
         setSessionId(newId);
       }
       const activeSessionId = sessionIdRef.current;
-
-      revisionRef.current += 1;
-      const nextRev = revisionRef.current;
+      const nextRev = amending ? previousTurn!.revision! : ++revisionRef.current;
       setRevision(nextRev);
 
       const newTurn: TranscriptTurn = {
-        id: `turn_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        id: amending ? previousTurn!.id : `turn_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
         sessionId: activeSessionId,
         source: speaker === 'agent' ? 'microphone' : 'call_audio',
         speaker,
@@ -389,123 +527,79 @@ export const App: React.FC = () => {
         isFinal: true,
         revision: nextRev,
       };
-
-      turnsRef.current = [...turnsRef.current, newTurn];
+      const baseState = amending && turnBaseStateRef.current?.id === newTurn.id
+        ? restoreStateForAmendedTurn(turnBaseStateRef.current.state, conversationStateRef.current) : conversationStateRef.current;
+      if (!amending) turnBaseStateRef.current = { id: newTurn.id, state: baseState };
+      turnsRef.current = amending ? [...turnsRef.current.slice(0, -1), newTurn] : [...turnsRef.current, newTurn];
       setTurns(turnsRef.current);
 
-      // =========================================================================
-      // REQUIREMENT 1: АНАЛИЗИРОВАТЬ ТОЛЬКО РЕПЛИКИ КЛИЕНТА. РЕЧЬ АНДРЕЯ.
-      // НЕ ОТМЕНЯТЬ АНАЛИЗ КЛИЕНТА!
-      // =========================================================================
       if (speaker === 'agent') {
-        // Заморозить текущую карточку подсказки
         suggestionLockedRef.current = true;
-        setSuggestionLockState((prev) => ({
-          ...prev,
+        setSuggestionLockState((previous) => ({
+          ...previous,
           suggestionLocked: true,
           lockedSuggestionId: currentSuggestionRef.current?.id || null,
-          lockedAt: prev.lockedAt || Date.now(),
+          lockedAt: previous.lockedAt || Date.now(),
         }));
 
-        // Если Андрей задал вопрос — фиксируем в askedQuestions, чтобы не повторять
-        if (trimmed.endsWith('?')) {
-          setConversationState((prev) => {
-            if (prev.askedQuestions.includes(trimmed)) return prev;
-            const updated = {
-              ...prev,
-              askedQuestions: [...prev.askedQuestions, trimmed],
-            };
-            conversationStateRef.current = updated;
-            return updated;
-          });
-        }
+        const { state: nextState, event: agentEvent } = advanceLocalConversation(baseState, newTurn, turnsRef.current);
+        conversationStateRef.current = nextState;
+        setConversationState(nextState);
 
-        // Правило ANDREI OS:
-        // if speaker === "agent":
-        //   сохранить реплику;
-        //   не запускать анализ;
-        //   не менять текущую карточку;
-        //   не менять stage;
-        //   не менять objection;
-        //   не менять текущий вопрос.
-        //   НО анализ реплики клиента продолжает выполняться в фоне!
-        // Если Андрей закончил фразу (а в симуляторе нет отдельного event onVoiceActivity(false)),
-        // проверяем возможность показать отложенную подсказку
-        if (!isAgentSpeaking && pendingSuggestionRef.current) {
+        // The simulator has no separate voice-activity-off event.
+        if (!isAgentSpeakingRef.current) {
           suggestionLockedRef.current = false;
-          setSuggestionLockState((prev) => ({
-            ...prev,
-            suggestionLocked: false,
-          }));
+          setSuggestionLockState((previous) => ({ ...previous, suggestionLocked: false }));
+        }
+        if (agentEvent) {
+          const candidate = suggestionFromEvent(agentEvent, activeSessionId, nextRev);
+          if (candidate) publishSuggestion(candidate);
+        }
+        if (!isAgentSpeakingRef.current && pendingSuggestionRef.current) {
           verifyAndPromotePendingSuggestion();
         }
         return;
       }
 
-      // =========================================================================
-      // ОБРАБОТКА РЕПЛИКИ КЛИЕНТА (speaker === 'client')
-      // =========================================================================
       lastClientRevisionRef.current = nextRev;
-
-      // Разблокировать карточку после прихода новой клиентской реплики
-      suggestionLockedRef.current = false;
-      setSuggestionLockState((prev) => ({
-        ...prev,
-        suggestionLocked: false,
+      const speechEndedAt = clientSpeechEndedAtRef.current;
+      const nowForLatency = Date.now();
+      if (!amending) clientResponseStartByRevisionRef.current.set(
+        nextRev,
+        speechEndedAt && nowForLatency - speechEndedAt < 8000 ? speechEndedAt : nowForLatency
+      );
+      clientSpeechEndedAtRef.current = null;
+      suggestionLockedRef.current = isAgentSpeakingRef.current;
+      setSuggestionLockState((previous) => ({
+        ...previous,
+        suggestionLocked: isAgentSpeakingRef.current,
         lastClientRevision: nextRev,
       }));
 
-      // REQUIREMENT 9: Режим технического обсуждения
       if (conversationModeRef.current === 'technical_discussion') {
-        console.log('[Copilot] Режим технического обсуждения: факты клиента и правила не извлекаются');
         setIsAnalyzing(false);
         setIsRefiningContext(false);
         return;
       }
 
-      const lastAgentTurn = [...turnsRef.current].reverse().find((t) => t.speaker === 'agent');
+      const lastAgentTurn = turnsRef.current
+        .slice(0, -1)
+        .filter((turn) => turn.speaker === 'agent')
+        .at(-1);
+      if (!isSubstantiveClientTurn(trimmed, lastAgentTurn?.text)) return;
+      lastSubstantiveClientRevisionRef.current = nextRev;
 
-      // Фильтрация бессодержательных реплик клиента (с учетом контекстных ответов на реплики Андрея)
-      if (!isSubstantiveClientTurn(trimmed, lastAgentTurn?.text)) {
-        console.log('[Copilot] Пропуск бессодержательной реплики клиента:', trimmed);
-        return;
+      const { state: nextState, event, clientIntent, localObjection } = advanceLocalConversation(baseState, newTurn, turnsRef.current);
+      conversationStateRef.current = nextState;
+      setConversationState(nextState);
+
+      if (event) {
+        const eventSuggestion = suggestionFromEvent(event, activeSessionId, nextRev);
+        if (eventSuggestion) publishSuggestion(eventSuggestion);
       }
-
-      // REQUIREMENT 4: СОХРАНЯТЬ ФАКТЫ ПРИ ЛЮБОЙ РЕПЛИКЕ КЛИЕНТА
-      // Извлекаем бюджет, локацию, цель, сроки детерминированно, гарантируя сохранение
-      const extractedFacts = extractDeterministicFacts(trimmed, newTurn.id, lastAgentTurn?.text);
-      if (extractedFacts.length > 0) {
-        const turnLookup: Record<string, string> = {};
-        turnsRef.current.forEach((t) => {
-          turnLookup[t.id] = t.text;
-        });
-        const nextState = mergeFactsDelta(
-          conversationStateRef.current,
-          extractedFacts as any,
-          conversationStateRef.current.stage,
-          undefined,
-          nextRev,
-          turnLookup
-        );
-        // IMPORTANT: update the canonical ref synchronously. React state updates are async,
-        // while the prompter must reason about this same client turn immediately.
-        conversationStateRef.current = nextState;
-        setConversationState(nextState);
-      }
-
-      // REQUIREMENT 5: Быстрый локальный режим для возражений (detectLocalObjection)
-      // Срабатывает МГНОВЕННО без отправки запроса к Gemini API (факты уже сохранены выше!)
-      const clientIntent = classifyClientTurnIntent(
-        trimmed,
-        conversationStateRef.current,
-        lastAgentTurn?.text
-      );
-      const localObjection = detectLocalObjection(trimmed, conversationStateRef.current);
 
       if (localObjection && clientIntent.type === 'objection') {
-        console.log('[Copilot] Локально распознано возражение без ожидания Gemini:', localObjection.category);
-
-        const replyObj: SuggestedReply = {
+        publishSuggestion({
           id: `reply_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
           sessionId: activeSessionId,
           basedOnRevision: nextRev,
@@ -519,357 +613,105 @@ export const App: React.FC = () => {
           confidenceStatus: localObjection.confidenceStatus,
           lifecycleStatus: 'candidate',
           semanticKey: extractSemanticKey(localObjection.text),
-        };
-
-        // Semantic Anti-Repeat check for local objection suggestion
-        const antiRepeatCheck = checkSemanticAntiRepeat(
-          replyObj,
-          conversationStateRef.current,
-          turnsRef.current.slice(-6)
-        );
-
-        // Обновляем состояние возражений (только если intent.type === 'objection')
-        setConversationState((prev) => {
-          const nextState: ConversationState = {
-            ...prev,
-            stage: 'objection_clarification',
-            objections: {
-              value: localObjection.category,
-              items: prev.objections.items.includes(localObjection.category)
-                ? prev.objections.items
-                : [...prev.objections.items, localObjection.category],
-              evidenceTurnIds: [...prev.objections.evidenceTurnIds, newTurn.id],
-            },
-          };
-          conversationStateRef.current = nextState;
-          return nextState;
+          priority: 70,
+          source: 'local_engine',
         });
-
-        if (antiRepeatCheck.accepted) {
-          if (suggestionLockedRef.current) {
-            if (pendingSuggestionRef.current) {
-              pendingSuggestionRef.current.lifecycleStatus = 'superseded';
-            }
-            pendingSuggestionRef.current = replyObj;
-          } else {
-            replyObj.lifecycleStatus = 'shown';
-            recentShownSemanticKeysRef.current.set(
-              replyObj.semanticKey || extractSemanticKey(replyObj.text),
-              Date.now()
-            );
-            setCurrentSuggestion(replyObj);
-            currentSuggestionRef.current = replyObj;
-            setShouldSuggest(true);
-            suggestedRepliesHistoryRef.current = [replyObj, ...suggestedRepliesHistoryRef.current];
-            setSuggestedRepliesHistory(suggestedRepliesHistoryRef.current);
-          }
-        } else {
-          console.log(`[Semantic Anti-Repeat] Локальная подсказка отклонена антиповтором: ${antiRepeatCheck.rejectionReason}`);
-        }
-
-        // ПРИМЕЧАНИЕ: early-return УБРАН!
-        // Анализ продолжается дальше в evaluateSpinAndHpb() и scheduleAnalysis,
-        // чтобы не блокировать извлечение фактов, гипотез и SPIN-прогрессию.
       }
 
-      // SPIN Progression & HPB Evaluation (выполняется для всех содержательных реплик клиента)
-      const currentSpin = conversationStateRef.current.spin || conversationStateRef.current.spinState;
-      const spinResult = evaluateSpinAndHpb(
-        newTurn,
-        currentSpin,
-        'none',
-        lastAgentTurn?.text || ''
-      );
+      const recentTurns = turnsRef.current.slice(-10);
+      const snapshotState = nextState;
+      setIsAnalyzing(false);
 
-      if (spinResult?.updatedSpin) {
-        const nextState: ConversationState = {
-          ...conversationStateRef.current,
-          spin: spinResult.updatedSpin,
-          spinState: spinResult.updatedSpin,
+      const applyAnalysisResult = (analysisResult: ReturnType<typeof buildLocalAnalysisResponse>) => {
+        if (analysisResult.sessionId !== sessionIdRef.current || analysisResult.basedOnRevision < lastSubstantiveClientRevisionRef.current) return;
+        setIsAnalyzing(false);
+        setIsRefiningContext(false);
+        setHasAnalysisError(false);
+        setAnalysisErrorMessage(null);
+
+        const stats = analysisProviderRef.current.getStats();
+        setDiagnostics((current) => ({
+          ...recordAnalysisLatency(current, analysisResult),
+          analysisModel: analysisResult.modelUsed || current.analysisModel,
+          analysisRequestsCount: stats.requestsCount,
+          cancelledRequestsCount: stats.cancelledCount,
+          lastRequestTime: stats.lastRequestTime,
+          lastRequestReason: stats.lastRequestReason,
+          liveSttSessionsCount: LiveTranscriptionChannel.getTotalLiveSessionsCount(),
+          lastAnalysisTime: Date.now(),
+          lastErrorMessage: null,
+        }));
+
+        let mergedState = analysisResult.modelUsed === 'local-deterministic' ? conversationStateRef.current
+          : mergeSemanticFacts(conversationStateRef.current, analysisResult.factsDelta || [], turnsRef.current);
+        const refreshedProgress = evaluateFirstCallScript(turnsRef.current, mergedState);
+        mergedState = {
+          ...mergedState,
+          scriptProgress: refreshedProgress,
+          trustEvaluation: refreshedProgress.trust,
+          qualityResult: refreshedProgress.quality,
         };
-        conversationStateRef.current = nextState;
-        setConversationState(nextState);
-      }
+        conversationStateRef.current = mergedState;
+        setConversationState(mergedState);
 
-      // LOCAL-FIRST PROMPTER:
-      // Every substantive final client turn must get a deterministic next action immediately.
-      // Gemini may enrich facts/state in the background, but a slow network/model must not leave
-      // the agent staring at "waiting".
-      if (!(localObjection && clientIntent.type === 'objection')) {
-        const localProgress = evaluateFirstCallScript(turnsRef.current, conversationStateRef.current);
-        const localState: ConversationState = {
-          ...conversationStateRef.current,
-          scriptProgress: localProgress,
-          trustEvaluation: localProgress.trust,
-          qualityResult: localProgress.quality,
-        };
-        conversationStateRef.current = localState;
-        setConversationState(localState);
+        const isLateGeminiEnhancement =
+          analysisResult.modelUsed !== 'local-deterministic' && analysisResult.suggestionExpired === true;
 
-        const localFallback = getFirstCallSuggestion(localProgress, newTurn, localState);
-        if (localFallback) {
-          const localSuggestion: SuggestedReply = {
+        if (analysisResult.shouldSuggest && analysisResult.suggestedReply && !isLateGeminiEnhancement) {
+          publishSuggestion({
             id: `reply_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
             sessionId: activeSessionId,
-            basedOnRevision: nextRev,
-            candidateRuleId: null,
-            actionType: 'CLARIFY',
-            text: localFallback.suggestedReply,
-            shortReason: localFallback.shortReason,
-            expectedClientMeaning: localFallback.expectedClientMeaning,
-            recognizedMeaning: localFallback.recognizedMeaning,
-            closesMetric: localFallback.closesMetric,
-            closesMetricLabel: localFallback.closesMetricLabel,
-            immediatePriority: localFallback.immediatePriority,
-            evidenceTurnIds: [newTurn.id],
+            basedOnRevision: analysisResult.basedOnRevision,
+            candidateRuleId: analysisResult.candidateRuleId,
+            selectedRuleId: analysisResult.selectedRuleId,
+            actionType: analysisResult.actionType,
+            text: analysisResult.suggestedReply,
+            shortReason: analysisResult.shortReason || 'Следующий лучший шаг',
+            expectedClientMeaning: analysisResult.expectedClientMeaning,
+            closesMetric: analysisResult.closesMetric,
+            closesMetricLabel: analysisResult.closesMetricLabel,
+            immediatePriority: analysisResult.immediatePriority,
+            suggestionMode: analysisResult.suggestionMode,
+            evidenceTurnIds: analysisResult.evidenceTurnIds || [],
             createdAt: Date.now(),
-            stage: conversationStateRef.current.stage,
+            stage: analysisResult.stage,
             confidenceStatus: 'high',
-            lifecycleStatus: 'shown',
-            semanticKey: extractSemanticKey(localFallback.suggestedReply),
-            ttlMs: HINT_TTL_MS,
-          };
-
-          const localAntiRepeat = checkSemanticAntiRepeat(
-            localSuggestion,
-            conversationStateRef.current,
-            turnsRef.current.slice(-6)
-          );
-          if (localAntiRepeat.accepted) {
-            const visibleLatency = Math.max(0, Date.now() - timestamp);
-            setDiagnostics((d) => ({ ...d, analysisLatencyMs: visibleLatency }));
-            recentShownSemanticKeysRef.current.set(
-              localSuggestion.semanticKey || extractSemanticKey(localSuggestion.text),
-              Date.now()
-            );
-            setCurrentSuggestion(localSuggestion);
-            currentSuggestionRef.current = localSuggestion;
-            setShouldSuggest(true);
-            suggestedRepliesHistoryRef.current = [localSuggestion, ...suggestedRepliesHistoryRef.current];
-            setSuggestedRepliesHistory(suggestedRepliesHistoryRef.current);
-          }
+            lifecycleStatus: 'candidate',
+            semanticKey: extractSemanticKey(analysisResult.suggestedReply),
+            priority: analysisResult.priority ?? 50,
+            eventType: analysisResult.eventType,
+            source: analysisResult.modelUsed === 'local-deterministic' ? 'local_engine' : 'gemini',
+          });
         }
-      }
+      };
 
-      // REQUIREMENT 19 & 20: Проверка условий перед вызовом Gemini API
-      // - speaker === "client";
-      // - isFinal === true;
-      // - text.length >= 12;
-      // - turnId ещё не анализировался;
-      // - прошло минимум 3 секунды с прошлого анализа.
-      const eligibility = analysisProviderRef.current.checkEligibility(newTurn, nextRev);
-      if (!eligibility.eligible) {
-        console.log(`[Copilot] Запрос к Gemini API отклонён защитой квоты: ${eligibility.reason}`);
-        if (eligibility.canReuseLast) {
-          const lastValid = analysisProviderRef.current.getLastValidResponse();
-          if (lastValid && lastValid.suggestedReply) {
-            setShouldSuggest(true);
-          }
-        }
-        return;
-      }
-
-      // REQUIREMENT 7, 8, 9, 11: Запуск анализа Gemini с debounce 300 мс
-      setIsAnalyzing(true);
-      const recentTurns = turnsRef.current.slice(-8);
-      const snapshotState = conversationStateRef.current;
-
-      analysisProviderRef.current.scheduleAnalysis(
+      analysisProviderRef.current.scheduleLocalFirst(
         {
           sessionId: activeSessionId,
           revision: nextRev,
           newTurns: [newTurn],
           recentTurns,
           currentState: snapshotState,
-          reason: eligibility.reason,
+          reason: `Содержательная реплика клиента: ${trimmed.slice(0, 40)}`,
         },
-        (analysisResult) => {
-          setIsAnalyzing(false);
-          setIsRefiningContext(false);
-          setHasAnalysisError(false);
-          setAnalysisErrorMessage(null);
-
-          // Синхронизация метрик оптимизации расхода Gemini API (Requirement 16)
-          const stats = analysisProviderRef.current.getStats();
-          setDiagnostics((d) => ({
-            ...d,
-            // Keep this number as the latency of the visible prompter card.
-            // A slower background Gemini enrichment must not overwrite the local-first latency.
-            analysisLatencyMs:
-              currentSuggestionRef.current?.basedOnRevision === nextRev
-                ? d.analysisLatencyMs
-                : (analysisResult as any).latencyMs || d.analysisLatencyMs,
-            analysisRequestsCount: stats.requestsCount,
-            cancelledRequestsCount: stats.cancelledCount,
-            lastRequestTime: stats.lastRequestTime,
-            lastRequestReason: stats.lastRequestReason,
-            liveSttSessionsCount: LiveTranscriptionChannel.getTotalLiveSessionsCount(),
-            lastAnalysisTime: Date.now(),
-            lastErrorMessage: null,
-          }));
-
-          // Build lookup of turns for quote sanitization
-          const turnTextLookup: Record<string, string> = {};
-          for (const t of turnsRef.current) {
-            turnTextLookup[t.id] = t.text;
-          }
-
-          // Update conversation state with factsDelta, stage, spinDelta, unconfirmed hypotheses, and scriptProgress
-          // NOTE: ConversationState updates MUST ALWAYS apply even if suggestion card is locked!
-          setConversationState((prevState) => {
-            const nextState = mergeFactsDelta(
-              prevState,
-              analysisResult.factsDelta || [],
-              analysisResult.stage,
-              analysisResult.objection,
-              analysisResult.basedOnRevision ?? nextRev,
-              turnTextLookup,
-              undefined,
-              analysisResult.spinDelta,
-              analysisResult.unconfirmedHypotheses,
-              analysisResult.scriptProgress,
-              analysisResult.qualityResult
-            );
-
-            // Always ensure first call script progress is up-to-date from local turns
-            const localProgress = evaluateFirstCallScript(turnsRef.current, nextState);
-            nextState.scriptProgress = localProgress;
-            nextState.trustEvaluation = localProgress.trust;
-            nextState.qualityResult = localProgress.quality;
-
-            conversationStateRef.current = nextState;
-            return nextState;
-          });
-
-          // Handle suggestions
-          // If a local-first hint for this exact revision is already visible, Gemini is
-          // state enrichment only. Do not replace the agent's card several seconds later.
-          const localHintAlreadyVisible =
-            currentSuggestionRef.current?.basedOnRevision === nextRev &&
-            currentSuggestionRef.current?.lifecycleStatus === 'shown';
-
-          if (!localHintAlreadyVisible && analysisResult.shouldSuggest && analysisResult.suggestedReply) {
-            const suggestionObj: SuggestedReply = {
-              id: `reply_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-              sessionId: activeSessionId,
-              basedOnRevision: analysisResult.basedOnRevision ?? nextRev,
-              candidateRuleId: analysisResult.candidateRuleId,
-              text: analysisResult.suggestedReply,
-              shortReason: analysisResult.shortReason || 'Направление разговора',
-              expectedClientMeaning: analysisResult.expectedClientMeaning,
-              closesMetric: analysisResult.closesMetric,
-              closesMetricLabel: analysisResult.closesMetricLabel,
-              immediatePriority: analysisResult.immediatePriority,
-              suggestionMode: analysisResult.suggestionMode,
-              evidenceTurnIds: analysisResult.evidenceTurnIds || [],
-              createdAt: Date.now(),
-              stage: analysisResult.stage,
-              confidenceStatus: 'high',
-              lifecycleStatus: 'candidate',
-              semanticKey: extractSemanticKey(analysisResult.suggestedReply),
-            };
-
-            // Requirement: Semantic Anti-Repeat check against current conversation state
-            const antiRepeatCheck = checkSemanticAntiRepeat(
-              suggestionObj,
-              conversationStateRef.current,
-              turnsRef.current.slice(-6)
-            );
-
-            if (!antiRepeatCheck.accepted) {
-              console.log(`[Semantic Anti-Repeat] Отклонена подсказка: ${antiRepeatCheck.rejectionReason}`);
-              // Try fallback suggestion based on actual open metrics
-              const fallback = getFirstCallSuggestion(
-                conversationStateRef.current.scriptProgress || evaluateFirstCallScript(turnsRef.current, conversationStateRef.current),
-                turnsRef.current.filter((t) => t.speaker === 'client').slice(-1)[0],
-                conversationStateRef.current
-              );
-              if (fallback) {
-                suggestionObj.text = fallback.suggestedReply;
-                suggestionObj.shortReason = fallback.shortReason;
-                suggestionObj.closesMetric = fallback.closesMetric;
-                suggestionObj.closesMetricLabel = fallback.closesMetricLabel;
-                suggestionObj.immediatePriority = fallback.immediatePriority;
-                suggestionObj.expectedClientMeaning = fallback.expectedClientMeaning;
-                suggestionObj.semanticKey = extractSemanticKey(fallback.suggestedReply);
-              } else {
-                return;
-              }
-            }
-
-            suggestedRepliesHistoryRef.current = [suggestionObj, ...suggestedRepliesHistoryRef.current];
-            setSuggestedRepliesHistory(suggestedRepliesHistoryRef.current);
-
-            // If Andrei is currently speaking (suggestionLocked=true), preserve locked card and save fresh suggestion
-            if (suggestionLockedRef.current) {
-              console.log('[Copilot] ConversationState обновлён, карточка сохранена в pendingSuggestionRef (Андрей говорит)');
-              if (pendingSuggestionRef.current) {
-                pendingSuggestionRef.current.lifecycleStatus = 'superseded';
-              }
-              pendingSuggestionRef.current = suggestionObj;
-              return;
-            }
-
-            suggestionObj.lifecycleStatus = 'shown';
-            recentShownSemanticKeysRef.current.set(
-              suggestionObj.semanticKey || extractSemanticKey(suggestionObj.text),
-              Date.now()
-            );
-            setCurrentSuggestion(suggestionObj);
-            currentSuggestionRef.current = suggestionObj;
-            setShouldSuggest(true);
-            pendingSuggestionRef.current = null;
-          } else {
-            // REQUIREMENT: shouldSuggest=false означает только: «нет новой карточки».
-            // Это НЕ означает: «удалить существующую». Текущая карточка сохраняется,
-            // пока не наступило одно из условий: used, skipped, expired, superseded, topic closed / fact disclosed, new context, session end.
-            const current = currentSuggestionRef.current;
-            if (current?.closesMetric) {
-              const metric = conversationStateRef.current.scriptProgress?.metrics?.[current.closesMetric];
-              if (metric && isMetricClosed(metric.status)) {
-                console.log(`[Copilot] Тема текущей подсказки закрыта (${current.closesMetric}), снимаем карточку`);
-                current.lifecycleStatus = 'suppressed';
-                if (!suggestionLockedRef.current) {
-                  setCurrentSuggestion(null);
-                  currentSuggestionRef.current = null;
-                  setShouldSuggest(false);
-                }
-              }
-            }
-          }
-        },
+        applyAnalysisResult,
         (analysisError) => {
           setIsAnalyzing(false);
           setIsRefiningContext(false);
-          if (analysisError?.isTimeout) {
-            // REQUIREMENT 3: При таймауте 900-1200 мс НЕ сбрасывать текущую карточку!
-            console.log('[Copilot] Анализ Gemini превысил таймаут, карточка сохранена');
-            return;
-          }
-          setHasAnalysisError(true);
-          const errMsg = analysisError?.message || 'Ошибка анализа речи Gemini';
-          setAnalysisErrorMessage(errMsg);
-          // При фоновой ошибке анализа карточка НЕ сбрасывается для предотвращения мерцания (flicker)
-
-          setDiagnostics((d) => ({
-            ...d,
-            lastErrorMessage: errMsg,
-          }));
-
-          console.error('Analysis error:', analysisError);
+          setDiagnostics(current => ({ ...current, lastErrorMessage: analysisError?.message || 'Gemini недоступен; локальная подсказка сохранена' }));
         },
-        (isRefining) => {
-          setIsRefiningContext(isRefining);
-        },
-        250 // debounceMs: 250 мс
+        setIsRefiningContext,
+        { amendment: amending, suppressRemote: event?.suppressesAnalysis }
       );
     },
-    []
+    [publishSuggestion, verifyAndPromotePendingSuggestion]
   );
 
   // Initialize Audio & Channels
   const initAudioAndChannels = useCallback(
     (newSessionId: string) => {
+      finalTurnBufferRef.current?.reset();
+      finalTurnBufferRef.current = new FinalTurnBuffer(handleAddFinalTurn);
       // 1. Dual Audio Capture
       const audioCapture = new DualAudioCapture({
         onMicChunk: (chunk) => {
@@ -910,6 +752,7 @@ export const App: React.FC = () => {
         onInterimText: (role, text) => {
           setAgentInterim(text);
           if (text.trim()) {
+            isAgentSpeakingRef.current = true;
             suggestionLockedRef.current = true;
             setSuggestionLockState((prev) => ({
               ...prev,
@@ -921,9 +764,12 @@ export const App: React.FC = () => {
         },
         onFinalTurn: (role, text, ts) => {
           setAgentInterim('');
-          handleAddFinalTurn('agent', text, ts);
+          isAgentSpeakingRef.current = false;
+          setIsAgentSpeaking(false);
+          finalTurnBufferRef.current?.push('agent', text, ts);
         },
         onVoiceActivity: (role, active) => {
+          isAgentSpeakingRef.current = active;
           setIsAgentSpeaking(active);
           if (active) {
             suggestionLockedRef.current = true;
@@ -958,10 +804,11 @@ export const App: React.FC = () => {
         },
         onFinalTurn: (role, text, ts) => {
           setClientInterim('');
-          handleAddFinalTurn('client', text, ts);
+          finalTurnBufferRef.current?.push('client', text, ts);
         },
         onVoiceActivity: (role, active) => {
           setIsClientSpeaking(active);
+          if (!active) clientSpeechEndedAtRef.current = Date.now();
         },
         onError: (role, msg) => {
           setDiagnostics((d) => ({ ...d, lastErrorMessage: msg }));
@@ -1021,12 +868,20 @@ export const App: React.FC = () => {
     const newSessionId = `session_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     sessionIdRef.current = newSessionId;
     revisionRef.current = 0;
+    lastClientRevisionRef.current = 0;
+    lastSubstantiveClientRevisionRef.current = 0;
+    isAgentSpeakingRef.current = false;
     const initialConvState = createInitialState();
     conversationStateRef.current = initialConvState;
+    finalTurnBufferRef.current?.reset();
+    turnBaseStateRef.current = null;
     turnsRef.current = [];
     suggestedRepliesHistoryRef.current = [];
     pendingSuggestionRef.current = null;
+    currentSuggestionRef.current = null;
     recentShownSemanticKeysRef.current.clear();
+    clientResponseStartByRevisionRef.current.clear();
+    clientSpeechEndedAtRef.current = null;
 
     // Reset analysis provider to ensure absolute session isolation
     analysisProviderRef.current.setSession(newSessionId);
@@ -1069,17 +924,27 @@ export const App: React.FC = () => {
       clientChannelRef.current?.connect();
     }
 
+    isCallRunningRef.current = true;
     setIsCallRunning(true);
   };
 
   // End Call Session
   const handleEndCall = async () => {
+    isCallRunningRef.current = false;
     setIsCallRunning(false);
     setIsPaused(false);
     setIsAnalyzing(false);
 
     // Cancel any pending analysis requests and clear active suggestions immediately (Requirement 11)
+    finalTurnBufferRef.current?.flush();
     analysisProviderRef.current.cancelPending();
+    pendingSuggestionRef.current = null;
+    currentSuggestionRef.current = null;
+    isAgentSpeakingRef.current = false;
+    if (timeContractWarningTimerRef.current) {
+      clearTimeout(timeContractWarningTimerRef.current);
+      timeContractWarningTimerRef.current = null;
+    }
     setCurrentSuggestion(null);
     setShouldSuggest(false);
 
@@ -1162,6 +1027,7 @@ export const App: React.FC = () => {
         agreedNextStep: activeState.agreedNextStep.value || 'Следующий шаг не согласован',
         durationSeconds: callDuration,
         completedAt: Date.now(),
+        handoff: buildSessionHandoff(activeState),
       };
       record.summary = fallbackSummary;
       setCurrentSummary(fallbackSummary);
@@ -1223,9 +1089,29 @@ export const App: React.FC = () => {
   };
 
   const handleDismissSuggestion = () => {
-    if (currentSuggestionRef.current) {
-      currentSuggestionRef.current.lifecycleStatus = 'suppressed';
+    const dismissed = currentSuggestionRef.current;
+    if (dismissed) {
+      dismissed.lifecycleStatus = 'suppressed';
+      recentShownSemanticKeysRef.current.delete(dismissed.semanticKey || extractSemanticKey(dismissed.text));
+      const dismissedText = dismissed.text.trim();
+      if (dismissedText) {
+        setConversationState((prevState) => {
+          const currentQuestions = prevState.dismissedSuggestionTexts || [];
+          const alreadyStored = currentQuestions.some(
+            (q) => q.toLowerCase().trim() === dismissedText.toLowerCase()
+          );
+          const nextState = {
+            ...prevState,
+            dismissedSuggestionTexts: alreadyStored ? currentQuestions : [...currentQuestions, dismissedText],
+          };
+          conversationStateRef.current = nextState;
+          return nextState;
+        });
+      }
     }
+    pendingSuggestionRef.current = null;
+    currentSuggestionRef.current = null;
+    setCurrentSuggestion(null);
     setShouldSuggest(false);
   };
 
@@ -1287,12 +1173,31 @@ export const App: React.FC = () => {
   };
 
   const handleInjectTurnFromSimulator = (speaker: SpeakerRole, text: string) => {
-    if (!isCallRunning) {
-      if (!sessionIdRef.current) {
-        const newSessionId = `session_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-        sessionIdRef.current = newSessionId;
-        setSessionId(newSessionId);
-      }
+    if (!isCallRunningRef.current) {
+      const newSessionId = `session_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+      const initialState = createInitialState();
+      sessionIdRef.current = newSessionId;
+      revisionRef.current = 0;
+      lastClientRevisionRef.current = 0;
+      lastSubstantiveClientRevisionRef.current = 0;
+      finalTurnBufferRef.current?.reset();
+      turnBaseStateRef.current = null;
+      turnsRef.current = [];
+      conversationStateRef.current = initialState;
+      suggestedRepliesHistoryRef.current = [];
+      currentSuggestionRef.current = null;
+      pendingSuggestionRef.current = null;
+      recentShownSemanticKeysRef.current.clear();
+      clientResponseStartByRevisionRef.current.clear();
+      clientSpeechEndedAtRef.current = null;
+      analysisProviderRef.current.setSession(newSessionId);
+      setSessionId(newSessionId);
+      setTurns([]);
+      setRevision(0);
+      setConversationState(initialState);
+      setCurrentSuggestion(null);
+      setSuggestedRepliesHistory([]);
+      isCallRunningRef.current = true;
       setIsCallRunning(true);
     }
     handleAddFinalTurn(speaker, text);
@@ -1349,7 +1254,7 @@ export const App: React.FC = () => {
           }));
           setIsDiagnosticsOpen(true);
         }}
-        analysisLatencyMs={diagnostics.analysisLatencyMs}
+        firstHintLatencyMs={diagnostics.firstHintLatencyMs ?? null}
         isAnalyzing={isAnalyzing}
         hasAnalysisError={hasAnalysisError}
         isTranscribing={isAgentSpeaking || isClientSpeaking || Boolean(agentInterim) || Boolean(clientInterim)}
@@ -1454,6 +1359,7 @@ export const App: React.FC = () => {
       )}
 
 
+      <React.Suspense fallback={null}>
       {/* Diagnostics Drawer */}
       <DiagnosticsDrawer
         isOpen={isDiagnosticsOpen}
@@ -1502,6 +1408,7 @@ export const App: React.FC = () => {
         summary={currentSummary}
         isLoading={isSummaryLoading}
       />
+      </React.Suspense>
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Headphones, Clock, ArrowUp, Activity } from 'lucide-react';
 import { TranscriptTurn } from '../types';
 
@@ -11,7 +11,7 @@ interface TranscriptFeedProps {
   highlightTurnIds?: string[];
 }
 
-export const TranscriptFeed: React.FC<TranscriptFeedProps> = ({
+export const TranscriptFeed: React.FC<TranscriptFeedProps> = React.memo(({
   turns,
   agentInterim,
   clientInterim,
@@ -21,6 +21,8 @@ export const TranscriptFeed: React.FC<TranscriptFeedProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
+  const reversedTurns = useMemo(() => Array.from(turns).reverse(), [turns]);
+  const highlightedTurns = useMemo(() => new Set(highlightTurnIds), [highlightTurnIds]);
 
   // Auto-scroll to top when new turns or interim text arrives
   useEffect(() => {
@@ -127,9 +129,9 @@ export const TranscriptFeed: React.FC<TranscriptFeedProps> = ({
         )}
 
         {/* Completed Turns in reverse order: newest first at the top */}
-        {[...turns].reverse().map((turn) => {
+        {reversedTurns.map((turn) => {
           const isAgent = turn.speaker === 'agent';
-          const isHighlighted = highlightTurnIds.includes(turn.id);
+          const isHighlighted = highlightedTurns.has(turn.id);
 
           return (
             <div
@@ -198,4 +200,4 @@ export const TranscriptFeed: React.FC<TranscriptFeedProps> = ({
       )}
     </div>
   );
-};
+});

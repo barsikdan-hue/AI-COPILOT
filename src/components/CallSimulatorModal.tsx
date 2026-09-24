@@ -16,6 +16,7 @@ export interface PresetScenario {
   ruleBadge: string;
   speaker: SpeakerRole;
   text: string;
+  turns?: Array<{ speaker: SpeakerRole; text: string }>;
 }
 
 export const ANDREI_OS_SCENARIOS: PresetScenario[] = [
@@ -208,6 +209,90 @@ export const ANDREI_OS_SCENARIOS: PresetScenario[] = [
     speaker: 'client',
     text: 'Спасибо за информацию, нам в целом всё понятно, но нам надо подумать.',
   },
+  {
+    id: 'claim_risk_guaranteed_yield',
+    category: 'safety',
+    title: '22. Claim Risk: «Гарантированная доходность»',
+    description: 'Категоричное обещание менеджера заменяется прогнозом с источником и допущениями',
+    ruleBadge: 'CLAIM_RISK',
+    speaker: 'agent',
+    text: 'Здесь гарантированная доходность 20 процентов, объект точно окупится.',
+  },
+  {
+    id: 'time_contract_two_minutes',
+    category: 'timeline',
+    title: '23. Контракт времени: «Займу две минуты»',
+    description: 'Запускается локальный таймер и предупреждение на 80% обещанного времени',
+    ruleBadge: 'TIME_CONTRACT',
+    speaker: 'agent',
+    text: 'Добрый день, займу буквально две минуты и задам один вопрос.',
+  },
+  {
+    id: 'research_mode_no_urgency',
+    category: 'motive',
+    title: '24. Исследовательский режим без срочности',
+    description: 'Сравнение и критерии вместо давления, дефицита и «горящих» предложений',
+    ruleBadge: 'RESEARCH_MODE',
+    speaker: 'client',
+    text: 'Я пока только изучаю рынок и не буду реагировать на горящие предложения.',
+  },
+  {
+    id: 'soft_resistance_repeated',
+    category: 'objection',
+    title: '25. Повторное мягкое сопротивление',
+    description: 'После второй просьбы опрос прекращается: материал и один конкретный возврат',
+    ruleBadge: 'SOFT_RESISTANCE ×2',
+    speaker: 'client',
+    text: 'Просто пришлите варианты, я посмотрю.',
+    turns: [
+      { speaker: 'client', text: 'Просто пришлите варианты, я посмотрю.' },
+      { speaker: 'client', text: 'Я же сказал: пришлите информацию, потом подумаю.' },
+    ],
+  },
+  {
+    id: 'ambiguous_yes_compound_question',
+    category: 'safety',
+    title: '26. Неоднозначное «да» после двойного вопроса',
+    description: 'Одно «да» не подтверждает одновременно бюджет и ипотеку',
+    ruleBadge: 'AMBIGUOUS_CONFIRMATION',
+    speaker: 'client',
+    text: 'Да.',
+    turns: [
+      { speaker: 'agent', text: 'Правильно понимаю, бюджет до 20 миллионов и ипотека уже одобрена?' },
+      { speaker: 'client', text: 'Да.' },
+    ],
+  },
+  {
+    id: 'compliance_fake_income',
+    category: 'safety',
+    title: '27. Комплаенс: недостоверная справка',
+    description: 'Сценарий немедленно останавливается и переводится в официальный канал проверки',
+    ruleBadge: 'COMPLIANCE_STOP',
+    speaker: 'agent',
+    text: 'Если что, сделаем справку о доходах и обойдём проверку банка.',
+  },
+  {
+    id: 'meeting_contract_incomplete',
+    category: 'next_step',
+    title: '28. Встреча согласована не полностью',
+    description: 'Copilot просит заполнить день/время, канал, участников и результат',
+    ruleBadge: 'MEETING_CONTRACT',
+    speaker: 'client',
+    text: 'Да, давайте созвонимся как-нибудь на следующей неделе.',
+    turns: [
+      { speaker: 'agent', text: 'Тогда проведём видеовстречу и сравним варианты, согласны?' },
+      { speaker: 'client', text: 'Да, давайте созвонимся как-нибудь на следующей неделе.' },
+    ],
+  },
+  {
+    id: 'explicit_format_rejection',
+    category: 'safety',
+    title: '29. Явный отказ от формата',
+    description: 'Отвергнутая ветка закрывается и не предлагается повторно',
+    ruleBadge: 'EXPLICIT_REJECTION',
+    speaker: 'client',
+    text: 'Апартаменты не хочу и вообще не рассматриваю, нужна только квартира.',
+  },
 ];
 
 export const CallSimulatorModal: React.FC<CallSimulatorModalProps> = ({
@@ -226,7 +311,8 @@ export const CallSimulatorModal: React.FC<CallSimulatorModalProps> = ({
     : ANDREI_OS_SCENARIOS.filter((s) => s.category === activeCategory);
 
   const handleRunPreset = (preset: PresetScenario) => {
-    onInjectTurn(preset.speaker, preset.text);
+    const scenarioTurns = preset.turns || [{ speaker: preset.speaker, text: preset.text }];
+    for (const turn of scenarioTurns) onInjectTurn(turn.speaker, turn.text);
     onClose();
   };
 
@@ -247,7 +333,7 @@ export const CallSimulatorModal: React.FC<CallSimulatorModalProps> = ({
             <Sparkles className="w-5 h-5 text-teal-700" />
             <div>
               <h2 className="text-sm font-semibold text-stone-900">
-                18 тестовых сценариев ANDREI OS
+                {ANDREI_OS_SCENARIOS.length} тестовых сценариев ANDREI OS 4
               </h2>
               <p className="text-[11px] text-stone-500">
                 Проверка правил (P37, P44, P48), запрета галлюцинаций, стоп-контактов и бюджетов
@@ -350,4 +436,3 @@ export const CallSimulatorModal: React.FC<CallSimulatorModalProps> = ({
     </div>
   );
 };
-
