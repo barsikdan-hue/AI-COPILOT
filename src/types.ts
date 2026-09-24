@@ -690,6 +690,21 @@ export interface SessionHandoff {
   riskFlags: string[];
 }
 
+export interface SuggestionTraceEntry {
+  timestamp: number;
+  candidateId: string;
+  basedOnRevision: number;
+  source?: 'local_event' | 'local_engine' | 'gemini';
+  actionType?: ActionType;
+  eventType?: ConversationEventType | null;
+  closesMetric?: string | null;
+  semanticKey?: string | null;
+  priority?: number;
+  text: string;
+  outcome: 'shown' | 'pending' | 'rejected';
+  reason: string;
+}
+
 export interface CallSessionRecord {
   id: string;
   startedAt: number;
@@ -699,6 +714,7 @@ export interface CallSessionRecord {
   state: ConversationState;
   summary?: CallSummary;
   suggestedRepliesHistory: SuggestedReply[];
+  suggestionTrace?: SuggestionTraceEntry[];
   diagnostics?: DiagnosticsData;
   status: 'completed' | 'cancelled';
   note?: string;
