@@ -104,7 +104,7 @@ export const App: React.FC = () => {
   const currentSuggestionRef = useRef<SuggestedReply | null>(null);
   const pendingSuggestionRef = useRef<SuggestedReply | null>(null);
   const recentShownSemanticKeysRef = useRef<Map<string, number>>(new Map());
-  const HINT_TTL_MS = 15000; // 15 seconds TTL for pending suggestions
+  const HINT_TTL_MS = 45000; // Keep a useful hint visible long enough for a real conversation
   const isPausedRef = useRef<boolean>(isPaused);
   const [isRefiningContext, setIsRefiningContext] = useState<boolean>(false);
 
@@ -475,22 +475,22 @@ export const App: React.FC = () => {
       // Извлекаем бюджет, локацию, цель, сроки детерминированно, гарантируя сохранение
       const extractedFacts = extractDeterministicFacts(trimmed, newTurn.id, lastAgentTurn?.text);
       if (extractedFacts.length > 0) {
-        setConversationState((prev) => {
-          const turnLookup: Record<string, string> = {};
-          turnsRef.current.forEach((t) => {
-            turnLookup[t.id] = t.text;
-          });
-          const nextState = mergeFactsDelta(
-            prev,
-            extractedFacts as any,
-            prev.stage,
-            undefined,
-            nextRev,
-            turnLookup
-          );
-          conversationStateRef.current = nextState;
-          return nextState;
+        const turnLookup: Record<string, string> = {};
+        turnsRef.current.forEach((t) => {
+          turnLookup[t.id] = t.text;
         });
+        const nextState = mergeFactsDelta(
+          conversationStateRef.current,
+          extractedFacts as any,
+          conversationStateRef.current.stage,
+          undefined,
+          nextRev,
+          turnLookup
+        );
+        // IMPORTANT: update the canonical ref synchronously. React state updates are async,
+        // while the prompter must reason about this same client turn immediately.
+        conversationStateRef.current = nextState;
+        setConversationState(nextState);
       }
 
       // REQUIREMENT 5: Быстрый локальный режим для возражений (detectLocalObjection)
@@ -582,15 +582,73 @@ export const App: React.FC = () => {
       );
 
       if (spinResult?.updatedSpin) {
-        setConversationState((prev) => {
-          const nextState: ConversationState = {
-            ...prev,
-            spin: spinResult.updatedSpin,
-            spinState: spinResult.updatedSpin,
+        const nextState: ConversationState = {
+          ...conversationStateRef.current,
+          spin: spinResult.updatedSpin,
+          spinState: spinResult.updatedSpin,
+        };
+        conversationStateRef.current = nextState;
+        setConversationState(nextState);
+      }
+
+      // LOCAL-FIRST PROMPTER:
+      // Every substantive final client turn must get a deterministic next action immediately.
+      // Gemini may enrich facts/state in the background, but a slow network/model must not leave
+      // the agent staring at "waiting".
+      if (!(localObjection && clientIntent.type === 'objection')) {
+        const localProgress = evaluateFirstCallScript(turnsRef.current, conversationStateRef.current);
+        const localState: ConversationState = {
+          ...conversationStateRef.current,
+          scriptProgress: localProgress,
+          trustEvaluation: localProgress.trust,
+          qualityResult: localProgress.quality,
+        };
+        conversationStateRef.current = localState;
+        setConversationState(localState);
+
+        const localFallback = getFirstCallSuggestion(localProgress, newTurn, localState);
+        if (localFallback) {
+          const localSuggestion: SuggestedReply = {
+            id: `reply_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            sessionId: activeSessionId,
+            basedOnRevision: nextRev,
+            candidateRuleId: null,
+            actionType: 'CLARIFY',
+            text: localFallback.suggestedReply,
+            shortReason: localFallback.shortReason,
+            expectedClientMeaning: localFallback.expectedClientMeaning,
+            recognizedMeaning: localFallback.recognizedMeaning,
+            closesMetric: localFallback.closesMetric,
+            closesMetricLabel: localFallback.closesMetricLabel,
+            immediatePriority: localFallback.immediatePriority,
+            evidenceTurnIds: [newTurn.id],
+            createdAt: Date.now(),
+            stage: conversationStateRef.current.stage,
+            confidenceStatus: 'high',
+            lifecycleStatus: 'shown',
+            semanticKey: extractSemanticKey(localFallback.suggestedReply),
+            ttlMs: HINT_TTL_MS,
           };
-          conversationStateRef.current = nextState;
-          return nextState;
-        });
+
+          const localAntiRepeat = checkSemanticAntiRepeat(
+            localSuggestion,
+            conversationStateRef.current,
+            turnsRef.current.slice(-6)
+          );
+          if (localAntiRepeat.accepted) {
+            const visibleLatency = Math.max(0, Date.now() - timestamp);
+            setDiagnostics((d) => ({ ...d, analysisLatencyMs: visibleLatency }));
+            recentShownSemanticKeysRef.current.set(
+              localSuggestion.semanticKey || extractSemanticKey(localSuggestion.text),
+              Date.now()
+            );
+            setCurrentSuggestion(localSuggestion);
+            currentSuggestionRef.current = localSuggestion;
+            setShouldSuggest(true);
+            suggestedRepliesHistoryRef.current = [localSuggestion, ...suggestedRepliesHistoryRef.current];
+            setSuggestedRepliesHistory(suggestedRepliesHistoryRef.current);
+          }
+        }
       }
 
       // REQUIREMENT 19 & 20: Проверка условий перед вызовом Gemini API
@@ -635,7 +693,12 @@ export const App: React.FC = () => {
           const stats = analysisProviderRef.current.getStats();
           setDiagnostics((d) => ({
             ...d,
-            analysisLatencyMs: (analysisResult as any).latencyMs || d.analysisLatencyMs,
+            // Keep this number as the latency of the visible prompter card.
+            // A slower background Gemini enrichment must not overwrite the local-first latency.
+            analysisLatencyMs:
+              currentSuggestionRef.current?.basedOnRevision === nextRev
+                ? d.analysisLatencyMs
+                : (analysisResult as any).latencyMs || d.analysisLatencyMs,
             analysisRequestsCount: stats.requestsCount,
             cancelledRequestsCount: stats.cancelledCount,
             lastRequestTime: stats.lastRequestTime,
@@ -679,7 +742,13 @@ export const App: React.FC = () => {
           });
 
           // Handle suggestions
-          if (analysisResult.shouldSuggest && analysisResult.suggestedReply) {
+          // If a local-first hint for this exact revision is already visible, Gemini is
+          // state enrichment only. Do not replace the agent's card several seconds later.
+          const localHintAlreadyVisible =
+            currentSuggestionRef.current?.basedOnRevision === nextRev &&
+            currentSuggestionRef.current?.lifecycleStatus === 'shown';
+
+          if (!localHintAlreadyVisible && analysisResult.shouldSuggest && analysisResult.suggestedReply) {
             const suggestionObj: SuggestedReply = {
               id: `reply_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
               sessionId: activeSessionId,
