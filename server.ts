@@ -76,7 +76,7 @@ function getSalesRules() {
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
-    buildVersion: '4.0.2-rc.5.2-local-core-cloud-stt',
+    buildVersion: '4.0.2-rc.5.3-state-suggestion-integrity',
     renderRegion: process.env.RENDER_REGION || null,
     renderGitCommit: process.env.RENDER_GIT_COMMIT || null,
     hasKey: !!process.env.GEMINI_API_KEY,
