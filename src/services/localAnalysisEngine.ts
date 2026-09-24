@@ -6,7 +6,7 @@ import {
   TranscriptTurn,
 } from '../types';
 import { applyConversationEvent, detectConversationEvent } from './conversationEventEngine';
-import { mergeFactsDelta } from './conversationStore';
+import { createInitialState, mergeFactsDelta } from './conversationStore';
 import { classifyClientTurnIntent, detectLocalObjection, getActiveObjectionGuidance, updateObjectionLifecycle } from './objectionEngine';
 import { extractDeterministicFacts } from './deterministicFacts';
 import { evaluateFirstCallScript, getFirstCallSuggestion } from './firstCallScriptEngine';
@@ -166,13 +166,72 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
   const lastClientTurn = clientTurns.at(-1) || allTurns.filter((turn) => turn.speaker === 'client').at(-1);
   const lastAgentTurn = allTurns.filter((turn) => turn.speaker === 'agent').at(-1);
 
+  // One authoritative state for this analysis cycle. Runtime callers may send a
+  // partial state, and replay/simulator callers may not have advanced the last
+  // client turn yet. Normalize first, then apply the new facts before any
+  // event/SPIN/policy decision.
+  const initialState = createInitialState();
+  const incomingState = input.currentState || initialState;
+  const normalizedState: ConversationState = {
+    ...initialState,
+    ...incomingState,
+    dialogueControl: {
+      ...initialState.dialogueControl!,
+      ...(incomingState.dialogueControl || {}),
+      rejectedBranches: Array.isArray(incomingState.dialogueControl?.rejectedBranches)
+        ? incomingState.dialogueControl!.rejectedBranches
+        : [],
+      blockedNextSteps: Array.isArray(incomingState.dialogueControl?.blockedNextSteps)
+        ? incomingState.dialogueControl!.blockedNextSteps
+        : [],
+    },
+    confirmedFacts: Array.isArray(incomingState.confirmedFacts) ? incomingState.confirmedFacts : [],
+    askedQuestions: Array.isArray(incomingState.askedQuestions) ? incomingState.askedQuestions : [],
+    dismissedSuggestionTexts: Array.isArray(incomingState.dismissedSuggestionTexts) ? incomingState.dismissedSuggestionTexts : [],
+    criteria: {
+      ...initialState.criteria,
+      ...(incomingState.criteria || {}),
+      items: Array.isArray(incomingState.criteria?.items) ? incomingState.criteria!.items : [],
+      evidenceTurnIds: Array.isArray(incomingState.criteria?.evidenceTurnIds) ? incomingState.criteria!.evidenceTurnIds : [],
+    },
+    objections: {
+      ...initialState.objections,
+      ...(incomingState.objections || {}),
+      items: Array.isArray(incomingState.objections?.items) ? incomingState.objections!.items : [],
+      evidenceTurnIds: Array.isArray(incomingState.objections?.evidenceTurnIds) ? incomingState.objections!.evidenceTurnIds : [],
+    },
+    spin: {
+      ...initialState.spin,
+      ...(incomingState.spin || incomingState.spinState || {}),
+      situation: Array.isArray((incomingState.spin || incomingState.spinState)?.situation) ? (incomingState.spin || incomingState.spinState)!.situation : [],
+      problem: Array.isArray((incomingState.spin || incomingState.spinState)?.problem) ? (incomingState.spin || incomingState.spinState)!.problem : [],
+      implication: Array.isArray((incomingState.spin || incomingState.spinState)?.implication) ? (incomingState.spin || incomingState.spinState)!.implication : [],
+      needPayoff: Array.isArray((incomingState.spin || incomingState.spinState)?.needPayoff) ? (incomingState.spin || incomingState.spinState)!.needPayoff : [],
+      completedStages: Array.isArray((incomingState.spin || incomingState.spinState)?.completedStages) ? (incomingState.spin || incomingState.spinState)!.completedStages : [],
+    },
+  };
+
+  const factsDelta = clientTurns.flatMap((turn) => {
+    const previousAgent = previousMeaningfulAgentTurn(turn, allTurns);
+    return extractDeterministicFacts(turn.text, turn.id, previousAgent?.text || null);
+  });
+  const clientTurnLookup = Object.fromEntries(allTurns.filter(turn => turn.speaker === 'client').map(turn => [turn.id, turn.text]));
+  const workingState = mergeFactsDelta(
+    normalizedState,
+    factsDelta,
+    normalizedState.stage,
+    undefined,
+    input.revision,
+    clientTurnLookup
+  );
+
   const events = clientTurns
-    .map((turn) => detectConversationEvent(turn, allTurns, input.currentState))
+    .map((turn) => detectConversationEvent(turn, allTurns, workingState))
     .filter((event): event is NonNullable<typeof event> => Boolean(event))
     .sort((a, b) => b.priority - a.priority);
   const dominantEvent = events[0] || null;
-  const activeObjectionGuidance = getActiveObjectionGuidance(input.currentState);
-  const activeCategory = input.currentState.activeObjection?.category || '';
+  const activeObjectionGuidance = getActiveObjectionGuidance(workingState);
+  const activeCategory = workingState.activeObjection?.category || '';
   const latestClientText = (lastClientTurn?.text || '').toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
   const latestRelatesToActiveObjection =
     activeCategory === 'objection_yield'
@@ -184,30 +243,25 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
           : false;
   const autoObjectionGuidance = activeObjectionGuidance && lastClientTurn &&
     (
-      input.currentState.activeObjection?.evidenceTurnIds?.includes(lastClientTurn.id) ||
+      workingState.activeObjection?.evidenceTurnIds?.includes(lastClientTurn.id) ||
       latestRelatesToActiveObjection
     )
       ? activeObjectionGuidance
       : null;
 
-  const factsDelta = clientTurns.flatMap((turn) => {
-    const previousAgent = previousMeaningfulAgentTurn(turn, allTurns);
-    return extractDeterministicFacts(turn.text, turn.id, previousAgent?.text || null);
-  });
-
-  const scriptProgress = evaluateFirstCallScript(allTurns, input.currentState);
+  const scriptProgress = evaluateFirstCallScript(allTurns, workingState);
   const calculatedAgentAction = lastAgentTurn ? classifyAgentAction(lastAgentTurn.text) : 'none';
   const spin = lastClientTurn
     ? evaluateSpinAndHpb(
         lastClientTurn,
-        input.currentState.spin || input.currentState.spinState!,
+        workingState.spin || workingState.spinState!,
         calculatedAgentAction,
         lastAgentTurn?.text || '',
-        input.currentState
+        workingState
       )
     : null;
   const dopamine = lastClientTurn
-    ? getContextualDopamineQuestion({ ...input.currentState, scriptProgress }, allTurns, lastClientTurn.text)
+    ? getContextualDopamineQuestion({ ...workingState, scriptProgress }, allTurns, lastClientTurn.text)
     : null;
   const personalContextTurn = lastClientTurn
     ? /(?:семь|супруг|дет|сочи|отдых|путеше|хобби|увлека|работ|професс|инвест|доход)/iu.test(lastClientTurn.text)
@@ -215,7 +269,7 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
   const canUseDopamine = Boolean(
     dopamine && personalContextTurn &&
     (scriptProgress.trust?.openPersonalQuestionsCount || 0) < 2 &&
-    !input.currentState.activeObjection &&
+    !workingState.activeObjection &&
     !['asked_implication_question', 'asked_need_payoff_question'].includes(calculatedAgentAction)
   );
 
@@ -293,7 +347,7 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
 
   if ((!dominantEvent || silentEventCanContinue) && lastClientTurn) {
     const fallback = getFirstCallSuggestion(scriptProgress, lastClientTurn, {
-      ...input.currentState,
+      ...workingState,
       scriptProgress,
     }, allTurns);
     if (fallback && !suggestedReply) {
@@ -310,7 +364,7 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
 
   // Liveness invariant: a client boundary blocks the questionnaire, not the assistant.
   // Keep one short, ready-to-say line alive even during repeated resistance.
-  if (input.currentState.dialogueControl?.clientBoundaryActive && lastClientTurn) {
+  if (workingState.dialogueControl?.clientBoundaryActive && lastClientTurn) {
     const boundaryCandidateIsSafe =
       actionType === 'RESPECT_STOP' ||
       actionType === 'OBJECTION_CLARIFICATION' ||
@@ -321,7 +375,7 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
       dominantEvent?.type === 'DIRECT_QUESTION';
 
     if (!suggestedReply || !boundaryCandidateIsSafe) {
-      const fallback = getBoundarySafeFallback(input.currentState, lastClientTurn.text);
+      const fallback = getBoundarySafeFallback(workingState, lastClientTurn.text);
       suggestedReply = fallback.text;
       shortReason = fallback.reason;
       candidateRuleId = 'boundary_safe_liveness';
@@ -345,11 +399,11 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
       actionType,
       priority,
       eventType: dominantEvent?.type || null,
-      stage: dominantEvent?.stage || input.currentState.stage,
-    }, input.currentState) &&
-    checkSemanticAntiRepeat(text, input.currentState, allTurns).accepted;
+      stage: dominantEvent?.stage || workingState.stage,
+    }, workingState) &&
+    checkSemanticAntiRepeat(text, workingState, allTurns).accepted;
   if ((!suggestedReply || !allowed(suggestedReply, closesMetric)) && !dominantEvent?.suppressesAnalysis) {
-    const objectionAlternative = autoObjectionGuidance ? getActiveObjectionGuidance(input.currentState, 1) : null;
+    const objectionAlternative = autoObjectionGuidance ? getActiveObjectionGuidance(workingState, 1) : null;
     if (objectionAlternative && allowed(objectionAlternative.text, 'objections')) {
       suggestedReply = objectionAlternative.text;
       shortReason = objectionAlternative.reason;
@@ -408,9 +462,9 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
   return {
     sessionId: input.sessionId,
     basedOnRevision: input.revision,
-    stage: dominantEvent?.stage || input.currentState.stage,
-    dealStage: input.currentState.dealStage || 'qualification',
-    conversationTask: input.currentState.conversationTask || 'understand_motive',
+    stage: dominantEvent?.stage || workingState.stage,
+    dealStage: workingState.dealStage || 'qualification',
+    conversationTask: workingState.conversationTask || 'understand_motive',
     clientIntent: dominantEvent?.type,
     actionType,
     suggestionMode,
