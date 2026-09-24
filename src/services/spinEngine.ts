@@ -725,6 +725,23 @@ export interface SpinEvaluationResult {
  * 4) При длительной презентации Андрея — включение CHECK_ALIGNMENT («Насколько это решает...»).
  * 5) Точная привязка ХПВ к цитате клиента.
  */
+function isRelatedToActiveProblem(spin: SpinState, clientText: string): boolean {
+  const problemQuote = spin.problem?.at(-1)?.evidenceQuote || '';
+  if (!problemQuote) return true;
+  const lower = clientText.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
+  const category = detectRealEstatePainCategory(problemQuote);
+
+  if (category === 'comparison_overload') return /вариант|сравн|презентац|выбор|решен|обещан|агент|отклады|различ/iu.test(lower);
+  if (category === 'yield_rental') return /доход|депозит|аренд|сдач|ликвид|окупаем|поток|рост\s+(?:цен|стоим)/iu.test(lower);
+  if (category === 'market_uncertainty') return /рынок|цен|ждать|снижен|рост|момент|покуп/iu.test(lower);
+  if (category === 'security_risks') return /документ|эскроу|застрой|срок|риск|земл|дду|214/iu.test(lower);
+  if (category === 'noise_sleep') return /шум|сон|тишин|отдых|высып|состояни/iu.test(lower);
+  if (category === 'traffic_logistics') return /дорог|пробк|время|логист|добират|транспорт/iu.test(lower);
+  if (category === 'space_crowded') return /тесн|простран|комнат|места|уедин|планиров/iu.test(lower);
+
+  return /из-за|поэтому|в итоге|это приводит|это влияет|мешает|теря|трат|риск|последств|если.*не/iu.test(lower);
+}
+
 export function evaluateSpinAndHpb(
   clientTurn: TranscriptTurn,
   currentSpinState: SpinState,
@@ -804,6 +821,24 @@ export function evaluateSpinAndHpb(
   // Это ключ к SPIN: прогресс не зависит от того, нажал ли агент кнопку SPIN
   // и повторил ли подсказку дословно.
   const extracted = extractClientSpinMeaning(clientTurn);
+  const topicShiftedAwayFromProblem =
+    (pairedStage === 'IMPLICATION' || pairedStage === 'NEED_PAYOFF') &&
+    nextSpin.problem.length > 0 &&
+    !extracted?.stage &&
+    !isRelatedToActiveProblem(nextSpin, text);
+
+  if (topicShiftedAwayFromProblem) {
+    nextSpin.lastClientEvidence = text;
+    return {
+      suggestionMode: 'WAIT',
+      suggestedText: '',
+      shortReason: 'Клиент сменил тему; старая SPIN-цепочка приостановлена и не должна интерпретировать новую тему как последствие старой проблемы.',
+      evidenceQuote: text,
+      expectedClientMeaning: '',
+      updatedSpin: nextSpin,
+    };
+  }
+
   const explicitlyNoProblem = /(?:ничего|пока ничего).{0,25}(?:не беспокоит|не смущает|не отталкивает)|сомнений\s+нет|проблем\s+нет/iu.test(text);
   let newEvidenceStage: SpinStageType | null = null;
   if (pairedStage && !(pairedStage === 'PROBLEM' && explicitlyNoProblem)) {
