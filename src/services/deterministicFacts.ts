@@ -203,7 +203,7 @@ export function extractDeterministicFacts(
 
   if (investmentMatch) {
     const mixedPersonal = Boolean(personalVisitMatch || leisureMatch);
-    addFact('goal', 'primaryGoal', 'Инвестиции', investmentMatch[0].trim());
+    addFact('goal_primary', 'primaryGoal', 'Инвестиции', investmentMatch[0].trim());
     addFact(
       'goal',
       'goal',
@@ -221,11 +221,11 @@ export function extractDeterministicFacts(
       );
     }
   } else if (livingMatch) {
-    addFact('goal', 'primaryGoal', 'Постоянное личное проживание', livingMatch[0].trim());
+    addFact('goal_primary', 'primaryGoal', 'Постоянное личное проживание', livingMatch[0].trim());
     addFact('goal', 'goal', 'Постоянное личное проживание', livingMatch[0].trim());
   } else if (leisureMatch || personalVisitMatch) {
     const leisureQuote = (leisureMatch || personalVisitMatch)![0].trim();
-    addFact('goal', 'primaryGoal', 'Отдых и сезонное проживание', leisureQuote);
+    addFact('goal_primary', 'primaryGoal', 'Отдых и сезонное проживание', leisureQuote);
     addFact('goal', 'goal', 'Отдых и сезонное проживание', leisureQuote);
   } else {
     const forMyselfUsageMatch = lower.match(
@@ -242,7 +242,7 @@ export function extractDeterministicFacts(
     /(?:иногда\s*сдавать|возможност\p{L}*\s*(?:иногда\s*)?сдавать|сдавать\s*(?:можно|можно\s+было|в\s+аренду)|можно\s+(?:было\s+)?сдавать|сдавать,?\s*если\s*я\s*уезжаю|сдавать\s*во\s*время\s*отсутствия)/iu
   );
   if (rentalMatch) {
-    addFact('goal', 'secondaryUse', 'Периодическая сдача во время отсутствия', rentalMatch[0].trim());
+    addFact('goal_secondary', 'secondaryUse', 'Периодическая сдача во время отсутствия', rentalMatch[0].trim());
   }
 
 
