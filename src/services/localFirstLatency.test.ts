@@ -21,7 +21,7 @@ describe('4.0.2 local-first and suggestion lifecycle', () => {
     vi.useFakeTimers(); const payload = input(); let displayed: AnalysisResponse | undefined;
     const times: number[] = []; const start = performance.now();
     const fetchMock = vi.fn(() => new Promise(resolve => setTimeout(() => resolve({ ok: true, json: async () => ({ sessionId: 's', basedOnRevision: 1, shouldSuggest: false, modelUsed: 'gemini', latencyMs: 9000 }) }), 9000)));
-    vi.stubGlobal('fetch', fetchMock); const provider = new AnalysisProvider(); provider.setSession('s');
+    vi.stubGlobal('fetch', fetchMock); const provider = new AnalysisProvider(); provider.setSession('s'); provider.setRemoteEnhancementEnabled(true);
     provider.scheduleLocalFirst(payload, result => { if (result.shouldSuggest) { displayed = result; times.push(performance.now() - start); } }, vi.fn());
     expect(displayed?.modelUsed).toBe('local-deterministic'); expect(displayed?.suggestedReply).toBeTruthy();
     expect(times[0]).toBeLessThanOrEqual(300);
@@ -33,7 +33,7 @@ describe('4.0.2 local-first and suggestion lifecycle', () => {
   it('T11 a real provider hard timeout preserves the local card and reports diagnostics', async () => {
     vi.useFakeTimers(); const payload = input(); let displayed: AnalysisResponse | undefined; const errors = vi.fn();
     vi.stubGlobal('fetch', vi.fn((_url, options) => new Promise((_resolve, reject) => options.signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError'))))));
-    const provider = new AnalysisProvider(); provider.setSession('s');
+    const provider = new AnalysisProvider(); provider.setSession('s'); provider.setRemoteEnhancementEnabled(true);
     provider.scheduleLocalFirst(payload, result => { if (result.shouldSuggest) displayed = result; }, errors);
     const localCard = displayed; expect(localCard?.suggestedReply).toBeTruthy();
     await vi.advanceTimersByTimeAsync(AnalysisProvider.HARD_TIMEOUT_MS + 250);
@@ -50,7 +50,7 @@ describe('4.0.2 local-first and suggestion lifecycle', () => {
     }));
     const drawer = renderToStaticMarkup(createElement(DiagnosticsDrawer, { isOpen: true, onClose: noop, onRunHealthCheck: async () => ({}), diagnostics: { ...diagnostics, analysisModel: 'gemini', sttAgentStatus: 'idle', sttClientStatus: 'idle' } as DiagnosticsData }));
     expect(top).toContain('Подсказка'); expect(top).toContain('80 мс'); expect(top).not.toContain('6600');
-    expect(drawer).toContain('Gemini:'); expect(drawer).toContain('6600 мс');
+    expect(drawer).toContain('Gemini-контекст'); expect(drawer).toContain('6600 мс');
   });
   it('T11 timeout error is rendered only when diagnostics is open', () => {
     const props = { onClose: () => {}, onRunHealthCheck: async () => ({}), diagnostics: { lastErrorMessage: 'Время ответа Gemini превышено, карточка сохранена' } as DiagnosticsData };
