@@ -23,7 +23,45 @@ export type RealEstatePainCategory =
 
 export function detectRealEstatePainCategory(text: string): RealEstatePainCategory {
   if (!text) return 'general';
-  const lower = text.toLowerCase();
+  const lower = text.toLowerCase().replace(/ё/g, 'е');
+
+  // «Тишина» в продажах часто означает, что агент перестал отвечать. Это не
+  // жилищный критерий и не боль про сон. Сначала отделяем коммуникационную /
+  // юридическую непрозрачность, затем уже реальные шумовые сценарии.
+  const communicationSilence =
+    /тишин.{0,24}(?:ответ|агент|менеджер|детал)|(?:ответ|агент|менеджер|детал).{0,24}тишин|не\s+отвеча|переста(?:л|ли|ют).{0,20}отвеча/iu.test(lower);
+  const explicitSecurityRisk =
+    lower.includes('риск') ||
+    lower.includes('долгостро') ||
+    lower.includes('надежност') ||
+    lower.includes('статус земли') ||
+    lower.includes('непонятн') && lower.includes('статус') ||
+    lower.includes('снос') ||
+    lower.includes('прозрачност') ||
+    lower.includes('обман') ||
+    lower.includes('пережива') ||
+    lower.includes('боим') ||
+    lower.includes('боязн') ||
+    lower.includes('опаса') ||
+    lower.includes('перенесет сдачу') ||
+    lower.includes('перенесут сдачу') ||
+    lower.includes('срок сдачи') ||
+    lower.includes('сроки сдачи') ||
+    /сер(?:ая|ые|ую|ых)\s+схем/iu.test(lower) ||
+    lower.includes('переподпис') ||
+    /передел.{0,28}документ/iu.test(lower) ||
+    lower.includes('юридическ') ||
+    lower.includes('законност') ||
+    lower.includes('214-фз') ||
+    /\bдду\b/iu.test(lower);
+
+  if (
+    explicitSecurityRisk ||
+    (communicationSilence && /обещан|детал|провер|ответ|агент|менеджер/iu.test(lower))
+  ) {
+    return 'security_risks';
+  }
+
   if (
     lower.includes('шум') ||
     lower.includes('звукоизоляц') ||
@@ -31,7 +69,9 @@ export function detectRealEstatePainCategory(text: string): RealEstatePainCatego
     lower.includes('дорога под окнами') ||
     lower.includes('соседи') ||
     lower.includes('сон') ||
-    lower.includes('тишин')
+    /(?:хочу|нужна|нужен|важна|важен|люблю|чтобы).{0,25}тишин/iu.test(lower) ||
+    /тишин.{0,25}(?:дома|квартир|район|двор|окн|спальн)/iu.test(lower) ||
+    /тих(?:ий|ая|ое|о).{0,20}(?:район|двор|место|дом|квартир|спальн)/iu.test(lower)
   ) {
     return 'noise_sleep';
   }
@@ -47,25 +87,6 @@ export function detectRealEstatePainCategory(text: string): RealEstatePainCatego
     return 'traffic_logistics';
   }
   if (
-    lower.includes('риск') ||
-    lower.includes('долгостро') ||
-    lower.includes('надежност') ||
-    lower.includes('статус земли') ||
-    lower.includes('снос') ||
-    lower.includes('прозрачност') ||
-    lower.includes('обман') ||
-    lower.includes('пережива') ||
-    lower.includes('боим') ||
-    lower.includes('боязн') ||
-    lower.includes('опаса') ||
-    lower.includes('перенесет сдачу') ||
-    lower.includes('перенесут сдачу') ||
-    lower.includes('срок сдачи') ||
-    lower.includes('сроки сдачи')
-  ) {
-    return 'security_risks';
-  }
-  if (
     lower.includes('доход') ||
     lower.includes('окупаемост') ||
     lower.includes('простой') ||
@@ -75,7 +96,6 @@ export function detectRealEstatePainCategory(text: string): RealEstatePainCatego
     lower.includes('сдавать в аренду') ||
     lower.includes('сдачи в аренду') ||
     lower.includes('управляющая компания') ||
-    lower.includes('не сдаётся') ||
     lower.includes('не сдается') ||
     lower.includes('продать сложно') ||
     lower.includes('сложно продать') ||
@@ -101,6 +121,9 @@ export function detectRealEstatePainCategory(text: string): RealEstatePainCatego
     lower.includes('20 презентац') ||
     lower.includes('не понимаю, чем') ||
     lower.includes('не понимаю чем') ||
+    /не\s+понима(?:ю|ем).{0,45}(?:что|какой|какая|какие).{0,35}(?:подход|выб|реально)/iu.test(lower) ||
+    /одн(?:и|о).{0,14}(?:и\s+те\s+же|то\s+же).{0,32}(?:обещан|предложен|слова)/iu.test(lower) ||
+    /одинаков.{0,20}обещан/iu.test(lower) ||
     lower.includes('каждый агент') ||
     lower.includes('все самое лучшее') ||
     lower.includes('всё самое лучшее')
@@ -109,7 +132,6 @@ export function detectRealEstatePainCategory(text: string): RealEstatePainCatego
   }
   if (
     lower.includes('рынок остын') ||
-    lower.includes('не сдаётся') ||
     lower.includes('не сдается') ||
     lower.includes('продать сложно') ||
     lower.includes('сложно продать') ||
@@ -561,7 +583,8 @@ export function extractClientSpinMeaning(
     };
   }
 
-  // 3. Problem (боль, ограничение, неудобство)
+  // 3. Problem (боль, ограничение, неудобство). Явный смысл клиента имеет
+  // приоритет над очередным вопросом сценария Situation.
   if (
     lower.includes('надёжность') ||
     lower.includes('надежность') ||
@@ -586,9 +609,18 @@ export function extractClientSpinMeaning(
     lower.includes('запутал') ||
     lower.includes('не понимаю чем они отличаются') ||
     lower.includes('не понимаю, чем они отличаются') ||
+    /не\s+понима(?:ю|ем).{0,45}(?:что|какой|какая|какие).{0,35}(?:подход|выб|реально)/iu.test(lower) ||
     /не\s+(?:понял|могу\s+понять)[^.!?]{0,35}чем[^.!?]{0,30}(?:отлича|разниц)/iu.test(lower) ||
     /(?:десят\p{L}*|кучу|много)[^.!?]{0,20}(?:презентац|вариант|объект)/iu.test(lower) ||
     /одно\s+и\s+то\s+же[^.!?]{0,35}(?:агент|презентац|проект)/iu.test(lower) ||
+    /одн(?:и|о).{0,14}(?:и\s+те\s+же|то\s+же).{0,32}(?:обещан|предложен|слова)/iu.test(lower) ||
+    /одинаков.{0,20}обещан/iu.test(lower) ||
+    /сер(?:ая|ые|ую|ых)\s+схем/iu.test(lower) ||
+    lower.includes('переподпис') ||
+    /передел.{0,28}документ/iu.test(lower) ||
+    /тишин.{0,24}(?:ответ|агент|менеджер|детал)/iu.test(lower) ||
+    lower.includes('непонятный статус') ||
+    lower.includes('юридическ') ||
     lower.includes('кучу вариантов') ||
     lower.includes('каждый агент') ||
     lower.includes('есть смысл переплачивать') ||
@@ -599,10 +631,10 @@ export function extractClientSpinMeaning(
     let meaning = 'Ограничение или неудобство в текущей ситуации';
     if (painCat === 'noise_sleep') meaning = 'Дискомфорт от шума и плохой звукоизоляции';
     else if (painCat === 'traffic_logistics') meaning = 'Потери времени из-за пробок и плохой логистики';
-    else if (painCat === 'security_risks') meaning = 'Опасения за надежность застройщика и риски недостроя';
+    else if (painCat === 'security_risks') meaning = 'Недоверие к обещаниям, документам или юридической прозрачности сделки';
     else if (painCat === 'yield_rental') meaning = 'Неуверенность в доходности и заполняемости объекта';
     else if (painCat === 'space_crowded') meaning = 'Теснота и нехватка жилой площади для семьи';
-    else if (painCat === 'comparison_overload') meaning = 'Перегруз вариантами и отсутствие понятной системы сравнения';
+    else if (painCat === 'comparison_overload') meaning = 'Перегруз однотипными предложениями и отсутствие понятной системы сравнения';
     else if (painCat === 'market_uncertainty') meaning = 'Сомнение в цене и моменте входа в рынок';
 
     return {
@@ -734,7 +766,7 @@ function isRelatedToActiveProblem(spin: SpinState, clientText: string): boolean 
   if (category === 'comparison_overload') return /вариант|сравн|презентац|выбор|решен|обещан|агент|отклады|различ/iu.test(lower);
   if (category === 'yield_rental') return /доход|депозит|аренд|сдач|ликвид|окупаем|поток|рост\s+(?:цен|стоим)/iu.test(lower);
   if (category === 'market_uncertainty') return /рынок|цен|ждать|снижен|рост|момент|покуп/iu.test(lower);
-  if (category === 'security_risks') return /документ|эскроу|застрой|срок|риск|земл|дду|214/iu.test(lower);
+  if (category === 'security_risks') return /документ|эскроу|застрой|срок|риск|земл|дду|214|схем|переподпис|статус|законн|ответ|обещан/iu.test(lower);
   if (category === 'noise_sleep') return /шум|сон|тишин|отдых|высып|состояни/iu.test(lower);
   if (category === 'traffic_logistics') return /дорог|пробк|время|логист|добират|транспорт/iu.test(lower);
   if (category === 'space_crowded') return /тесн|простран|комнат|места|уедин|планиров/iu.test(lower);
@@ -850,6 +882,31 @@ export function evaluateSpinAndHpb(
     newEvidenceStage = extracted.stage;
   } else if (extracted?.stage) {
     newEvidenceStage = extracted.stage;
+  }
+
+  // If the client volunteers an explicit but still vague problem before the
+  // scripted Situation sequence is complete, clarify that problem first. The
+  // script is a fallback, not a queue that can overwrite stronger meaning.
+  const currentPain = detectRealEstatePainCategory(text);
+  const vagueComparisonProblem =
+    newEvidenceStage === 'PROBLEM' &&
+    currentPain === 'comparison_overload' &&
+    (
+      /не\s+понима(?:ю|ем).{0,45}(?:что|какой|какая|какие).{0,35}(?:подход|выб|реально)/iu.test(lower) ||
+      /одн(?:и|о).{0,14}(?:и\s+те\s+же|то\s+же).{0,32}обещан/iu.test(lower) ||
+      /одинаков.{0,20}обещан/iu.test(lower)
+    ) &&
+    !/(?:цифр|отлич|разниц|сравн|слишком\s+много|кучу\s+вариант|20\s+(?:объект|презентац))/iu.test(lower);
+
+  if (vagueComparisonProblem) {
+    return {
+      suggestionMode: 'SPIN_PROBLEM',
+      suggestedText: 'Что именно мешает понять разницу: одинаковые обещания, отсутствие цифр или непонятные отличия между объектами?',
+      shortReason: 'Клиент сам обозначил проблему раньше сценария. Уточняем её смысл вместо очередного вопроса Situation.',
+      evidenceQuote: text,
+      expectedClientMeaning: 'Клиент называет конкретную причину, почему предложения не складываются в понятный выбор.',
+      updatedSpin: recomputeSpinProgress(nextSpin),
+    };
   }
 
   // Research mode means there may be no historical pain yet. After preserving
@@ -1006,8 +1063,8 @@ export function evaluateSpinAndHpb(
       question = 'Сколько времени сейчас уходит на дорогу и что из-за этого приходится откладывать?';
       reason = 'Обнаружена проблема логистики и пробок. Исследуем потери времени клиента.';
     } else if (painCat === 'security_risks') {
-      question = 'Что больше всего настораживает — темпы стройки, перенос сроков или юридическая чистота документов?';
-      reason = 'Обнаружено опасение по безопасности. Локализуем конкретный юридический или финансовый риск.';
+      question = 'Если этот риск нельзя снять и подтвердить всё документами заранее, такой объект для вас сразу отпадает?';
+      reason = 'Клиент уже назвал риск и непрозрачность. Проверяем влияние на решение, а не переспрашиваем содержание проблемы.';
     } else if (painCat === 'yield_rental') {
       question = 'Что вызывает основные сомнения — реальная загрузка в низкий сезон или надежность управляющей компании?';
       reason = 'Обнаружено сомнение в доходности. Выясняем ключевой барьер инвестора.';
@@ -1015,8 +1072,8 @@ export function evaluateSpinAndHpb(
       question = 'Как теснота сказывается на повседневной жизни семьи и возможности уединиться?';
       reason = 'Обнаружена нехватка площади. Исследуем влияние на комфорт семьи.';
     } else if (painCat === 'comparison_overload') {
-      question = 'В итоге из-за такого количества вариантов решение просто откладывается или вы рискуете выбрать по случайному признаку?';
-      reason = 'Клиент перегружен подборками. Уточняем цену хаотичного выбора вместо ещё одной презентации.';
+      question = 'В итоге из-за одинаковых обещаний решение откладывается или просто не видно, по чему реально сравнивать варианты?';
+      reason = 'Клиент видит однотипные обещания. Проверяем, как отсутствие различий влияет на решение.';
     } else if (painCat === 'market_uncertainty') {
       question = 'Если просто ждать снижения рынка без понятного ориентира, по какому признаку вы поймёте, что момент для покупки уже наступил?';
       reason = 'Сомнение в рынке: переводим ожидание снижения цены в критерий принятия решения.';
@@ -1033,9 +1090,9 @@ export function evaluateSpinAndHpb(
   }
 
   // Сценарий 1 / Обычная ситуация.
-  // Не перескакиваем в Problem после приветствия/первого факта: сначала собираем
-  // минимум два содержательных элемента Situation. Это делает первый звонок
-  // естественным: контакт -> цель/контекст -> критерии -> проблема.
+  // Скриптовая последовательность — только fallback. Если клиент сам раньше
+  // сообщил Problem/Implication/Need-payoff, соответствующие ветки выше уже
+  // перехватили turn и не дадут опроснику идти «по порядку».
   if (nextSpin.situation.length < 2) {
     const situationQuestions = [
       'Сочи давно рассматриваете или только начали изучать рынок?',
@@ -1053,7 +1110,7 @@ export function evaluateSpinAndHpb(
     return {
       suggestionMode: 'SPIN_SITUATION',
       suggestedText: situationQuestions[index],
-      shortReason: 'Сначала собираем контекст клиента; переход в Problem пока преждевременный.',
+      shortReason: 'Явного более важного сигнала пока нет; добираем минимальный контекст клиента.',
       evidenceQuote: text,
       expectedClientMeaning: 'Клиент раскрывает причину обращения, сценарий покупки или предыдущий опыт.',
       updatedSpin: nextSpin,
@@ -1065,7 +1122,7 @@ export function evaluateSpinAndHpb(
     ? 'Из того, что уже присылали, что больше всего мешало сравнить варианты — отсутствие цифр, понятных отличий или слишком большой выбор?'
     : finalPain === 'market_uncertainty'
       ? 'Что именно заставляет сомневаться в текущей цене — динамика рынка, сравнение с другими локациями или ощущение, что объект переоценён?'
-      : 'Что из того, что вы уже видели или пробовали, вас не устроило больше всего?';
+      : 'Что из того, что вы уже видели, вас не устроило больше всего?';
   return {
     suggestionMode: 'SPIN_PROBLEM',
     suggestedText: problemQuestion,
