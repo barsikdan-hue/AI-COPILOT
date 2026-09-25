@@ -25,9 +25,6 @@ export function detectRealEstatePainCategory(text: string): RealEstatePainCatego
   if (!text) return 'general';
   const lower = text.toLowerCase().replace(/ё/g, 'е');
 
-  // «Тишина» в продажах часто означает, что агент перестал отвечать. Это не
-  // жилищный критерий и не боль про сон. Сначала отделяем коммуникационную /
-  // юридическую непрозрачность, затем уже реальные шумовые сценарии.
   const communicationSilence =
     /тишин.{0,24}(?:ответ|агент|менеджер|детал)|(?:ответ|агент|менеджер|детал).{0,24}тишин|не\s+отвеча|переста(?:л|ли|ют).{0,20}отвеча/iu.test(lower);
   const explicitSecurityRisk =
@@ -147,12 +144,6 @@ export function detectRealEstatePainCategory(text: string): RealEstatePainCatego
   return 'general';
 }
 
-
-/**
- * Contextual manual SPIN hint for the UI stepper. The stage is fixed by the
- * agent, but the wording is derived from the conversation state so clicking a
- * SPIN stage does not keep replaying the same canned question.
- */
 export function getContextualSpinQuestion(
   stage: 'SITUATION' | 'PROBLEM' | 'IMPLICATION' | 'NEED_PAYOFF',
   state: ConversationState
@@ -212,16 +203,10 @@ export function createInitialSpinState(): SpinState {
   };
 }
 
-/**
- * 1. РАЗДЕЛЕНИЕ РЕПЛИК: Анализ реплики Андрея.
- * Реплики Андрея НЕ подтверждают SPIN и НЕ создают фактов о клиенте.
- * Они учитываются исключительно как действие менеджера (agentAction).
- */
 export function classifyAgentAction(text: string): AgentActionType {
   const lower = text.toLowerCase().trim();
   const isQuestion = text.includes('?') || /^(?:а\s+)?(?:что|как|кто|когда|какой|какая|какие|почему|зачем|насколько|если)/iu.test(lower);
 
-  // Резюмирование
   if (
     lower.startsWith('итак') ||
     lower.includes('резюмирую') ||
@@ -232,7 +217,6 @@ export function classifyAgentAction(text: string): AgentActionType {
     return 'summarized';
   }
 
-  // Следующий шаг
   if (
     lower.includes('видеовстреч') ||
     lower.includes('видеопоказ') ||
@@ -245,7 +229,6 @@ export function classifyAgentAction(text: string): AgentActionType {
     return 'asked_next_step';
   }
 
-  // Обработка / диагностика возражения
   if (
     lower.includes('дорого относительно') ||
     lower.includes('над чем конкретно хотите подумать') ||
@@ -258,7 +241,6 @@ export function classifyAgentAction(text: string): AgentActionType {
   }
 
   if (isQuestion) {
-    // SPIN Need-Payoff
     if (
       /что\s+(?:для вас\s+)?измен/iu.test(lower) ||
       /если.{0,45}(?:решить|удалось|получится).{0,45}(?:что|как).{0,25}(?:измен|даст)/iu.test(lower) ||
@@ -269,7 +251,6 @@ export function classifyAgentAction(text: string): AgentActionType {
       return 'asked_need_payoff_question';
     }
 
-    // SPIN Implication
     if (
       /к чему это (?:приводит|привед[её]т)/iu.test(lower) ||
       lower.includes('как это влияет') ||
@@ -288,7 +269,6 @@ export function classifyAgentAction(text: string): AgentActionType {
       return 'asked_implication_question';
     }
 
-    // SPIN Problem
     if (
       lower.includes('что не устраивает') ||
       /что.{0,45}не\s+устроил/iu.test(lower) ||
@@ -308,9 +288,6 @@ export function classifyAgentAction(text: string): AgentActionType {
       return 'asked_problem_question';
     }
 
-    // SPIN Situation: фактический контекст клиента. Важно: реальные вопросы
-    // агента засчитываются по последующему ответу клиента, даже если агент
-    // сформулировал их своими словами, а не нажал кнопку SPIN.
     if (
       /давно.{0,25}(?:рассматрива|присматрива)|только начали.{0,20}(?:изуч|смотр)/iu.test(lower) ||
       lower.includes('что стало причиной') ||
@@ -333,7 +310,6 @@ export function classifyAgentAction(text: string): AgentActionType {
       return 'asked_situation_question';
     }
 
-    // Квалификационные вопросы (бюджет, сроки, ЛПР, форма оплаты)
     if (
       lower.includes('бюджет') ||
       lower.includes('максимальной суммы') ||
@@ -349,8 +325,6 @@ export function classifyAgentAction(text: string): AgentActionType {
     }
   }
 
-  // Презентация объекта (ХПВ или описание преимуществ). Не ставим её раньше
-  // вопросной классификации, иначе вопрос со словом «комплекс» ломает SPIN.
   if (
     lower.includes('в проекте') ||
     lower.includes('комплекс') ||
@@ -430,11 +404,6 @@ function addSpinEvidence(
   return recomputeSpinProgress(spin);
 }
 
-/**
- * Проверка на содержательность ответа клиента по шкале SPIN:
- * Если клиент ответил «Не знаю», «Ну, наверное, это важно», «Пока не знаю»,
- * это НЕ считается подтверждением SPIN-этапа.
- */
 export function isSubstantiveSpinAnswer(text: string): boolean {
   if (!isSubstantiveClientTurn(text)) return false;
   const lower = text.toLowerCase().trim();
@@ -459,13 +428,6 @@ export function isSubstantiveSpinAnswer(text: string): boolean {
   return true;
 }
 
-/**
- * Проверка реплики клиента на категорию SPIN:
- * A. Situation (контекст, цель, состав)
- * B. Problem (неудобство, шум, теснота, ограничения, боль)
- * C. Implication (последствия: плохой сон, усталость, стресс, потери, срывы, цена бездействия)
- * D. Need-payoff (желаемый результат: тишина, нормальный сон, спокойствие, комфорт)
- */
 export function extractClientSpinMeaning(
   clientTurn: TranscriptTurn
 ): {
@@ -480,7 +442,6 @@ export function extractClientSpinMeaning(
 
   const lower = text.toLowerCase();
 
-  // 1. Need-Payoff (желаемый результат, польза, сформулированная клиентом)
   if (
     lower.includes('хочу тишину') ||
     lower.includes('хотим тишину') ||
@@ -538,7 +499,6 @@ export function extractClientSpinMeaning(
     };
   }
 
-  // 2. Implication (последствия: сон, здоровье, стресс, время, деньги, жизнь)
   if (
     lower.includes('время/нервы') ||
     lower.includes('финансовые риски') ||
@@ -583,8 +543,6 @@ export function extractClientSpinMeaning(
     };
   }
 
-  // 3. Problem (боль, ограничение, неудобство). Явный смысл клиента имеет
-  // приоритет над очередным вопросом сценария Situation.
   if (
     lower.includes('надёжность') ||
     lower.includes('надежность') ||
@@ -645,7 +603,6 @@ export function extractClientSpinMeaning(
     };
   }
 
-  // 4. Situation (контекст, локация, критерии)
   if (
     lower.includes('море') ||
     lower.includes('сочи') ||
@@ -667,9 +624,6 @@ export function extractClientSpinMeaning(
   return null;
 }
 
-/**
- * Создание готового ХПВ-блока, строго привязанного к подтверждённой боли клиента.
- */
 export function buildHpbPresentation(
   clientNeed: string,
   evidenceQuote: string
@@ -679,10 +633,6 @@ export function buildHpbPresentation(
 } {
   const painCat = detectRealEstatePainCategory(evidenceQuote || clientNeed);
 
-  // ХПВ из пользовательского регламента: Характеристика -> Преимущество -> Выгода.
-  // В realtime-подсказке нельзя придумывать характеристику конкретного объекта,
-  // поэтому без подтвержденных project facts характеристикой является проверяемый
-  // формат сравнения/показа, а не несуществующее свойство ЖК.
   let hpb: HpbLink;
   if (painCat === 'traffic_logistics') {
     hpb = {
@@ -722,7 +672,7 @@ export function buildHpbPresentation(
       evidenceQuote,
       characteristic: 'При сравнении вариантов отдельно проверим ориентацию окон, окружение и источники шума вокруг комплекса',
       advantage: 'Можно заранее отсеять варианты, которые конфликтуют с вашим сценарием спокойного отдыха',
-      benefit: 'Это повышает шанс получить именно тот уровень тишины и комфорта, который вы описали',
+      benefit: 'Это повышает шанс получить тишину, полноценный сон и комфорт, которые вы описали',
     };
   } else {
     hpb = {
@@ -748,15 +698,6 @@ export interface SpinEvaluationResult {
   updatedSpin: SpinState;
 }
 
-/**
- * Основной детерминированный движок анализа SPIN & ХПВ.
- * Вызывается при каждой реплике клиента и гарантирует:
- * 1) Слова Андрея не подтверждают SPIN.
- * 2) Если обнаружена боль — сначала углубление (Problem -> Implication -> Need-payoff).
- * 3) Запрещён переход в ХПВ без подтверждённого клиентом Need-payoff.
- * 4) При длительной презентации Андрея — включение CHECK_ALIGNMENT («Насколько это решает...»).
- * 5) Точная привязка ХПВ к цитате клиента.
- */
 function isRelatedToActiveProblem(spin: SpinState, clientText: string): boolean {
   const problemQuote = spin.problem?.at(-1)?.evidenceQuote || '';
   if (!problemQuote) return true;
@@ -791,7 +732,6 @@ export function evaluateSpinAndHpb(
   if (noPastExperience) { nextSpin.researchMode = true; nextSpin.pastExperienceQuestionClosed = true; }
   if (context?.dialogueControl?.researchMode) nextSpin.researchMode = true;
 
-  // 1. ПРОВЕРКА: Если клиент ответил «Надо подумать»
   if (lower.includes('надо подумать') || lower.includes('я подумаю') || lower.includes('мне нужно подумать')) {
     return {
       suggestionMode: 'OBJECTION_CLARIFICATION',
@@ -803,7 +743,6 @@ export function evaluateSpinAndHpb(
     };
   }
 
-  // 2. ПРОВЕРКА: Если клиент ответил «Для себя» без деталей ПМЖ
   const existingGoal = (context?.goal?.value || context?.primaryGoal?.value || '').toLocaleLowerCase('ru-RU');
   const goalAlreadySpecific = /(?:инвестиц|отдых|сезон|постоянн|переезд|аренд)/iu.test(existingGoal);
   const isOnlyForMyself =
@@ -818,7 +757,6 @@ export function evaluateSpinAndHpb(
     if (pairedStage === 'SITUATION' && isSubstantiveSpinAnswer(text)) {
       addSpinEvidence(nextSpin, 'SITUATION', clientTurn, 'Личное использование: формат отдыха/проживания уточняется');
     }
-    // Не считаем раскрытым ПМЖ/переезд!
     return {
       suggestionMode: 'SPIN_SITUATION',
       suggestedText: 'Понял. А для себя — это больше про отдых, сезонное проживание или планируете жить постоянно?',
@@ -829,7 +767,6 @@ export function evaluateSpinAndHpb(
     };
   }
 
-  // 3. ПРОВЕРКА: Несодержательный ответ («не знаю», «пока не знаю», «ну наверное это важно»)
   if (!isSubstantiveSpinAnswer(text)) {
     return {
       suggestionMode:
@@ -849,9 +786,6 @@ export function evaluateSpinAndHpb(
     };
   }
 
-  // 4. Связываем РЕАЛЬНЫЙ вопрос агента с последующим ответом клиента.
-  // Это ключ к SPIN: прогресс не зависит от того, нажал ли агент кнопку SPIN
-  // и повторил ли подсказку дословно.
   const extracted = extractClientSpinMeaning(clientTurn);
   const topicShiftedAwayFromProblem =
     (pairedStage === 'IMPLICATION' || pairedStage === 'NEED_PAYOFF') &&
@@ -884,9 +818,6 @@ export function evaluateSpinAndHpb(
     newEvidenceStage = extracted.stage;
   }
 
-  // If the client volunteers an explicit but still vague problem before the
-  // scripted Situation sequence is complete, clarify that problem first. The
-  // script is a fallback, not a queue that can overwrite stronger meaning.
   const currentPain = detectRealEstatePainCategory(text);
   const vagueComparisonProblem =
     newEvidenceStage === 'PROBLEM' &&
@@ -909,9 +840,6 @@ export function evaluateSpinAndHpb(
     };
   }
 
-  // Research mode means there may be no historical pain yet. After preserving
-  // the Situation evidence, ask about a future risk instead of inventing a
-  // negative past experience.
   if (
     nextSpin.researchMode &&
     nextSpin.situation.length >= 2 &&
@@ -951,7 +879,6 @@ export function evaluateSpinAndHpb(
     };
   }
 
-  // 5. ПРОВЕРКА: Если Андрей сам долго объяснял преимущества объекта
   if (lastAgentAction === 'presented_object') {
     return {
       suggestionMode: 'CHECK_ALIGNMENT',
@@ -965,9 +892,6 @@ export function evaluateSpinAndHpb(
 
   recomputeSpinProgress(nextSpin);
 
-  // Once a complete SPIN chain has already been collected, do not replay the
-  // same ХПВ speech on every later client turn. New problems/implications can
-  // open a fresh micro-chain, otherwise the script engine chooses the next step.
   if (nextSpin.completedStages.length === 4 && !['PROBLEM', 'IMPLICATION', 'NEED_PAYOFF'].includes(newEvidenceStage || '')) {
     return {
       suggestionMode: 'WAIT',
@@ -979,12 +903,6 @@ export function evaluateSpinAndHpb(
     };
   }
 
-  // =========================================================================
-  // ЛОГИКА ПЕРЕХОДОВ SPIN И ХПВ:
-  // Приоритет: Problem -> Implication -> Need-payoff -> HPB
-  // =========================================================================
-
-  // Сценарий 4: Клиент назвал желаемый результат (Need-payoff раскрыт) -> ПЕРЕХОД В ХПВ!
   if (newEvidenceStage === 'NEED_PAYOFF') {
     const needQuote =
       nextSpin.needPayoff[nextSpin.needPayoff.length - 1]?.evidenceQuote ||
@@ -1007,7 +925,6 @@ export function evaluateSpinAndHpb(
     };
   }
 
-  // Сценарий 3: Клиент раскрыл последствия (Implication раскрыт, но Need-payoff ещё нет)
   if (newEvidenceStage === 'IMPLICATION' || (nextSpin.problem.length > 0 && nextSpin.implication.length > 0 && nextSpin.needPayoff.length === 0 && pairedStage === 'IMPLICATION')) {
     const impQuote =
       nextSpin.implication[nextSpin.implication.length - 1]?.evidenceQuote ||
@@ -1042,7 +959,6 @@ export function evaluateSpinAndHpb(
     };
   }
 
-  // Сценарий 2: Клиент назвал проблему/боль (Problem назван, но Implication ещё не раскрыт)
   if (
     newEvidenceStage === 'PROBLEM' ||
     (nextSpin.problem.length > 0 && nextSpin.implication.length === 0 && pairedStage === 'PROBLEM')
@@ -1089,10 +1005,6 @@ export function evaluateSpinAndHpb(
     };
   }
 
-  // Сценарий 1 / Обычная ситуация.
-  // Скриптовая последовательность — только fallback. Если клиент сам раньше
-  // сообщил Problem/Implication/Need-payoff, соответствующие ветки выше уже
-  // перехватили turn и не дадут опроснику идти «по порядку».
   if (nextSpin.situation.length < 2) {
     const situationQuestions = [
       'Сочи давно рассматриваете или только начали изучать рынок?',
