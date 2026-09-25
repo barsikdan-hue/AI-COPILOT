@@ -60,6 +60,14 @@ export const SuggestionCard: React.FC<SuggestionCardProps> = ({
   const [feedbackGiven, setFeedbackGiven] = useState<'accurate' | 'inaccurate' | null>(null);
   const [showOpeningGreeting, setShowOpeningGreeting] = useState(false);
 
+  // Feedback belongs to one concrete card. A new suggestion must never inherit
+  // the previous card's thumbs state or open reasoning/copy UI.
+  useEffect(() => {
+    setFeedbackGiven(null);
+    setShowReasoning(false);
+    setCopied(false);
+  }, [suggestion?.id]);
+
   // Opening is a deterministic UI cue, not a fake AI recommendation. It is
   // armed only by a real call start transition. Pause/resume must never revive it.
   useEffect(() => {
