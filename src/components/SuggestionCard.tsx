@@ -60,19 +60,14 @@ export const SuggestionCard: React.FC<SuggestionCardProps> = ({
   const [feedbackGiven, setFeedbackGiven] = useState<'accurate' | 'inaccurate' | null>(null);
   const [showOpeningGreeting, setShowOpeningGreeting] = useState(false);
 
-  // Opening is a deterministic UI cue, not a fake AI recommendation. Show it
-  // immediately when a call starts and retire it as soon as either side begins
-  // speaking or a real recommendation becomes available.
+  // Opening is a deterministic UI cue, not a fake AI recommendation. It is
+  // armed only by a real call start transition. Pause/resume must never revive it.
   useEffect(() => {
-    if (!isCallRunning) {
-      setShowOpeningGreeting(false);
-      return;
-    }
-    if (!isPaused && !isCompleted) {
-      setShowOpeningGreeting(true);
-    }
-  }, [isCallRunning, isPaused, isCompleted]);
+    setShowOpeningGreeting(isCallRunning);
+  }, [isCallRunning]);
 
+  // Once either side starts speaking or a real recommendation exists, the
+  // opening cue is retired for the rest of this call.
   useEffect(() => {
     if (
       isCallRunning &&
