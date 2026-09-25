@@ -47,8 +47,8 @@ const latestAgentBeforeLatestClient = (turns: TranscriptTurn[]): string => {
 const clientHasNoConcreteExperience = (text: string): boolean =>
   /(?:ничего\s+конкретн\p{L}*\s+не\s+(?:смотрел\p{L}*|видел\p{L}*)|не\s+могу\s+(?:ничего\s+)?выделить|нечего\s+выделить|ничего\s+не\s+зацепило|ярк\p{L}*\s+пример\p{L}*\s+(?:пока\s+)?нет|только\s+(?:смотрю|изучаю|присматриваюсь)[^.!?]{0,70}ничего\s+конкретн)/iu.test(text);
 
-const searchOrientationPattern = /(?:как\s+вообще[^?]{0,40}рынк|давно.*(?:рассматрива|присматрива)|только.*(?:начал|начала|начали|изуча).*рын|на\s+каком.*этап.*рын|уже\s+сравниваете\s+конкретн.*вариант)/iu;
-const motiveNowPattern = /(?:что.*(?:причин|изменил).*сейчас|почему.*именно.*сейчас|что\s+сейчас\s+подтолкнул|тема\s+недвижимости.*актуаль|почему\s+к\s+вопросу.*верну)/iu;
+const searchOrientationPattern = /(?:как\s+вообще[^?]{0,40}рынк|давно.*(?:рассматрива|присматрива|отслежива)|интерес\s+появил\p{L}*\s+недавно|только.*(?:начал|начала|начали|изуча).*рын|на\s+каком.*этап.*рын|уже\s+сравниваете\s+конкретн.*вариант)/iu;
+const motiveNowPattern = /(?:что.*(?:причин|изменил).*сейчас|почему.*именно.*сейчас|что\s+сейчас\s+подтолкнул|тема\s+недвижимости.*актуаль|почему\s+к\s+вопросу.*верну|какую\s+задачу[^?]{0,70}именно\s+на\s+этом\s+этапе)/iu;
 
 const latestLooksLikePassiveSearch = (text: string): boolean =>
   /(?:только\s+(?:начал\p{L}*|смотрю|изучаю)|присматрива\p{L}*|пока\s+(?:смотрю|изучаю|интересуюсь)|ничего\s+конкретн|в\s+общих\s+черт|давно\s+(?:смотрю|присматриваюсь)|просто\s+(?:смотрю|изучаю))/iu.test(text);
@@ -193,7 +193,7 @@ export function chooseDialoguePolicyTarget(
   const triggerAlreadyKnown = clientAlreadyExplainedWhyNow(turns);
   const latestFollowsOrientation = searchOrientationPattern.test(latestAgent);
   if (
-    !researchMode &&
+    (!researchMode || latestFollowsOrientation) &&
     !triggerAlreadyKnown &&
     !motiveAsked &&
     !motiveHintDismissed &&
