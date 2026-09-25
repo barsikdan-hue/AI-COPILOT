@@ -35,7 +35,7 @@ function detectNextStepQuestion(
 ): ConversationEventDetection | null {
   if (turn.speaker !== 'client') return null;
   const text = normalize(turn.text);
-  const asksNextStep = /(?:какой|что)\s+(?:у\s+нас\s+)?следующ(?:ий|его)\s+шаг|что\s+(?:делаем\s+)?дальше|как\s+(?:идем|идём|двигаемся)\s+дальше/iu.test(text);
+  const asksNextStep = /(?:какой|что)\s+(?:у\s+нас\s+)?следующ(?:ий|его)\s+шаг|следующ(?:ий|его)\s+шаг\s+(?:какой|что)|что\s+(?:делаем\s+)?дальше|как\s+(?:идем|идём|двигаемся)\s+дальше/iu.test(text);
   if (!asksNextStep) return null;
 
   const criteriaKnown = Boolean(state.criteria?.value);
@@ -74,9 +74,6 @@ function detectDeferredMeeting(
   const meetingContext = /(?:видеовстреч|видеопоказ|видео|созвон|зум|zoom|встреч|показ)/iu.test(agentText);
   if (!meetingContext) return null;
 
-  // "Давайте" is not consent by itself. In live calls it often starts a refusal:
-  // "давайте поставим паузу", "давайте потом", etc. These phrases must win
-  // over MEETING_CONTRACT detection before any agreement is persisted.
   const deferral = /(?:поставим\s+паузу|возьм[её]м\s+паузу|взять\s+время\s+на\s+размышлен|хочу\s+(?:сначала\s+)?подумать|я\s+подумаю|мне\s+надо\s+подумать|давайте\s+(?:пока\s+)?(?:потом|позже)|не\s+готов\p{L}*\s+(?:сейчас\s+)?(?:назначать|фиксировать|созваниваться|встречаться)|через\s+(?:какое-то|некоторое)\s+время\s+(?:мы\s+)?(?:с\s+вами\s+)?свяжемся)/iu.test(text);
   if (!deferral) return null;
 
@@ -133,9 +130,6 @@ export function applyConversationEvent(
 
   if (event.type !== 'NEXT_STEP_RESISTANCE' || event.nextStepTarget !== 'ppv') return next;
 
-  // A refusal/deferral can arrive immediately after a time-slot proposal. Never
-  // preserve an "agreed" next step or a synthetic next_step fact from that same
-  // negative client turn.
   return {
     ...next,
     agreedNextStep: {
