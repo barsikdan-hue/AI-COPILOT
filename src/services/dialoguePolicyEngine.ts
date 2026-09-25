@@ -70,6 +70,8 @@ export function chooseDialoguePolicyTarget(
   const decisionMakerKnown = closed(progress, 'decisionMaker') || Boolean(state.decisionMakers?.value);
   const searchExperienceKnown = Boolean(state.searchExperience?.value);
   const experienceClosed = closed(progress, 'experience') || progress.metrics.experience?.status === 'declined_to_disclose';
+  const financingUncertain =
+    /(?:не\s+(?:знаю|решил|решила|определил|определила)|дума\p{L}*|сомнева\p{L}*)[^.!?]{0,70}(?:ипотек|свои|собственн.*средств|рассроч)|ипотек\p{L}*[^.!?]{0,55}или[^.!?]{0,35}(?:свои|собственн.*средств)|(?:свои|собственн.*средств)[^.!?]{0,55}или[^.!?]{0,35}ипотек/iu.test(latest);
 
   // Latest client meaning can pull an already-relevant branch forward.
   if (!criteriaKnown && /тишин|шум|логист|дорог|далеко|море|вид|магазин|инфраструкт|ликвид|перепрод|важн|критери|компромисс/iu.test(latest)) {
@@ -78,7 +80,9 @@ export function chooseDialoguePolicyTarget(
   if (!budgetKnown && /бюджет|цен|стоимост|миллион|дорог/iu.test(latest)) {
     decisions.push(candidate('finance', 'budget', 'ask_budget', 'Клиент перевёл разговор в деньги: сначала фиксируем диапазон.', 94));
   }
-  if (!paymentKnown && /ипотек|рассроч|взнос|банк|собственн.*средств|наличн/iu.test(latest)) {
+  if (financingUncertain) {
+    decisions.push(candidate('finance', 'paymentMethod', 'ask_payment_method', 'Клиент сам обозначил неопределённость по способу покупки: остаёмся в финансовой ветке.', 98));
+  } else if (!paymentKnown && /ипотек|рассроч|взнос|банк|собственн.*средств|наличн/iu.test(latest)) {
     decisions.push(candidate('finance', 'paymentMethod', 'ask_payment_method', 'Клиент затронул способ покупки: уточняем финансовую схему без смены темы.', 93));
   }
   if (!urgencyKnown && /срок|месяц|квартал|когда.*(?:покуп|сделк)|как скоро/iu.test(latest)) {
