@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { TranscriptTurn } from '../types';
 import { createInitialState } from './conversationStore';
 import { evaluateFirstCallScript } from './firstCallScriptEngine';
-import { advanceLocalConversation } from './localAnalysisEngine';
+import { advanceLocalConversation, buildLocalAnalysisResponse } from './localAnalysisEngine';
 import { chooseDialoguePolicyTarget } from './dialoguePolicyEngine';
 
 function turn(id: string, speaker: 'agent' | 'client', text: string, revision: number): TranscriptTurn {
@@ -25,6 +25,18 @@ function buildState(turns: TranscriptTurn[]) {
   }
   const progress = evaluateFirstCallScript(turns, state);
   return { ...state, scriptProgress: progress };
+}
+
+function analyze(turns: TranscriptTurn[]) {
+  const state = buildState(turns);
+  const latest = turns.at(-1)!;
+  return buildLocalAnalysisResponse({
+    sessionId: latest.sessionId,
+    revision: latest.revision || turns.length,
+    newTurns: [latest],
+    recentTurns: turns,
+    currentState: state,
+  });
 }
 
 describe('Dialogue Policy Engine V1', () => {
@@ -98,5 +110,75 @@ describe('Dialogue Policy Engine V1', () => {
     const decision = chooseDialoguePolicyTarget(state, turns, state.scriptProgress);
 
     expect(decision?.semanticKey).not.toBe('ask_goal');
+  });
+
+  it('starts with search orientation instead of immediately asking the same generic goal question', () => {
+    const turns = [
+      turn('a1', 'agent', 'Добрый день. Меня зовут Данил. Как я могу к вам обращаться?', 1),
+      turn('c1', 'client', 'Сергей.', 2),
+    ];
+    const state = buildState(turns);
+    const decision = chooseDialoguePolicyTarget(state, turns, state.scriptProgress);
+
+    expect(decision).toMatchObject({
+      branch: 'orientation',
+      metric: null,
+      semanticKey: 'ask_search_experience',
+      priority: 92,
+    });
+  });
+
+  it('asks why now after a passive search-orientation answer', () => {
+    const turns = [
+      turn('a1', 'agent', 'Как вообще сейчас ощущения от рынка Сочи? Давно присматриваетесь или только начали?', 1),
+      turn('c1', 'client', 'Только начал изучать, пока ничего конкретного.', 2),
+    ];
+    const state = buildState(turns);
+    const decision = chooseDialoguePolicyTarget(state, turns, state.scriptProgress);
+
+    expect(decision).toMatchObject({
+      branch: 'orientation',
+      metric: null,
+      semanticKey: 'ask_motive_now',
+      priority: 90,
+    });
+  });
+
+  it('renders the why-now micro-goal as a real hint without pretending it closes a quality metric', () => {
+    const result = analyze([
+      turn('a1', 'agent', 'Как вообще сейчас ощущения от рынка Сочи? Давно присматриваетесь или только начали?', 1),
+      turn('c1', 'client', 'Только начал изучать, пока ничего конкретного.', 2),
+    ]);
+
+    expect(result.candidateRuleId).toContain('dialogue_policy_orientation_ask_motive_now');
+    expect(result.suggestedReply).toMatch(/сейчас|именно сейчас|подтолкнул|этапе/iu);
+    expect(result.closesMetric).toBeNull();
+    expect(result.immediatePriority).toContain('Причина актуальности сейчас');
+  });
+
+  it('does not ask why now when the client already gave the trigger in the orientation answer', () => {
+    const turns = [
+      turn('a1', 'agent', 'Давно присматриваетесь или только начали изучать рынок?', 1),
+      turn('c1', 'client', 'Только начал, потому что через три месяца переезжаем в Сочи.', 2),
+    ];
+    const state = buildState(turns);
+    const decision = chooseDialoguePolicyTarget(state, turns, state.scriptProgress);
+
+    expect(decision?.semanticKey).not.toBe('ask_motive_now');
+  });
+
+  it('does not resurrect a skipped why-now hint on the next policy pass', () => {
+    const turns = [
+      turn('a1', 'agent', 'Давно присматриваетесь или только начали изучать рынок?', 1),
+      turn('c1', 'client', 'Пока просто присматриваюсь.', 2),
+    ];
+    const state = buildState(turns);
+    state.dismissedSuggestionTexts = [
+      'Что изменилось сейчас, что тема недвижимости стала для вас актуальнее?',
+    ];
+
+    const decision = chooseDialoguePolicyTarget(state, turns, state.scriptProgress);
+
+    expect(decision?.semanticKey).not.toBe('ask_motive_now');
   });
 });
