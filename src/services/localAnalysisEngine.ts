@@ -427,7 +427,9 @@ export function buildLocalAnalysisResponse(
     }
   }
 
+  const researchMode = Boolean(input.currentState?.dialogueControl?.researchMode);
   const protectedReply = Boolean(
+    researchMode ||
     result.eventType ||
     result.candidateRuleId === 'contextual_market_comparison' ||
     ['OBJECTION_CLARIFICATION', 'RESPECT_STOP', 'ANSWER', 'SHOW_EVIDENCE', 'PROPOSE_NEXT_STEP'].includes(result.actionType) ||
@@ -435,9 +437,35 @@ export function buildLocalAnalysisResponse(
   );
 
   let policyApplied = false;
-  if (!protectedReply) {
+  if (!protectedReply && result.shouldSuggest && result.suggestedReply) {
     const policySelection = selectPolicyQualification(input, result, turns);
-    if (policySelection) {
+    const existingKey = semanticKey(result.suggestedReply);
+    const qualificationLike =
+      String(result.candidateRuleId || '').startsWith('qualification_fallback_') ||
+      String(result.candidateRuleId || '').startsWith('contextual_v2_') ||
+      result.candidateRuleId === 'semantic_ack_liveness' ||
+      [
+        'ask_search_experience',
+        'ask_motive_now',
+        'ask_experience',
+        'ask_goal',
+        'ask_property_type',
+        'ask_location',
+        'ask_criteria',
+        'ask_budget',
+        'ask_payment_method',
+        'ask_down_payment',
+        'ask_timeline',
+        'ask_decision_makers',
+      ].includes(existingKey);
+
+    // Policy owns which branch is active, not every sentence. Preserve a
+    // specialized legacy wording when it already targets the same micro-goal.
+    if (
+      policySelection &&
+      qualificationLike &&
+      policySelection.card.metric !== result.closesMetric
+    ) {
       applyContextualCard(result, policySelection, {
         branch: policySelection.branch,
         reason: policySelection.reason,
@@ -448,7 +476,7 @@ export function buildLocalAnalysisResponse(
     }
   }
 
-  const fallbackLike = !protectedReply && !policyApplied && Boolean(
+  const fallbackLike = !protectedReply && !policyApplied && result.shouldSuggest && Boolean(result.suggestedReply) && Boolean(
     String(result.candidateRuleId || '').startsWith('qualification_fallback_') ||
     result.candidateRuleId === 'semantic_ack_liveness' ||
     (result.priority <= 50 && result.closesMetric)
@@ -456,7 +484,7 @@ export function buildLocalAnalysisResponse(
 
   if (fallbackLike) {
     const selected = selectContextualQualification(input, result, turns);
-    if (selected) applyContextualCard(result, selected);
+    if (selected && selected.card.metric !== result.closesMetric) applyContextualCard(result, selected);
   }
 
   return result as AnalysisResponse;
