@@ -1,10 +1,13 @@
 import * as legacy from './firstCallScriptEngineLegacy';
-import type { ConversationState, TranscriptTurn } from '../types';
+import type { ConversationState, FirstCallMetric, TranscriptTurn } from '../types';
 
 export * from './firstCallScriptEngineLegacy';
 
 const norm = (value: string): string =>
   (value || '').toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').replace(/\s+/g, ' ').trim();
+
+const closed = (status: string | null | undefined): boolean =>
+  status === 'confirmed' || status === 'not_applicable';
 
 function latestVideoDeferral(turns: TranscriptTurn[]): { deferred: boolean; turnId: string | null } {
   let lastVideoProposalIndex = -1;
@@ -123,6 +126,94 @@ function sanitizePaymentMethodUncertainty(
   };
 }
 
+/**
+ * `trust` is a proxy for a working advisory dialogue, not a quota of personal
+ * questions. Client engagement and useful disclosure are stronger evidence
+ * than asking about hobbies/family merely to satisfy a counter.
+ */
+function sanitizeTrustQuality(
+  progress: ReturnType<typeof legacy.evaluateFirstCallScript>,
+  state: ConversationState,
+): ReturnType<typeof legacy.evaluateFirstCallScript> {
+  const trust = progress.trust;
+  const metric = progress.metrics?.trust;
+  if (!trust || !metric) return progress;
+
+  const technical = trust.openTechnicalQuestionsCount || 0;
+  const personal = trust.openPersonalQuestionsCount || 0;
+  const substantive = trust.clientSubstantiveTurns || 0;
+  const clientRatio = trust.clientSpeechRatio ?? 0;
+  const agentRatio = trust.agentSpeechRatio ?? 1;
+  const openQuestions = technical + personal;
+
+  const disclosedDomains = [
+    state.goal?.value || state.primaryGoal?.value,
+    state.location?.value,
+    state.criteria?.value || state.criteria?.items?.length,
+    state.budget?.value,
+    state.paymentMethod?.value,
+    state.purchaseTimeline?.value || state.urgency?.value,
+    state.decisionMakers?.value,
+    state.searchExperience?.value,
+  ].filter(Boolean).length;
+
+  const healthySpeechBalance = clientRatio >= 0.4 && agentRatio <= 0.8;
+  const engagedClient = substantive >= 3;
+  const realDiscovery = technical >= 1 || disclosedDomains >= 2;
+  const status = healthySpeechBalance && engagedClient && realDiscovery
+    ? 'confirmed' as const
+    : (substantive >= 2 || openQuestions >= 1 || disclosedDomains >= 1)
+      ? 'partially_confirmed' as const
+      : 'not_confirmed' as const;
+
+  const trustScore = Math.min(100, Math.round(
+    Math.min(substantive, 3) / 3 * 30 +
+    Math.min(disclosedDomains, 3) / 3 * 25 +
+    Math.min(openQuestions, 2) / 2 * 15 +
+    (healthySpeechBalance ? 30 : 0)
+  ));
+
+  const nextTrust = {
+    ...trust,
+    status,
+  };
+  const nextMetric: FirstCallMetric = {
+    ...metric,
+    status,
+    value: `${trustScore}% (содержательные реплики: ${substantive}, раскрыто тем: ${disclosedDomains}, открытые вопросы: ${openQuestions}, речь клиента: ${Math.round(clientRatio * 100)}%)`,
+    semanticReason: status === 'confirmed'
+      ? 'Есть рабочий диалог: клиент содержательно раскрывается, говорит достаточную долю времени и даёт полезный контекст. Личные вопросы не являются обязательным условием.'
+      : 'Нужно получить больше содержательного контекста и диалога по задаче клиента. Личные вопросы задаются только если клиент сам открыл личную тему.',
+    confidence: status === 'confirmed' ? 0.95 : 0.65,
+    needsClarification: status !== 'confirmed',
+  };
+
+  const metrics: Record<string, FirstCallMetric> = { ...progress.metrics, trust: nextMetric };
+  const passedCoreCriteriaCount = legacy.CORE_12_CRITERIA_IDS.filter((id) => closed(metrics[id]?.status)).length;
+  let quality = { ...progress.quality, passedCoreCriteriaCount };
+
+  if (quality.immediatePriorityMetric === 'trust' && status === 'confirmed') {
+    const nextOpen = legacy.FIRST_CALL_METRICS_LIST
+      .filter((item) => item.isCoreCriteria && item.id !== 'trust' && !closed(metrics[item.id]?.status))
+      .sort((a, b) => a.priorityOrder - b.priorityOrder)[0];
+    if (nextOpen) {
+      quality = {
+        ...quality,
+        immediatePriorityMetric: nextOpen.id,
+        immediatePriorityHint: `Уточнить: ${nextOpen.name}`,
+        nextScriptStep: nextOpen.name,
+      };
+    }
+  }
+
+  return {
+    ...progress,
+    trust: nextTrust,
+    metrics,
+    quality,
+  };
+}
+
 export function evaluateFirstCallScript(
   turns: TranscriptTurn[],
   state: ConversationState,
@@ -130,6 +221,7 @@ export function evaluateFirstCallScript(
   let progress = legacy.evaluateFirstCallScript(turns, state);
   progress = sanitizeInfrastructure(progress, turns);
   progress = sanitizePaymentMethodUncertainty(progress, turns);
+  progress = sanitizeTrustQuality(progress, state);
 
   const deferral = latestVideoDeferral(turns);
   if (!deferral.deferred || progress.metrics?.ppv?.status !== 'confirmed') return progress;
@@ -166,4 +258,25 @@ export function evaluateFirstCallScript(
       nextScriptStep: 'Отработка сопротивления следующему шагу',
     },
   };
+}
+
+export function getFirstCallSuggestion(
+  progress: Parameters<typeof legacy.getFirstCallSuggestion>[0],
+  lastClientTurn: Parameters<typeof legacy.getFirstCallSuggestion>[1],
+  state: Parameters<typeof legacy.getFirstCallSuggestion>[2],
+  turns: Parameters<typeof legacy.getFirstCallSuggestion>[3] = [],
+): ReturnType<typeof legacy.getFirstCallSuggestion> {
+  // Legacy suggestion selection contains the old `<2 personal questions` gate.
+  // When the new trust proxy is already satisfied, neutralize that quota only
+  // for selection. We keep the real counters untouched for diagnostics.
+  const effectiveProgress = progress.trust?.status === 'confirmed' && (progress.trust.openPersonalQuestionsCount || 0) < 2
+    ? {
+        ...progress,
+        trust: {
+          ...progress.trust,
+          openPersonalQuestionsCount: 2,
+        },
+      }
+    : progress;
+  return legacy.getFirstCallSuggestion(effectiveProgress, lastClientTurn, state, turns);
 }
