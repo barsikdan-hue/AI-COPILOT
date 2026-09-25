@@ -4,6 +4,7 @@ import { createInitialState } from './conversationStore';
 import { detectConversationEvent } from './conversationEventEngine';
 import { evaluateFirstCallScript } from './firstCallScriptEngine';
 import { advanceLocalConversation, buildLocalAnalysisResponse } from './localAnalysisEngine';
+import { extractSemanticCriteria } from './semanticEvidence';
 
 function turn(id: string, speaker: SpeakerRole, text: string, revision: number): TranscriptTurn {
   return {
@@ -45,6 +46,17 @@ describe('2026-09-25 semantic state regressions #7', () => {
     expect(event?.type).not.toBe('DIRECT_QUESTION');
   });
 
+  it('does not treat an affirmative “Да? Хорошо, давайте так.” as a question', () => {
+    const turns = [
+      turn('a2b', 'agent', 'Давайте уточним бюджет и способ покупки, затем я отберу два-три варианта. Как вам?', 1),
+      turn('c2b', 'client', 'Да? Хорошо, давайте так.', 2),
+    ];
+    const event = detectConversationEvent(turns[1], turns, createInitialState());
+
+    expect(event?.type).not.toBe('DIRECT_QUESTION');
+    expect(event?.ruleId).not.toBe('direct_question_general');
+  });
+
   it('keeps mortgage as undecided when client explicitly says they have not decided', () => {
     const turns = [
       turn('a3', 'agent', 'Какой первоначальный взнос планируете задействовать для покупки?', 1),
@@ -69,10 +81,41 @@ describe('2026-09-25 semantic state regressions #7', () => {
     expect(progress.metrics?.infrastructure?.value || '').not.toMatch(/спа|бассейн/iu);
   });
 
+  it('recognizes quiet plus connected-living criteria locally without waiting for Gemini', () => {
+    const criteria = extractSemanticCriteria(
+      'Больше тишина, но чтобы при этом не было ощущения, что ты где-то отрезан от цивилизации.',
+    );
+    const keys = criteria.map((item) => item.key);
+
+    expect(keys).toContain('quiet');
+    expect(keys).toContain('infrastructure');
+  });
+
   it('moves on after client says there is no useful past-example answer', () => {
     const turns = [
       turn('a5', 'agent', 'Из уже увиденного что вам понравилось больше всего, а что точно не хотите повторять?', 1),
       turn('c5', 'client', 'Я пока не могу ответить. Яркого примера пока нет.', 2),
+    ];
+    let state = createInitialState();
+    state = advanceLocalConversation(state, turns[0], [turns[0]]).state;
+    state = advanceLocalConversation(state, turns[1], turns).state;
+
+    const result = buildLocalAnalysisResponse({
+      sessionId: 'session-25-semantic-v3',
+      revision: 2,
+      newTurns: [turns[1]],
+      recentTurns: turns,
+      currentState: state,
+    });
+
+    expect(state.scriptProgress?.metrics?.experience?.status).toBe('not_applicable');
+    expect(result.suggestedReply || '').not.toMatch(/из уже увиденного|что из того, что уже смотрели|какие варианты уже успели посмотреть/iu);
+  });
+
+  it('closes experience after the exact repeated no-example wording from the live call', () => {
+    const turns = [
+      turn('a5b', 'agent', 'Из уже увиденного, что вам понравилось больше всего, а что точно не хотите повторять?', 1),
+      turn('c5b', 'client', 'Да я пока не могу выделить что-то. Я реально не могу ничего выделить пока.', 2),
     ];
     let state = createInitialState();
     state = advanceLocalConversation(state, turns[0], [turns[0]]).state;
