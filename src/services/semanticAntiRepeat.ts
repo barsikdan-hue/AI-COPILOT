@@ -33,7 +33,13 @@ export function extractSemanticKey(replyOrText: Partial<SuggestedReply> | string
   if (/правильно понимаю.*(?:показ|брокер)/iu.test(lower)) return lower.includes('брокер') ? 'clarify_next_step_ppi' : 'clarify_next_step_ppv';
   if (/сузим выбор|сначала.*отбер[её]м/iu.test(lower)) return 'shortlist_criteria';
 
-  // 1. Goal / motive
+  // 1. Goal / motive. Usage clarification and direct goal question intentionally
+  // share one semantic key: once the client has been asked whether this is for
+  // rest/seasonal/permanent living, asking the same meaning again as
+  // "для чего выбираете" is a duplicate, not a new qualification step.
+  if (/для\s+себя[^?]{0,55}(?:отдых|сезонн|постоянн|жить)/iu.test(lower) || lower.includes('формат для себя')) {
+    return 'ask_goal';
+  }
   if (
     lower.includes('для чего выбираете') ||
     lower.includes('цель покупки') ||
@@ -42,9 +48,6 @@ export function extractSemanticKey(replyOrText: Partial<SuggestedReply> | string
     lower.includes('рассматриваете для жизни')
   ) {
     return 'ask_goal';
-  }
-  if (lower.includes('для себя — это больше про отдых') || lower.includes('формат для себя')) {
-    return 'clarify_for_myself';
   }
 
   // 2. Location
@@ -91,6 +94,8 @@ export function extractSemanticKey(replyOrText: Partial<SuggestedReply> | string
   if (
     lower.includes('первоначальный взнос') ||
     lower.includes('первый взнос') ||
+    lower.includes('первого платежа') ||
+    lower.includes('первого платеж') ||
     lower.includes('размер взноса')
   ) {
     return 'ask_down_payment';
@@ -121,12 +126,16 @@ export function extractSemanticKey(replyOrText: Partial<SuggestedReply> | string
     return 'ask_decision_makers';
   }
 
-  // 7. Timeline / Urgency
+  // 7. Timeline / Urgency. Live speech uses many equivalent phrasings; all of
+  // them must map to one semantic key or the 30s text cooldown eventually leaks.
   if (
     lower.includes('когда планируете') ||
     lower.includes('в какие сроки') ||
     lower.includes('срочность') ||
-    lower.includes('как скоро')
+    lower.includes('как скоро') ||
+    /к\s+какому\s+сроку/iu.test(lower) ||
+    /с\s+каким\s+сроком/iu.test(lower) ||
+    /(?:2|два|двух)\s*[-–—]?\s*(?:3|три|трех)\s+месяц\p{L}*[^?]{0,35}(?:вкладыва|имеете\s+в\s+виду)/iu.test(lower)
   ) {
     return 'ask_timeline';
   }
@@ -172,6 +181,11 @@ export function checkSemanticAntiRepeat(
   const key = replyObj.semanticKey || extractSemanticKey(replyObj);
   const text = replyObj.text || '';
   const metrics = state.scriptProgress?.metrics;
+  const recentClientText = recentTurns
+    .filter((turn) => turn.speaker === 'client')
+    .slice(-4)
+    .map((turn) => turn.text.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е'))
+    .join(' ');
 
   if (state.dismissedSuggestionTexts?.some(value => normalizeRussianText(value) === normalizeRussianText(text))) {
     return { accepted: false, semanticKey: key, rejectionReason: 'Формулировка пропущена агентом.' };
@@ -196,14 +210,11 @@ export function checkSemanticAntiRepeat(
         rejectionReason: `Цель покупки уже раскрыта (${metrics?.['goal']?.value || 'ранее в диалоге'}).`,
       };
     }
-  }
-
-  if (key === 'clarify_for_myself' && (state.primaryGoal?.value || state.goal?.value)) {
-    if (state.goal?.value && !state.goal.value.toLowerCase().includes('для себя')) {
+    if (/(?:постоянн(?:ая|ой)\s+жизн|жить\s+постоянно|для\s+отдыха|сезонн\p{L}*\s+прожив|инвестиц|под\s+сдач)/iu.test(recentClientText)) {
       return {
         accepted: false,
         semanticKey: key,
-        rejectionReason: `Формат «для себя» уже раскрыт: "${state.goal.value}".`,
+        rejectionReason: 'Клиент уже назвал сценарий использования в последних репликах.',
       };
     }
   }
@@ -337,12 +348,21 @@ export function checkSemanticAntiRepeat(
     }
   }
 
-  if (key === 'ask_timeline' && (state.purchaseTimeline?.value || state.timeline?.value)) {
-    return {
-      accepted: false,
-      semanticKey: key,
-      rejectionReason: `Сроки уже известны: "${state.purchaseTimeline?.value || state.timeline?.value}".`,
-    };
+  if (key === 'ask_timeline') {
+    if (state.purchaseTimeline?.value || state.timeline?.value) {
+      return {
+        accepted: false,
+        semanticKey: key,
+        rejectionReason: `Сроки уже известны: "${state.purchaseTimeline?.value || state.timeline?.value}".`,
+      };
+    }
+    if (/(?:2|два|двух)\s*[-–—]?\s*(?:3|три|трех)\s+месяц\p{L}*|в\s+течение\s+(?:пары|нескольких|\d+)\s+месяц\p{L}*|до\s+(?:января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)/iu.test(recentClientText)) {
+      return {
+        accepted: false,
+        semanticKey: key,
+        rejectionReason: 'Клиент уже назвал срок в последних репликах.',
+      };
+    }
   }
 
   if (key === 'propose_video_presentation' && metrics?.['ppv']?.status === 'confirmed') {
