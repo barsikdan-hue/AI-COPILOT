@@ -35,6 +35,30 @@ const agentAsked = (turns: TranscriptTurn[], pattern: RegExp): boolean =>
 const latestClientText = (turns: TranscriptTurn[]): string =>
   normalize([...turns].reverse().find((turn) => turn.speaker === 'client')?.text || '');
 
+const latestAgentBeforeLatestClient = (turns: TranscriptTurn[]): string => {
+  const latestClientIndex = [...turns].map((turn) => turn.speaker).lastIndexOf('client');
+  if (latestClientIndex <= 0) return '';
+  for (let i = latestClientIndex - 1; i >= 0; i -= 1) {
+    if (turns[i].speaker === 'agent') return normalize(turns[i].text);
+  }
+  return '';
+};
+
+const clientHasNoConcreteExperience = (text: string): boolean =>
+  /(?:ничего\s+конкретн\p{L}*\s+не\s+(?:смотрел\p{L}*|видел\p{L}*)|не\s+могу\s+(?:ничего\s+)?выделить|нечего\s+выделить|ничего\s+не\s+зацепило|ярк\p{L}*\s+пример\p{L}*\s+(?:пока\s+)?нет|только\s+(?:смотрю|изучаю|присматриваюсь)[^.!?]{0,70}ничего\s+конкретн)/iu.test(text);
+
+const dismissedPolicyIntent = (state: ConversationState, intent: 'goal' | 'experience'): boolean => {
+  const dismissed = (state.dismissedSuggestionTexts || []).map(normalize);
+  if (intent === 'goal') {
+    return dismissed.some((text) =>
+      /(?:какую\s+задачу\s+должна\s+решить\s+покупка|недвижимост\p{L}*[^.!?]{0,80}(?:постоянн\p{L}*\s+жизн|отдых|инвестиц)|что\s+должно\s+измениться\s+после\s+покупки)/iu.test(text)
+    );
+  }
+  return dismissed.some((text) =>
+    /(?:что\s+из\s+того[^.!?]{0,60}(?:смотрел|увидел)|какие\s+варианты\s+уже\s+успели\s+посмотреть|после\s+прошлых\s+просмотров)/iu.test(text)
+  );
+};
+
 function candidate(
   branch: DialogueBranch,
   metric: string,
@@ -46,10 +70,17 @@ function candidate(
 }
 
 /**
- * Chooses one conversational micro-goal. This is deliberately not a fixed
- * questionnaire order: open branches compete using prerequisites and the
- * meaning of the latest client turn. P0 events/objections are handled before
- * this policy layer and therefore are not represented here.
+ * Chooses one conversational micro-goal.
+ *
+ * Methodology is represented as priorities, not as a 16-field questionnaire:
+ * - real past behaviour and current evidence outrank hypothetical questions;
+ * - explicit pain keeps SPIN continuity in the specialized engine;
+ * - criteria/anti-criteria, economics, timing and decision process are opened
+ *   only when they can change the next action;
+ * - a skipped policy hint is not immediately resurrected by this layer.
+ *
+ * P0 events, objections and specialized SPIN/research handoffs are handled
+ * before/under this policy layer and must not be masked by generic qualification.
  */
 export function chooseDialoguePolicyTarget(
   state: ConversationState,
@@ -59,6 +90,7 @@ export function chooseDialoguePolicyTarget(
   if (!progress?.metrics) return null;
 
   const latest = latestClientText(turns);
+  const latestAgent = latestAgentBeforeLatestClient(turns);
   const decisions: DialoguePolicyDecision[] = [];
   const goalKnown = closed(progress, 'goal') || Boolean(state.goal?.value);
   const criteriaKnown = closed(progress, 'criteria') || Boolean(state.criteria?.value || state.criteria?.items?.length);
@@ -69,73 +101,95 @@ export function chooseDialoguePolicyTarget(
   const urgencyKnown = closed(progress, 'urgency') || Boolean(state.purchaseTimeline?.value || state.urgency?.value);
   const decisionMakerKnown = closed(progress, 'decisionMaker') || Boolean(state.decisionMakers?.value);
   const searchExperienceKnown = Boolean(state.searchExperience?.value);
-  const experienceClosed = closed(progress, 'experience') || progress.metrics.experience?.status === 'declined_to_disclose';
+  const researchMode = Boolean(
+    state.dialogueControl?.researchMode ||
+    state.spin?.researchMode ||
+    state.spinState?.researchMode
+  );
+  const pastExperienceClosedBySpin = Boolean(
+    state.spin?.pastExperienceQuestionClosed ||
+    state.spinState?.pastExperienceQuestionClosed
+  );
+  const experienceClosed =
+    closed(progress, 'experience') ||
+    progress.metrics.experience?.status === 'declined_to_disclose' ||
+    pastExperienceClosedBySpin;
   const financingUncertain =
     /(?:не\s+(?:знаю|решил|решила|определил|определила)|дума\p{L}*|сомнева\p{L}*)[^.!?]{0,70}(?:ипотек|свои|собственн.*средств|рассроч)|ипотек\p{L}*[^.!?]{0,55}или[^.!?]{0,35}(?:свои|собственн.*средств)|(?:свои|собственн.*средств)[^.!?]{0,55}или[^.!?]{0,35}ипотек/iu.test(latest);
 
-  // Latest client meaning can pull an already-relevant branch forward.
-  if (!criteriaKnown && /тишин|шум|логист|дорог|далеко|море|вид|магазин|инфраструкт|ликвид|перепрод|важн|критери|компромисс/iu.test(latest)) {
-    decisions.push(candidate('criteria', 'criteria', 'ask_criteria', 'Клиент уже описывает критерии/компромиссы: развиваем именно эту ветку.', 96));
+  const latestAnswersPastExperience =
+    /(?:что\s+из.*(?:видел|смотрел)|что.*не\s+устроил|что.*понрав|что.*оттолкнул|уже\s+успели\s+посмотреть|из\s+уже\s+увиденного)/iu.test(latestAgent) &&
+    clientHasNoConcreteExperience(latest);
+
+  // A dedicated SPIN research move owns this exact transition. Returning null
+  // prevents generic Goal/Experience policy from masking that answer.
+  if (latestAnswersPastExperience && (researchMode || pastExperienceClosedBySpin)) {
+    return null;
+  }
+
+  if (!criteriaKnown && /тишин|шум|логист|дорог|далеко|море|вид|магазин|инфраструкт|ликвид|перепрод|важн|критери|компромисс|точно\s+не|не\s+хочу|исключа\p{L}*/iu.test(latest)) {
+    decisions.push(candidate('criteria', 'criteria', 'ask_criteria', 'Клиент уже описывает критерии, анти-критерии или компромиссы: развиваем именно эту ветку.', 96));
   }
   if (!budgetKnown && /бюджет|цен|стоимост|миллион|дорог/iu.test(latest)) {
-    decisions.push(candidate('finance', 'budget', 'ask_budget', 'Клиент перевёл разговор в деньги: сначала фиксируем диапазон.', 94));
+    decisions.push(candidate('finance', 'budget', 'ask_budget', 'Клиент перевёл разговор в деньги: сначала фиксируем рабочий диапазон.', 94));
   }
   if (financingUncertain) {
     decisions.push(candidate('finance', 'paymentMethod', 'ask_payment_method', 'Клиент сам обозначил неопределённость по способу покупки: остаёмся в финансовой ветке.', 98));
   } else if (!paymentKnown && /ипотек|рассроч|взнос|банк|собственн.*средств|наличн/iu.test(latest)) {
     decisions.push(candidate('finance', 'paymentMethod', 'ask_payment_method', 'Клиент затронул способ покупки: уточняем финансовую схему без смены темы.', 93));
   }
-  if (!urgencyKnown && /срок|месяц|квартал|когда.*(?:покуп|сделк)|как скоро/iu.test(latest)) {
+  if (!urgencyKnown && /срок|месяц|квартал|когда.*(?:покуп|сделк)|как\s+скоро/iu.test(latest)) {
     decisions.push(candidate('timing_decision', 'urgency', 'ask_timeline', 'Клиент заговорил о сроках: фиксируем реальный горизонт решения.', 91));
   }
 
-  // Basic purchase purpose is a prerequisite for most qualification branches.
-  if (!goalKnown && !agentAsked(turns, /для чего|цель покупк|для жизни|отдых.*инвест|постоянн.*жизн/iu)) {
-    decisions.push(candidate('goal', 'goal', 'ask_goal', 'Без задачи покупки следующие вопросы легко превращаются в анкету.', 88));
+  const goalHintDismissed = dismissedPolicyIntent(state, 'goal');
+  if (
+    !goalKnown &&
+    !goalHintDismissed &&
+    !agentAsked(turns, /для\s+чего|цель\s+покупк|для\s+жизни|отдых.*инвест|постоянн.*жизн|какую\s+задачу.*покупк|что\s+должно\s+измениться.*покупк/iu)
+  ) {
+    decisions.push(candidate('goal', 'goal', 'ask_goal', 'Сначала выясняем реальную задачу/желаемый результат покупки, иначе квалификация превращается в анкету.', 88));
   }
 
-  // Once purpose and at least one real preference are known, clarify object format.
-  // This fixes the live loop where the engine returned to past experience instead.
   if (
-    goalKnown && !propertyTypeKnown && (criteriaKnown || locationKnown || /постоян|для себя|тишин|логист/iu.test(latest)) &&
-    !agentAsked(turns, /формат жилья|квартир.*апартамент|тип недвижим/iu)
+    goalKnown && !propertyTypeKnown && (criteriaKnown || locationKnown || /постоян|для\s+себя|тишин|логист/iu.test(latest)) &&
+    !agentAsked(turns, /формат\s+жилья|квартир.*апартамент|тип\s+недвижим/iu)
   ) {
     decisions.push(candidate('property_format', 'propertyType', 'ask_property_type', 'Задача и контекст уже понятны, теперь формат объекта реально влияет на подбор.', 86));
   }
 
-  if (goalKnown && !criteriaKnown && !agentAsked(turns, /критери|без чего|что важнее|компромисс|точно.*готов.*уступ/iu)) {
-    decisions.push(candidate('criteria', 'criteria', 'ask_criteria', 'После цели выясняем решающие критерии, а не перебираем карточки по очереди.', 82));
+  if (goalKnown && !criteriaKnown && !agentAsked(turns, /критери|без\s+чего|что\s+важнее|компромисс|точно.*готов.*уступ/iu)) {
+    decisions.push(candidate('criteria', 'criteria', 'ask_criteria', 'После цели выясняем решающие критерии и ограничения, а не перебираем карточки по очереди.', 82));
   }
 
-  if (goalKnown && !locationKnown && criteriaKnown && !agentAsked(turns, /район|локац|где.*сочи|часть сочи/iu)) {
+  if (goalKnown && !locationKnown && criteriaKnown && !agentAsked(turns, /район|локац|где.*сочи|часть\s+сочи/iu)) {
     decisions.push(candidate('criteria', 'location', 'ask_location', 'Критерии уже известны, связываем их с подходящей локацией.', 78));
   }
 
-  // Past experience is useful only while it is genuinely open. A direct
-  // "не могу выделить" marks it not_applicable upstream and removes this branch.
+  const experienceHintDismissed = dismissedPolicyIntent(state, 'experience');
   if (
-    !experienceClosed && !searchExperienceKnown &&
-    !agentAsked(turns, /что из.*(?:видел|смотрел)|что.*не устроил|из уже увиденного|главный компромисс/iu)
+    !experienceClosed && !searchExperienceKnown && !experienceHintDismissed &&
+    !clientHasNoConcreteExperience(latest) &&
+    !agentAsked(turns, /что\s+из.*(?:видел|смотрел)|что.*не\s+устроил|из\s+уже\s+увиденного|главный\s+компромисс/iu)
   ) {
-    decisions.push(candidate('experience', 'experience', 'ask_experience', 'Прошлый опыт полезен только пока он реально не раскрыт.', 54));
+    decisions.push(candidate('experience', 'experience', 'ask_experience', 'Прошлый опыт полезен только пока он реально существует и ещё не раскрыт.', 54));
   }
 
-  // Finance becomes useful after we understand what the client is solving.
   if (goalKnown && (criteriaKnown || propertyTypeKnown)) {
     if (!budgetKnown && !agentAsked(turns, /бюджет|максимальн.*сумм|предел.*стоимост/iu)) {
       decisions.push(candidate('finance', 'budget', 'ask_budget', 'Есть контекст задачи, можно квалифицировать бюджет без ощущения анкеты.', 70));
     }
-    if (budgetKnown && !paymentKnown && !agentAsked(turns, /ипотек.*рассроч|способ покупк|форма оплаты|собственн.*средств/iu)) {
+    if (budgetKnown && !paymentKnown && !agentAsked(turns, /ипотек.*рассроч|способ\s+покупк|форма\s+оплаты|собственн.*средств/iu)) {
       decisions.push(candidate('finance', 'paymentMethod', 'ask_payment_method', 'После бюджета уточняем рабочую схему покупки.', 68));
     }
   }
 
-  if (goalKnown && (criteriaKnown || propertyTypeKnown) && !urgencyKnown && !agentAsked(turns, /к какому срок|как скоро|когда.*(?:покуп|сделк)|по срокам/iu)) {
+  if (goalKnown && (criteriaKnown || propertyTypeKnown) && !urgencyKnown && !agentAsked(turns, /к\s+какому\s+срок|как\s+скоро|когда.*(?:покуп|сделк)|по\s+срокам/iu)) {
     decisions.push(candidate('timing_decision', 'urgency', 'ask_timeline', 'Срок нужен, когда уже понятно, что именно клиент пытается решить.', 62));
   }
 
   if (goalKnown && budgetKnown && !decisionMakerKnown && !agentAsked(turns, /кто.*участв.*выбор|решение.*сам|советоваться|финальн.*решен/iu)) {
-    decisions.push(candidate('timing_decision', 'decisionMaker', 'ask_decision_makers', 'Проверяем участников решения только когда это влияет на следующий шаг.', 58));
+    decisions.push(candidate('timing_decision', 'decisionMaker', 'ask_decision_makers', 'Проверяем процесс принятия решения только когда он влияет на следующий шаг.', 58));
   }
 
   if (decisions.length === 0) return null;
