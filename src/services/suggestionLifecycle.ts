@@ -3,6 +3,46 @@ import { extractDeterministicFacts } from './deterministicFacts';
 
 export const DEFAULT_SUGGESTION_PRIORITY = 50;
 
+/**
+ * Final presentation policy for live cards. This intentionally runs at the
+ * single display boundary so wording fixes cannot drift between SPIN, fallback
+ * and event sources.
+ */
+export function applyLiveSuggestionPresentationPolicy(
+  candidate: Partial<SuggestedReply>,
+  state: ConversationState
+): void {
+  if (candidate.text) {
+    candidate.text = candidate.text
+      .replace(/\s+или\s+пробовали/giu, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+  }
+
+  // If the client speaks before the agent's greeting is captured, the very
+  // first ordinary hint should still help the agent open the call naturally.
+  // Never override a P0/control event such as stop, resistance or direct answer.
+  const isSafeOpeningCandidate =
+    candidate.basedOnRevision === 1 &&
+    !candidate.eventType &&
+    (candidate.priority || DEFAULT_SUGGESTION_PRIORITY) < 100 &&
+    state.stage === 'contact' &&
+    (state.askedQuestions?.length || 0) === 0;
+
+  if (isSafeOpeningCandidate) {
+    candidate.text = 'Добрый день! Данил, «Элитный Сочи». Как могу к вам обращаться?';
+    candidate.candidateRuleId = 'opening_greeting';
+    candidate.selectedRuleId = 'opening_greeting';
+    candidate.actionType = 'CLARIFY';
+    candidate.closesMetric = null;
+    candidate.closesMetricLabel = null;
+    candidate.immediatePriority = 'Коротко представиться и узнать имя клиента';
+    candidate.shortReason = 'Первая подсказка звонка: короткое приветствие без длинной вводной.';
+    candidate.priority = 90;
+    candidate.semanticKey = 'opening_greeting';
+  }
+}
+
 export function isPendingSuggestionSuperseded(
   pendingRevision: number,
   lastSubstantiveRevision: number
@@ -48,6 +88,8 @@ export function shouldReplaceSuggestion(
 
 /** Branch constraints apply to both local and cloud candidates before display. */
 export function isSuggestionAllowedByState(candidate: Partial<SuggestedReply>, state: ConversationState, latestRevision = state.revision): boolean {
+  applyLiveSuggestionPresentationPolicy(candidate, state);
+
   if (candidate.basedOnRevision != null && candidate.basedOnRevision < latestRevision) return false;
   const text = candidate.text || '';
   const lower = text.toLocaleLowerCase('ru-RU');
@@ -57,10 +99,21 @@ export function isSuggestionAllowedByState(candidate: Partial<SuggestedReply>, s
   if (blocked.includes('ppi') && proposes && /брокер|специалист|ипотечн.*консультац/iu.test(text) && !/видео|показ|специалист.{0,5}застройщик/iu.test(text)) return false;
   if (blocked.includes('ppv') && proposes && /видео|показ/iu.test(text)) return false;
   const confirmationEvent = ['MEETING_CONTRACT', 'NEXT_STEP_REOPENED'].includes(String(candidate.eventType || ''));
+
+  // Session 17 exposed a state-drift edge case: the derived first-call metric
+  // could mark criteria as closed from the word "тишина" in the meaning
+  // "the agent went silent", while canonical client criteria were still empty.
+  // A derived-only false positive must not black-hole the next hint.
+  const derivedOnlyCriteriaClosure =
+    candidate.closesMetric === 'criteria' &&
+    !state.criteria?.value &&
+    !(state.criteria?.items?.length);
+
   if (
     candidate.closesMetric &&
     isMetricClosed(state.scriptProgress?.metrics[candidate.closesMetric]?.status || 'not_confirmed') &&
-    !confirmationEvent
+    !confirmationEvent &&
+    !derivedOnlyCriteriaClosure
   ) return false;
   if (state.dialogueControl?.clientBoundaryActive) {
     const boundarySafeEvent = [
