@@ -206,10 +206,13 @@ function extractCorrection(text: string): string | null {
 
 function hasDirectQuestion(text: string): boolean {
   const lower = normalize(text);
+  const explicitQuestion = text.includes('?');
+  const explicitInterrogativeLead = /^(сколько|где|почему|зачем|какой|какая|какие|кто|можно ли|есть ли|скажите|подскажите|уточните)(?=$|[^\p{L}\p{N}])/iu.test(lower);
+  const spokenWhenQuestion = /^когда\s+(?:будет|будут|можно|смож\p{L}*|планиру\p{L}*|начн\p{L}*|законч\p{L}*|сдад\p{L}*|сдач\p{L}*|ключ\p{L}*|встреч\p{L}*|показ\p{L}*|созвон\p{L}*|удобн\p{L}*)/iu.test(lower);
   return (
-    text.includes('?') ||
-    /^(сколько|где|почему|зачем|какой|какая|какие|кто|можно ли|есть ли|скажите|подскажите|уточните)(?=$|[^\p{L}\p{N}])/iu.test(lower) ||
-    (/^когда(?=$|[^\p{L}\p{N}])/iu.test(lower) && !/(?:^|,)\s*тогда(?=$|[^\p{L}\p{N}])/iu.test(lower)) ||
+    explicitQuestion ||
+    explicitInterrogativeLead ||
+    spokenWhenQuestion ||
     /(?:хочу|хотел|хотела|хотелось)\s+(?:бы\s+)?(?:узнать|понять)[^.!?]{0,70}(?:сколько|какая|какой|почему|зачем|что)/iu.test(lower) ||
     /(?:скин\p{L}*|пришл\p{L}*|отправ\p{L}*|покаж\p{L}*|дайте)\s+[^.!?]{0,45}(?:цен|планиров|вариант|материал|договор|расчет|расчёт|документ)/iu.test(lower)
   );
@@ -262,7 +265,7 @@ function directQuestionReply(intent: DirectQuestionIntent, text: string): string
   if (intent === 'materials_request') return 'Да. Отправлю 2–3 варианта с ценами и планировками без длинной презентации. После просмотра коротко сверим, что из этого действительно оставлять.';
   if (intent === 'market_options') return 'Если цель — вложить капитал и не тратить время, сравнивать нужно 2–3 сценария по чистому доходу, ликвидности и потенциалу роста. Что для вас важнее: доход сейчас или рост стоимости?';
   if (intent === 'property_details') return 'По конкретному объекту отвечу только проверенными данными. Если объект ещё не выбран, сначала сузим до 2–3 вариантов и сравним этот параметр по каждому.';
-  return 'Понял вопрос. Если ответ зависит от конкретного объекта, не буду придумывать факт: скажу, что можно ответить сейчас, а что нужно проверить.';
+  return 'Уточните, пожалуйста, какой именно момент вы хотите сейчас прояснить?';
 }
 
 function isAmbiguousShortConfirmation(text: string, agentText: string | null): boolean {
