@@ -59,3 +59,26 @@ Implemented fixes:
 Regression coverage: `src/services/session17SuggestionRegression.test.ts` — **5/5 pass**.
 
 Latest full test run after PR #6: **192 passed / 3 failed / 1 skipped**. The same three baseline failures remain: Scenario 22 HPB wording assertion and `localFirstLatency` T10/T11. No new failures were introduced by this patch.
+
+## 2026-09-25 live next-action priority regression
+
+Status: **fixed in main** by PR #8 (`d6784f4e02dd6e4f55faceda58cbe381e997039d`). Live verification still required after deployment.
+
+Observed in the next live call:
+
+- the client volunteered `не понимаю, что мне реально подходит` and `одни и те же обещания`, but the engine followed the scripted Situation queue instead of prioritizing the stated problem;
+- `тишина с ответами` together with document re-signing and grey schemes was misclassified as `noise_sleep`, producing the irrelevant hint about `отдых, сон или общее состояние`;
+- the requested opening greeting still did not appear because the previous implementation depended on a revision-1 recommendation, while revision 1 in a normal call is the agent's own greeting.
+
+Implemented fixes:
+
+- explicit client Problem meaning now outranks the scripted Situation sequence; the sequence is a fallback only when no stronger signal exists;
+- communication silence, grey schemes, document re-signing and unclear legal status are routed to `security_risks`, while real residential quiet/noise wording remains `noise_sleep`;
+- comparison-overload wording such as same promises / cannot understand what fits is recognized as Problem meaning;
+- legal/document risk continues through decision impact instead of sleep/rest questions;
+- the core past-experience fallback no longer contains `или пробовали`;
+- the opening greeting is now a deterministic one-shot UI cue shown at call start, outside suggestion history, and retired when speech or a real hint begins.
+
+Regression coverage: `src/services/liveCallDecisionRegression4.test.ts` — **5/5 pass**.
+
+Latest full test run after PR #8: **197 passed / 3 failed / 1 skipped**. The same three baseline failures remain: Scenario 22 HPB wording assertion and `localFirstLatency` T10/T11. CI therefore skips lint/build after `npm test`; no new test failures were introduced by this patch.
