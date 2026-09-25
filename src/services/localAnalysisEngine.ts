@@ -479,6 +479,10 @@ export function buildLocalAnalysisResponse(
         'ask_decision_makers',
       ].includes(existingKey);
 
+    const earlyTriggerBridge = Boolean(
+      policySelection?.card.key === 'ask_motive_now' &&
+      result.candidateRuleId === 'research_future_risk'
+    );
     const policyAlreadyTargetsCurrent = Boolean(
       policySelection &&
       policySelection.card.metric === result.closesMetric &&
@@ -487,9 +491,13 @@ export function buildLocalAnalysisResponse(
 
     // Policy owns which branch is active, not every sentence. Preserve a
     // specialized legacy wording when it already targets the same micro-goal.
+    // The only deliberate exception is early research mode: after a search-
+    // orientation answer, "why now" must bridge before the future-risk probe.
+    // After a real past-experience question Dialogue Policy returns null, so
+    // the existing research_future_risk handoff remains protected.
     if (
       policySelection &&
-      qualificationLike &&
+      (qualificationLike || earlyTriggerBridge) &&
       !policyAlreadyTargetsCurrent
     ) {
       applyContextualCard(result, policySelection, {
