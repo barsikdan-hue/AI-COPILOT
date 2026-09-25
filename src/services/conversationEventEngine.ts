@@ -29,6 +29,21 @@ function isRhetoricalTagQuestion(text: string): boolean {
     !/^(?:да|верно|правильно)\s*\?\s*$/iu.test(normalized);
 }
 
+function isAffirmativeAcknowledgement(text: string): boolean {
+  if (!text.includes('?')) return false;
+  const normalized = normalize(text)
+    .replace(/[.,!?;:—-]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const words = normalized.split(' ').filter(Boolean);
+  if (words.length === 0 || words.length > 9) return false;
+  const hasInterrogativeIntent = /(?:^|\s)(?:кто|что|где|когда|почему|зачем|какой|какая|какие|сколько|можно\s+ли|есть\s+ли|подскажите|скажите|уточните)(?:$|\s)/iu.test(normalized);
+  if (hasInterrogativeIntent) return false;
+  const hasAffirmative = /(?:^|\s)(?:да|угу|ага|хорошо|ладно|понял|понятно|согласен|согласна|договорились|окей|давайте)(?:$|\s)/iu.test(normalized);
+  const hasCommitment = /(?:давайте\s+(?:так|сделаем)|хорошо|согласен|согласна|договорились|окей)/iu.test(normalized);
+  return hasAffirmative && hasCommitment;
+}
+
 function detectNextStepQuestion(
   turn: TranscriptTurn,
   state: ConversationState,
@@ -110,6 +125,13 @@ export function detectConversationEvent(
 
   const deferredMeeting = detectDeferredMeeting(turn, recentTurns, state);
   if (deferredMeeting) return deferredMeeting;
+
+  if (turn.speaker === 'client' && isAffirmativeAcknowledgement(turn.text)) {
+    const withoutQuestionMark = turn.text.replace(/\?/gu, '.');
+    const result = legacy.detectConversationEvent({ ...turn, text: withoutQuestionMark }, recentTurns, state, now);
+    if (result?.type === 'DIRECT_QUESTION') return null;
+    return result ? { ...result, evidenceTurnId: turn.id, evidenceQuote: turn.text } : null;
+  }
 
   if (turn.speaker === 'client' && isRhetoricalTagQuestion(turn.text)) {
     const withoutTag = turn.text.replace(/(?:,|—|-)\s*(?:да|верно|правильно)\s*\?\s*$/iu, '.');
