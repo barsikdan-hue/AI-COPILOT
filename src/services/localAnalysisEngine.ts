@@ -29,6 +29,61 @@ function previousMeaningfulAgentTurn(turn: TranscriptTurn, turns: TranscriptTurn
   return agents.at(-1);
 }
 
+function normalizeClientText(text: string): string {
+  return (text || '')
+    .toLocaleLowerCase('ru-RU')
+    .replace(/ё/g, 'е')
+    .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'«»]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Acknowledgement of the agent's question is not an answer to that question.
+ * This guard is deliberately narrow: it only suppresses standalone reaction
+ * phrases and never swallows a phrase that also contains business meaning.
+ */
+function isConversationalAcknowledgement(text: string): boolean {
+  const clean = normalizeClientText(text);
+  return /^(?:хм\s+|мм\s+|ну\s+)?(?:хороший|интересный|неплохой)\s+вопрос$/iu.test(clean);
+}
+
+/**
+ * "Для себя решил/понял" is a metacognitive phrase ("I decided for myself"),
+ * not a statement that the property is being purchased for personal use.
+ */
+function isDecisionalForMyselfPhrase(text: string): boolean {
+  const clean = normalizeClientText(text);
+  return /(?:^|\s)(?:я\s+)?для\s+себя\s+(?:уже\s+)?(?:решил|решила|определил|определила|понял|поняла|зафиксировал|зафиксировала)(?:\s|$)/iu.test(clean);
+}
+
+function sanitizeLiveFacts(
+  text: string,
+  facts: ReturnType<typeof extractDeterministicFacts>
+): ReturnType<typeof extractDeterministicFacts> {
+  const lower = (text || '').toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
+  const flatQuote = text.match(/квартир(?:а|у|ы|е|ой|ам|ами|ах)?/iu)?.[0] || null;
+  const apartmentStatusConcern =
+    /апартамент\p{L}*[\s\S]{0,140}(?:сер(?:ых|ые)\s+зон|непонятн\p{L}*[\s\S]{0,30}статус|статус[\s\S]{0,30}непонятн\p{L}*)/iu.test(lower);
+  const apartmentDirectRejection =
+    /(?:не\s+(?:хочу|рассматрива\p{L}*|нужн\p{L}*|подход\p{L}*)\s+(?:эти\s+)?апартамент\p{L}*|апартамент\p{L}*(?:\s+мне)?\s+не\s+(?:нужн\p{L}*|подход\p{L}*|хочу|рассматрива\p{L}*))/iu.test(lower);
+  const rejectsApartments = apartmentStatusConcern || apartmentDirectRejection;
+
+  if (!rejectsApartments || !flatQuote) return facts;
+
+  return facts.map((fact) => {
+    if (fact.category !== 'property_type' && fact.field !== 'propertyType') return fact;
+    if (!/апартамент/iu.test(fact.value || '')) return fact;
+    return {
+      ...fact,
+      value: 'Квартира',
+      evidenceQuote: flatQuote,
+      confidence: Math.max(fact.confidence, 0.98),
+      comment: 'Клиент положительно выбрал квартиру и отдельно описал апартаменты как нежелательный формат.',
+    };
+  });
+}
+
 /** Recompute amended evidence without undoing the agent's manual use/skip actions. */
 export function restoreStateForAmendedTurn(beforeTurn: ConversationState, current: ConversationState): ConversationState {
   return { ...beforeTurn, askedQuestions: current.askedQuestions, dismissedSuggestionTexts: current.dismissedSuggestionTexts };
@@ -39,9 +94,16 @@ export function advanceLocalConversation(current: ConversationState, turn: Trans
   const previousAgent = previousMeaningfulAgentTurn(turn, turns);
   const priorBoundaryEvent = current.dialogueControl?.lastEventType || null;
   let state = current;
+  const acknowledgementOnly = turn.speaker === 'client' && isConversationalAcknowledgement(turn.text);
+  const decisionalForMyself = turn.speaker === 'client' && isDecisionalForMyselfPhrase(turn.text);
+
   if (turn.speaker === 'client') {
     const lookup = Object.fromEntries(turns.filter(t => t.speaker === 'client').map(t => [t.id, t.text]));
-    state = mergeFactsDelta(state, extractDeterministicFacts(turn.text, turn.id, previousAgent?.text), state.stage, undefined, turn.revision, lookup);
+    const extractedFacts = sanitizeLiveFacts(
+      turn.text,
+      extractDeterministicFacts(turn.text, turn.id, previousAgent?.text)
+    );
+    state = mergeFactsDelta(state, extractedFacts, state.stage, undefined, turn.revision, lookup);
     const lowerClient = turn.text.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
     const rejectsMortgage = /(?:без\s+ипотек\w*|ипотек\w*[^.!?]{0,40}(?:не\s*(?:рассматрива\w*|собира\w*|хочу|нужн\w*))|не\s*(?:рассматрива\w*|собира\w*|хочу|нужн\w*)[^.!?]{0,30}ипотек\w*)/iu.test(lowerClient);
     if (rejectsMortgage && /ипотек/iu.test(state.paymentMethod?.value || '')) {
@@ -94,7 +156,7 @@ export function advanceLocalConversation(current: ConversationState, turn: Trans
         'COMPLIANCE_STOP',
       ].includes(event.type)
     );
-    if (!controlEventBlocksSpin) {
+    if (!controlEventBlocksSpin && !acknowledgementOnly && !decisionalForMyself) {
       const previousAgentAction = previousAgent ? classifyAgentAction(previousAgent.text) : 'none';
       const spin = evaluateSpinAndHpb(turn, state.spin, previousAgentAction, previousAgent?.text || '', state);
       state = { ...state, spin: spin.updatedSpin, spinState: spin.updatedSpin };
@@ -181,6 +243,8 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
   );
   const lastClientTurn = clientTurns.at(-1) || allTurns.filter((turn) => turn.speaker === 'client').at(-1);
   const lastAgentTurn = allTurns.filter((turn) => turn.speaker === 'agent').at(-1);
+  const acknowledgementOnly = lastClientTurn ? isConversationalAcknowledgement(lastClientTurn.text) : false;
+  const decisionalForMyself = lastClientTurn ? isDecisionalForMyselfPhrase(lastClientTurn.text) : false;
 
   // One authoritative state for this analysis cycle. Runtime callers may send a
   // partial state, and replay/simulator callers may not have advanced the last
@@ -229,7 +293,10 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
 
   const factsDelta = clientTurns.flatMap((turn) => {
     const previousAgent = previousMeaningfulAgentTurn(turn, allTurns);
-    return extractDeterministicFacts(turn.text, turn.id, previousAgent?.text || null);
+    return sanitizeLiveFacts(
+      turn.text,
+      extractDeterministicFacts(turn.text, turn.id, previousAgent?.text || null)
+    );
   });
   const clientTurnLookup = Object.fromEntries(allTurns.filter(turn => turn.speaker === 'client').map(turn => [turn.id, turn.text]));
   const workingState = mergeFactsDelta(
@@ -267,7 +334,46 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
 
   const scriptProgress = evaluateFirstCallScript(allTurns, workingState);
   const calculatedAgentAction = lastAgentTurn ? classifyAgentAction(lastAgentTurn.text) : 'none';
-  const spin = lastClientTurn
+
+  if (acknowledgementOnly) {
+    return {
+      sessionId: input.sessionId,
+      basedOnRevision: input.revision,
+      stage: workingState.stage,
+      dealStage: workingState.dealStage || 'qualification',
+      conversationTask: workingState.conversationTask || 'understand_motive',
+      clientIntent: undefined,
+      actionType: 'WAIT',
+      suggestionMode: 'WAIT',
+      agentAction: calculatedAgentAction,
+      selectedRuleId: null,
+      factsDelta,
+      fact_updates: factsDelta,
+      activeConcern: null,
+      objection: null,
+      candidateRuleId: null,
+      suggestedReply: null,
+      shortReason: 'Клиент только оценил вопрос, но не ответил по существу. Не двигаем SPIN и не создаём новую подсказку.',
+      expectedClientMeaning: null,
+      evidenceTurnIds: lastClientTurn ? [lastClientTurn.id] : [],
+      missingCriticalField: scriptProgress.quality?.immediatePriorityMetric || null,
+      shouldSuggest: false,
+      spinDelta: workingState.spin,
+      hpb: null,
+      scriptProgress,
+      qualityResult: scriptProgress.quality,
+      closesMetric: null,
+      closesMetricLabel: null,
+      immediatePriority: null,
+      latencyMs: Date.now() - startedAt,
+      modelUsed: 'local-deterministic',
+      priority: 0,
+      eventType: null,
+      fallbackReason: input.fallbackReason || null,
+    };
+  }
+
+  const spin = lastClientTurn && !decisionalForMyself
     ? evaluateSpinAndHpb(
         lastClientTurn,
         workingState.spin || workingState.spinState!,
@@ -316,6 +422,10 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
     )
   );
 
+  const goalStillOpen = !['confirmed', 'not_applicable'].includes(
+    scriptProgress.metrics['goal']?.status || 'not_confirmed'
+  );
+
   if (objectionShouldOwnReply && autoObjectionGuidance) {
     suggestedReply = autoObjectionGuidance.text;
     shortReason = autoObjectionGuidance.reason;
@@ -336,6 +446,17 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
     closesMetricLabel = dominantEvent.closesMetricLabel || null;
     immediatePriority = `P0: ${dominantEvent.type}`;
     priority = dominantEvent.priority;
+  } else if (decisionalForMyself && goalStillOpen) {
+    suggestedReply = 'Чтобы не додумывать цель по формулировке: саму покупку рассматриваете для проживания, отдыха или как инвестицию?';
+    shortReason = '«Для себя решил» означает, что клиент принял решение по формату, а не сообщил сценарий использования. Цель покупки уточняем отдельно.';
+    candidateRuleId = 'clarify_goal_after_decisional_for_myself';
+    actionType = 'CLARIFY';
+    suggestionMode = 'SPIN_SITUATION';
+    closesMetric = 'goal';
+    closesMetricLabel = 'Цель покупки';
+    immediatePriority = 'Уточнить реальную цель покупки без ложной трактовки «для себя»';
+    expectedClientMeaning = 'Клиент называет реальную цель: проживание, отдых, инвестиции или сочетание сценариев.';
+    priority = 63;
   } else if (researchFutureRiskReady) {
     suggestedReply = 'Если смотреть вперёд, какой ошибки при выборе вы больше всего хотите избежать?';
     shortReason = 'Клиент ещё изучает рынок и не назвал прошлую боль: исследуем будущий риск вместо повторного вопроса об опыте.';
@@ -385,7 +506,8 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
       ...workingState,
       scriptProgress,
     }, allTurns);
-    if (fallback && !suggestedReply) {
+    const wrongForMyselfFallback = decisionalForMyself && /для\s+себя[^?]{0,60}(?:отдых|сезон|постоянно)/iu.test(fallback?.suggestedReply || '');
+    if (fallback && !wrongForMyselfFallback && !suggestedReply) {
       suggestedReply = fallback.suggestedReply;
       shortReason = fallback.shortReason;
       closesMetric = fallback.closesMetric;
