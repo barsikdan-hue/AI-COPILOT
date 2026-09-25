@@ -63,9 +63,11 @@ function sanitizeLiveFacts(
 ): ReturnType<typeof extractDeterministicFacts> {
   const lower = (text || '').toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
   const flatQuote = text.match(/квартир(?:а|у|ы|е|ой|ам|ами|ах)?/iu)?.[0] || null;
-  const rejectsApartments =
-    /апартамент\p{L}*[^.!?]{0,100}(?:слишком\s+много\s+серых\s+зон|серых\s+зон|непонятн\p{L}*\s+статус|не\s+хоч\p{L}*|не\s+подход\p{L}*|не\s+рассматрива\p{L}*)/iu.test(lower) ||
-    /(?:не\s+хоч\p{L}*|не\s+подход\p{L}*|не\s+рассматрива\p{L}*)[^.!?]{0,45}апартамент\p{L}*/iu.test(lower);
+  const apartmentStatusConcern =
+    /апартамент\p{L}*[\s\S]{0,140}(?:сер(?:ых|ые)\s+зон|непонятн\p{L}*[\s\S]{0,30}статус|статус[\s\S]{0,30}непонятн\p{L}*)/iu.test(lower);
+  const apartmentDirectRejection =
+    /(?:не\s+(?:хочу|рассматрива\p{L}*|нужн\p{L}*|подход\p{L}*)\s+(?:эти\s+)?апартамент\p{L}*|апартамент\p{L}*(?:\s+мне)?\s+не\s+(?:нужн\p{L}*|подход\p{L}*|хочу|рассматрива\p{L}*))/iu.test(lower);
+  const rejectsApartments = apartmentStatusConcern || apartmentDirectRejection;
 
   if (!rejectsApartments || !flatQuote) return facts;
 
