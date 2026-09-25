@@ -37,3 +37,25 @@ Observed in the second real call:
 Implemented fixes are localized to the live deterministic analysis boundary. Regression coverage: `src/services/liveCallSemanticRegression3.test.ts` — all 6 tests pass.
 
 Latest full test run after PR #5: **187 passed / 3 failed / 1 skipped**. The remaining failures are the same pre-existing baseline failures: Scenario 22 HPB wording assertion and `localFirstLatency` T10/T11. CI stops after `npm test` on failure, so lint/build are skipped by workflow design while those baseline failures remain red.
+
+## 2026-09-25 session 17 hint delivery regression
+
+Status: **fixed in main** by PR #6 (`e21da066f895e53389cef482b6249f0f33982b63`). Live verification still required after deployment.
+
+Observed in session 17:
+
+- the engine generated valid follow-up candidates after revision 10, but they were repeatedly rejected by `state_validator`, so the visible hint disappeared;
+- the derived first-call metric incorrectly treated `тишина` in the meaning “the agent went silent” as a residential criterion, while canonical `state.criteria` was still empty;
+- the past-experience hint still contained the unwanted wording `или пробовали`;
+- the first ordinary hint did not provide the requested short greeting when the client audio arrived before the agent greeting was captured.
+
+Implemented fixes:
+
+- derived-only `criteria` closure can no longer black-hole a valid hint while canonical criteria are empty;
+- the first safe ordinary revision-1 hint is rendered as the short greeting `Добрый день! Данил, «Элитный Сочи». Как могу к вам обращаться?`;
+- P0/control events are protected from greeting replacement;
+- the live presentation boundary removes `или пробовали` from suggestion wording.
+
+Regression coverage: `src/services/session17SuggestionRegression.test.ts` — **5/5 pass**.
+
+Latest full test run after PR #6: **192 passed / 3 failed / 1 skipped**. The same three baseline failures remain: Scenario 22 HPB wording assertion and `localFirstLatency` T10/T11. No new failures were introduced by this patch.
