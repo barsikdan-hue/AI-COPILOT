@@ -1,7 +1,46 @@
 import { ConversationState, DiagnosticsData, SuggestedReply, isMetricClosed } from '../types';
 import { extractDeterministicFacts } from './deterministicFacts';
+import {
+  arbitrateRecommendationCandidates,
+  RecommendationCandidate,
+  RecommendationSource,
+} from './recommendationArbiter';
 
 export const DEFAULT_SUGGESTION_PRIORITY = 50;
+
+function sourceForSuggestion(reply: Partial<SuggestedReply>): RecommendationSource {
+  if (reply.eventType || reply.source === 'local_event') return 'event';
+  if (reply.actionType === 'OBJECTION_CLARIFICATION' || reply.suggestionMode === 'OBJECTION_CLARIFICATION') return 'objection';
+  if (String(reply.suggestionMode || '').startsWith('SPIN_') || reply.suggestionMode === 'HPB_PRESENTATION') return 'spin';
+  if (reply.closesMetric) return 'script';
+  return 'fallback';
+}
+
+function asRecommendationCandidate(reply: SuggestedReply, identityOverride?: string): RecommendationCandidate {
+  return {
+    id: identityOverride || reply.id || `candidate_${reply.basedOnRevision}_${reply.createdAt}`,
+    source: sourceForSuggestion(reply),
+    text: reply.text,
+    shortReason: reply.shortReason || '',
+    actionType: reply.actionType || 'CLARIFY',
+    suggestionMode: reply.suggestionMode || 'WAIT',
+    priority: reply.priority ?? DEFAULT_SUGGESTION_PRIORITY,
+    semanticKey: reply.semanticKey,
+    closesMetric: reply.closesMetric,
+    closesMetricLabel: reply.closesMetricLabel,
+    immediatePriority: reply.immediatePriority,
+    expectedClientMeaning: reply.expectedClientMeaning,
+    evidenceTurnIds: reply.evidenceTurnIds,
+    eventType: reply.eventType,
+    suppressesLowerPriority:
+      reply.actionType === 'RESPECT_STOP' ||
+      (reply.priority ?? DEFAULT_SUGGESTION_PRIORITY) >= 110,
+    freshEvidence: true,
+    continuesActiveThread: String(reply.suggestionMode || '').startsWith('SPIN_'),
+    blocked: reply.lifecycleStatus === 'suppressed',
+    stale: reply.lifecycleStatus === 'expired' || reply.lifecycleStatus === 'superseded',
+  };
+}
 
 /**
  * Final presentation policy for live cards. This intentionally runs at the
@@ -19,9 +58,6 @@ export function applyLiveSuggestionPresentationPolicy(
       .trim();
   }
 
-  // If the client speaks before the agent's greeting is captured, the very
-  // first ordinary hint should still help the agent open the call naturally.
-  // Never override a P0/control event such as stop, resistance or direct answer.
   const isSafeOpeningCandidate =
     candidate.basedOnRevision === 1 &&
     !candidate.eventType &&
@@ -60,30 +96,33 @@ export function shouldReplaceSuggestion(
   if (candidate.basedOnRevision < current.basedOnRevision) return false;
 
   const currentStatus = current.lifecycleStatus || 'shown';
-  if (currentStatus === 'expired' || currentStatus === 'superseded' || currentStatus === 'suppressed') {
-    return true;
-  }
+  if (currentStatus === 'expired' || currentStatus === 'superseded' || currentStatus === 'suppressed') return true;
 
-  const currentPriority = current.priority ?? DEFAULT_SUGGESTION_PRIORITY;
-  const candidatePriority = candidate.priority ?? DEFAULT_SUGGESTION_PRIORITY;
   const currentTtl = current.ttlMs ?? 15000;
   const currentIsFresh = now - current.createdAt <= currentTtl;
+  if (!currentIsFresh) return true;
 
-  if (candidatePriority > currentPriority) return true;
-  if (candidatePriority < currentPriority && currentIsFresh &&
-      !(['local_engine', 'local_event'].includes(candidate.source || '') && candidate.basedOnRevision > current.basedOnRevision && currentPriority < 100)) return false;
-
-  const currentKey = current.semanticKey || current.text.trim().toLocaleLowerCase('ru-RU');
-  const candidateKey = candidate.semanticKey || candidate.text.trim().toLocaleLowerCase('ru-RU');
-  if (currentKey === candidateKey) return false;
-
+  // A deterministic correction produced for the same client revision is not a
+  // competing next-action candidate. It is a replacement of the earlier local
+  // wording/meaning and must remain able to update the card immediately.
+  const currentSemanticKey = current.semanticKey || current.text.trim().toLocaleLowerCase('ru-RU');
+  const candidateSemanticKey = candidate.semanticKey || candidate.text.trim().toLocaleLowerCase('ru-RU');
   const sameRevisionLocalCorrection =
     candidate.basedOnRevision === current.basedOnRevision &&
     ['local_engine', 'local_event'].includes(candidate.source || '') &&
     ['local_engine', 'local_event'].includes(current.source || '') &&
-    candidate.createdAt > current.createdAt;
+    candidate.createdAt > current.createdAt &&
+    candidateSemanticKey !== currentSemanticKey;
+  if (sameRevisionLocalCorrection) return true;
 
-  return sameRevisionLocalCorrection || candidate.basedOnRevision > current.basedOnRevision || !currentIsFresh;
+  // Use stable synthetic identities here. Some legacy callers/tests create
+  // lightweight SuggestedReply objects without ids; comparing undefined ids
+  // made a losing candidate look like the arbitration winner.
+  const arbitration = arbitrateRecommendationCandidates(
+    [asRecommendationCandidate(candidate, '__candidate__')],
+    asRecommendationCandidate(current, '__current__')
+  );
+  return arbitration.winner?.id === '__candidate__';
 }
 
 /** Branch constraints apply to both local and cloud candidates before display. */
@@ -100,10 +139,6 @@ export function isSuggestionAllowedByState(candidate: Partial<SuggestedReply>, s
   if (blocked.includes('ppv') && proposes && /видео|показ/iu.test(text)) return false;
   const confirmationEvent = ['MEETING_CONTRACT', 'NEXT_STEP_REOPENED'].includes(String(candidate.eventType || ''));
 
-  // Session 17 exposed a state-drift edge case: the derived first-call metric
-  // could mark criteria as closed from the word "тишина" in the meaning
-  // "the agent went silent", while canonical client criteria were still empty.
-  // A derived-only false positive must not black-hole the next hint.
   const derivedOnlyCriteriaClosure =
     candidate.closesMetric === 'criteria' &&
     !state.criteria?.value &&
@@ -115,6 +150,20 @@ export function isSuggestionAllowedByState(candidate: Partial<SuggestedReply>, s
     !confirmationEvent &&
     !derivedOnlyCriteriaClosure
   ) return false;
+
+  // A second SPIN micro-chain must not keep drilling while the first-call engine
+  // still lacks the client's basic purchase goal. This is exactly the failure
+  // from the 2026-09-25 live call: after one meaningful pain was explored, a new
+  // logistics problem displaced the more important Goal step.
+  const goalOpen = !isMetricClosed(state.scriptProgress?.metrics?.goal?.status || 'not_confirmed');
+  const secondProblemChain = (state.spin?.problem?.length || 0) >= 2;
+  const genericSpinFollowUp =
+    !candidate.eventType &&
+    !candidate.closesMetric &&
+    ['SPIN_PROBLEM', 'SPIN_IMPLICATION'].includes(String(candidate.suggestionMode || ''));
+  const qualityWantsGoal = state.scriptProgress?.quality?.immediatePriorityMetric === 'goal';
+  if (goalOpen && secondProblemChain && genericSpinFollowUp && qualityWantsGoal) return false;
+
   if (state.dialogueControl?.clientBoundaryActive) {
     const boundarySafeEvent = [
       'CLIENT_STOP',
@@ -129,9 +178,6 @@ export function isSuggestionAllowedByState(candidate: Partial<SuggestedReply>, s
     const boundarySafeAction = ['RESPECT_STOP', 'OBJECTION_CLARIFICATION', 'ANSWER', 'WAIT'].includes(candidate.actionType || '');
     const boundarySafeStage = candidate.stage === 'objection_clarification';
     const highPriorityOverride = (candidate.priority || 0) >= 110;
-
-    // A client boundary must stop the questionnaire, not the copilot itself.
-    // Objection handling / respectful stop / direct answers still need to reach the agent.
     if (!boundarySafeEvent && !boundarySafeAction && !boundarySafeStage && !highPriorityOverride) return false;
   }
   if (state.paymentMethod.value?.includes('Ипотека') && /(?:покупаете|оплачиваете|покупаем).*(?:наличн|без ипотеки)/iu.test(text)) return false;

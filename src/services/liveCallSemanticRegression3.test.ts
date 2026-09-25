@@ -104,7 +104,7 @@ describe('2026-09-25 live call semantic regressions #3', () => {
     const afterAgent = advanceLocalConversation(createInitialState(), agent, [agent]).state;
     const afterClient = advanceLocalConversation(afterAgent, client, [agent, client]).state;
 
-    expect(afterClient.downPayment.value).toMatch(/средства доступны/iu);
+    expect(afterClient.downPayment?.value).toMatch(/средства доступны/iu);
     expect(afterClient.scriptProgress?.metrics.downPayment.status).toMatch(/confirmed|partially_confirmed/iu);
   });
 });
