@@ -33,11 +33,12 @@ export function extractSemanticKey(replyOrText: Partial<SuggestedReply> | string
   if (/правильно понимаю.*(?:показ|брокер)/iu.test(lower)) return lower.includes('брокер') ? 'clarify_next_step_ppi' : 'clarify_next_step_ppv';
   if (/сузим выбор|сначала.*отбер[её]м/iu.test(lower)) return 'shortlist_criteria';
 
-  // 1. Goal / motive
-  // Keep the usage clarification on its own semantic key, but recognize natural
-  // punctuation/wording variants instead of depending on one em-dash template.
+  // 1. Goal / motive. Usage clarification and direct goal question intentionally
+  // share one semantic key: once the client has been asked whether this is for
+  // rest/seasonal/permanent living, asking the same meaning again as
+  // "для чего выбираете" is a duplicate, not a new qualification step.
   if (/для\s+себя[^?]{0,55}(?:отдых|сезонн|постоянн|жить)/iu.test(lower) || lower.includes('формат для себя')) {
-    return 'clarify_for_myself';
+    return 'ask_goal';
   }
   if (
     lower.includes('для чего выбираете') ||
@@ -209,24 +210,11 @@ export function checkSemanticAntiRepeat(
         rejectionReason: `Цель покупки уже раскрыта (${metrics?.['goal']?.value || 'ранее в диалоге'}).`,
       };
     }
-    // Runtime safety net: semantic cloud enrichment may still be in flight. Do
-    // not repeat the goal question when the latest client answer already names
-    // an explicit usage scenario.
     if (/(?:постоянн(?:ая|ой)\s+жизн|жить\s+постоянно|для\s+отдыха|сезонн\p{L}*\s+прожив|инвестиц|под\s+сдач)/iu.test(recentClientText)) {
       return {
         accepted: false,
         semanticKey: key,
         rejectionReason: 'Клиент уже назвал сценарий использования в последних репликах.',
-      };
-    }
-  }
-
-  if (key === 'clarify_for_myself' && (state.primaryGoal?.value || state.goal?.value)) {
-    if (state.goal?.value && !state.goal.value.toLowerCase().includes('для себя')) {
-      return {
-        accepted: false,
-        semanticKey: key,
-        rejectionReason: `Формат «для себя» уже раскрыт: "${state.goal.value}".`,
       };
     }
   }
