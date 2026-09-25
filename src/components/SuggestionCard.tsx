@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Sparkles,
   Copy,
@@ -14,6 +14,8 @@ import {
   Radio,
 } from 'lucide-react';
 import { SuggestedReply, SalesRule, ActionType } from '../types';
+
+export const OPENING_GREETING_TEXT = 'Добрый день! Данил, «Элитный Сочи». Как могу к вам обращаться?';
 
 interface SuggestionCardProps {
   suggestion: SuggestedReply | null;
@@ -56,6 +58,29 @@ export const SuggestionCard: React.FC<SuggestionCardProps> = ({
   const [copied, setCopied] = useState(false);
   const [showReasoning, setShowReasoning] = useState(false);
   const [feedbackGiven, setFeedbackGiven] = useState<'accurate' | 'inaccurate' | null>(null);
+  const [showOpeningGreeting, setShowOpeningGreeting] = useState(false);
+
+  // Opening is a deterministic UI cue, not a fake AI recommendation. Show it
+  // immediately when a call starts and retire it as soon as either side begins
+  // speaking or a real recommendation becomes available.
+  useEffect(() => {
+    if (!isCallRunning) {
+      setShowOpeningGreeting(false);
+      return;
+    }
+    if (!isPaused && !isCompleted) {
+      setShowOpeningGreeting(true);
+    }
+  }, [isCallRunning, isPaused, isCompleted]);
+
+  useEffect(() => {
+    if (
+      isCallRunning &&
+      (isAgentSpeaking || isClientSpeaking || shouldSuggest || Boolean(suggestion?.text))
+    ) {
+      setShowOpeningGreeting(false);
+    }
+  }, [isCallRunning, isAgentSpeaking, isClientSpeaking, shouldSuggest, suggestion?.text]);
 
   const handleCopy = () => {
     if (suggestion?.text) {
@@ -130,6 +155,38 @@ export const SuggestionCard: React.FC<SuggestionCardProps> = ({
 
   const canShowSuggestion =
     isCallRunning && !isPaused && !isCompleted && shouldSuggest && Boolean(suggestion?.text);
+  const canShowOpeningGreeting =
+    isCallRunning &&
+    !isPaused &&
+    !isCompleted &&
+    showOpeningGreeting &&
+    !isAgentSpeaking &&
+    !isClientSpeaking &&
+    !shouldSuggest &&
+    !suggestion?.text;
+
+  if (canShowOpeningGreeting) {
+    return (
+      <div
+        id="opening-greeting-card"
+        className="bg-white rounded-xl border border-teal-200/90 shadow-sm px-4 py-3 transition-all"
+      >
+        <div className="flex items-center space-x-2 mb-1.5">
+          <div className="p-1 rounded-md bg-teal-50 text-teal-700">
+            <Sparkles className="w-3.5 h-3.5" />
+          </div>
+          <span className="font-bold text-stone-900 text-xs sm:text-sm tracking-tight">
+            Первая реплика
+          </span>
+        </div>
+        <div className="bg-teal-50/50 rounded-lg px-3 py-2 border border-teal-100/90">
+          <p className="text-[15px] sm:text-[16px] font-medium leading-snug text-stone-900">
+            «{OPENING_GREETING_TEXT}»
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Compact Waiting State (Height <= 54px)
   if (!canShowSuggestion || !suggestion?.text) {
