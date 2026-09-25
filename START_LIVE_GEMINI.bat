@@ -1,6 +1,6 @@
 @echo off
 cd /d "%~dp0"
-set COPILOT_ANALYSIS_MODE=auto
+set COPILOT_ANALYSIS_MODE=gemini
 set PORT=3000
 
 echo ==============================================
@@ -28,6 +28,6 @@ if not exist node_modules (
   )
 )
 
-echo Starting local-first Copilot + Gemini runtime on http://localhost:3000 ...
+echo Starting local-first Copilot + Gemini semantic enhancement on http://localhost:3000 ...
 call npm run dev
 pause
