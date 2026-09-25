@@ -13,7 +13,6 @@ function sourceForSuggestion(reply: Partial<SuggestedReply>): RecommendationSour
   if (reply.actionType === 'OBJECTION_CLARIFICATION' || reply.suggestionMode === 'OBJECTION_CLARIFICATION') return 'objection';
   if (String(reply.suggestionMode || '').startsWith('SPIN_') || reply.suggestionMode === 'HPB_PRESENTATION') return 'spin';
   if (reply.closesMetric) return 'script';
-  if (reply.source === 'rule_engine') return 'rule';
   return 'fallback';
 }
 
@@ -33,7 +32,9 @@ function asRecommendationCandidate(reply: SuggestedReply, identityOverride?: str
     expectedClientMeaning: reply.expectedClientMeaning,
     evidenceTurnIds: reply.evidenceTurnIds,
     eventType: reply.eventType,
-    suppressesLowerPriority: reply.actionType === 'RESPECT_STOP' || reply.priority >= 110,
+    suppressesLowerPriority:
+      reply.actionType === 'RESPECT_STOP' ||
+      (reply.priority ?? DEFAULT_SUGGESTION_PRIORITY) >= 110,
     freshEvidence: true,
     continuesActiveThread: String(reply.suggestionMode || '').startsWith('SPIN_'),
     blocked: reply.lifecycleStatus === 'suppressed',
