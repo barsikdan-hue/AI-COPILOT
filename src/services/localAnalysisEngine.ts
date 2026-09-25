@@ -171,7 +171,7 @@ const genericVariants: Record<string, string[]> = {
 };
 
 interface QualificationCard {
-  metric: string;
+  metric: string | null;
   key: string;
   variants: string[];
   base: number;
@@ -179,6 +179,16 @@ interface QualificationCard {
 }
 
 const qualificationCards: QualificationCard[] = [
+  {
+    metric: null, key: 'ask_search_experience', base: 32,
+    reason: 'Коротко определяем глубину поиска до квалификационной анкеты.',
+    variants: genericVariants.ask_search_experience,
+  },
+  {
+    metric: null, key: 'ask_motive_now', base: 30,
+    reason: 'Выясняем причину актуальности сейчас как conversational trigger, а не как обязательную метрику.',
+    variants: genericVariants.ask_motive_now,
+  },
   {
     metric: 'goal', key: 'ask_goal', base: 28,
     reason: 'Уточняем реальную задачу покупки, если она ещё не подтверждена.',
@@ -319,6 +329,7 @@ function selectContextualQualification(
 
   let best: { card: QualificationCard; text: string; score: number } | null = null;
   for (const card of qualificationCards) {
+    if (!card.metric) continue;
     const metric = progress.metrics[card.metric];
     if (metric && isClosed(metric.status)) continue;
     if (card.metric === 'experience' && (state.searchExperience?.value || isClosed(progress.metrics.experience?.status))) continue;
@@ -367,18 +378,27 @@ function rewriteStableGenericCard(input: any, result: any): void {
 
 function applyContextualCard(result: any, selected: { card: QualificationCard; text: string; score: number }, policy?: { branch: string; reason: string }): void {
   const metric = selected.card.metric;
-  const metricInfo = result.scriptProgress?.metrics?.[metric];
+  const metricInfo = metric ? result.scriptProgress?.metrics?.[metric] : null;
+  const targetLabel = metricInfo?.name || (
+    selected.card.key === 'ask_search_experience'
+      ? 'Этап и глубина поиска'
+      : selected.card.key === 'ask_motive_now'
+        ? 'Причина актуальности сейчас'
+        : metric || selected.card.key
+  );
   result.suggestedReply = selected.text;
   result.shortReason = policy
     ? `${policy.reason} Dialogue branch=${policy.branch}; priority=${selected.score}.`
     : `${selected.card.reason} Контекстный score=${selected.score}; фиксированная очередь анкеты не используется.`;
-  result.candidateRuleId = policy ? `dialogue_policy_${policy.branch}_${metric}` : `contextual_v2_${metric}`;
+  result.candidateRuleId = policy
+    ? `dialogue_policy_${policy.branch}_${selected.card.key}`
+    : `contextual_v2_${metric || selected.card.key}`;
   result.selectedRuleId = result.candidateRuleId;
   result.closesMetric = metric;
-  result.closesMetricLabel = metricInfo?.name || metric;
+  result.closesMetricLabel = metric ? targetLabel : null;
   result.immediatePriority = policy
-    ? `Активная ветка: ${policy.branch}; цель: ${metricInfo?.name || metric}`
-    : `Контекстный приоритет: ${metricInfo?.name || metric}`;
+    ? `Активная ветка: ${policy.branch}; цель: ${targetLabel}`
+    : `Контекстный приоритет: ${targetLabel}`;
   result.actionType = 'CLARIFY';
   result.suggestionMode = 'WAIT';
   result.priority = policy ? Math.max(58, selected.score) : 57;
@@ -459,12 +479,18 @@ export function buildLocalAnalysisResponse(
         'ask_decision_makers',
       ].includes(existingKey);
 
+    const policyAlreadyTargetsCurrent = Boolean(
+      policySelection &&
+      policySelection.card.metric === result.closesMetric &&
+      policySelection.card.key === existingKey
+    );
+
     // Policy owns which branch is active, not every sentence. Preserve a
     // specialized legacy wording when it already targets the same micro-goal.
     if (
       policySelection &&
       qualificationLike &&
-      policySelection.card.metric !== result.closesMetric
+      !policyAlreadyTargetsCurrent
     ) {
       applyContextualCard(result, policySelection, {
         branch: policySelection.branch,
