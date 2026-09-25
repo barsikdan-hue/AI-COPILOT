@@ -13,7 +13,7 @@ export type DialogueBranch =
 
 export interface DialoguePolicyDecision {
   branch: DialogueBranch;
-  metric: string;
+  metric: string | null;
   semanticKey: string;
   reason: string;
   priority: number;
@@ -47,8 +47,31 @@ const latestAgentBeforeLatestClient = (turns: TranscriptTurn[]): string => {
 const clientHasNoConcreteExperience = (text: string): boolean =>
   /(?:ничего\s+конкретн\p{L}*\s+не\s+(?:смотрел\p{L}*|видел\p{L}*)|не\s+могу\s+(?:ничего\s+)?выделить|нечего\s+выделить|ничего\s+не\s+зацепило|ярк\p{L}*\s+пример\p{L}*\s+(?:пока\s+)?нет|только\s+(?:смотрю|изучаю|присматриваюсь)[^.!?]{0,70}ничего\s+конкретн)/iu.test(text);
 
-const dismissedPolicyIntent = (state: ConversationState, intent: 'goal' | 'experience'): boolean => {
+const searchOrientationPattern = /(?:как\s+вообще[^?]{0,40}рынк|давно.*(?:рассматрива|присматрива|отслежива)|интерес\s+появил\p{L}*\s+недавно|только.*(?:начал|начала|начали|изуча).*рын|на\s+каком.*этап.*рын|уже\s+сравниваете\s+конкретн.*вариант)/iu;
+const motiveNowPattern = /(?:что.*(?:причин|изменил).*сейчас|почему.*именно.*сейчас|что\s+сейчас\s+подтолкнул|тема\s+недвижимости.*актуаль|почему\s+к\s+вопросу.*верну|какую\s+задачу[^?]{0,70}именно\s+на\s+этом\s+этапе)/iu;
+
+const latestLooksLikePassiveSearch = (text: string): boolean =>
+  /(?:только\s+(?:начал\p{L}*|смотрю|изучаю)|присматрива\p{L}*|пока\s+(?:смотрю|изучаю|интересуюсь)|ничего\s+конкретн|в\s+общих\s+черт|давно\s+(?:смотрю|присматриваюсь)|просто\s+(?:смотрю|изучаю))/iu.test(text);
+
+const clientAlreadyExplainedWhyNow = (turns: TranscriptTurn[]): boolean =>
+  turns
+    .filter((turn) => turn.speaker === 'client')
+    .some((turn) => {
+      const text = normalize(turn.text);
+      return /(?:потому\s+что|так\s+как|из-за|после\s+того|сейчас[^.!?]{0,45}(?:появил\p{L}*|нужн\p{L}*|решил\p{L}*|решили|стало\p{L}*\s+актуаль)|недавно[^.!?]{0,45}(?:продал\p{L}*|получил\p{L}*|переехал\p{L}*)|переезжа\p{L}*|переезд\p{L}*|родил\p{L}*\s+ребен|ребен\p{L}*\s+родил\p{L}*|продал\p{L}*[^.!?]{0,45}квартир|освободил\p{L}*[^.!?]{0,35}(?:деньг|средств)|накопил\p{L}*|наследств\p{L}*|устал\p{L}*[^.!?]{0,35}(?:снимать|аренд)|деньг\p{L}*[^.!?]{0,55}(?:депозит|банк)[^.!?]{0,40}(?:перелож|влож)|инфляц\p{L}*[^.!?]{0,45}(?:сохран|защит))/iu.test(text);
+    });
+
+const dismissedPolicyIntent = (
+  state: ConversationState,
+  intent: 'search_orientation' | 'motive_now' | 'goal' | 'experience',
+): boolean => {
   const dismissed = (state.dismissedSuggestionTexts || []).map(normalize);
+  if (intent === 'search_orientation') {
+    return dismissed.some((text) => searchOrientationPattern.test(text));
+  }
+  if (intent === 'motive_now') {
+    return dismissed.some((text) => motiveNowPattern.test(text));
+  }
   if (intent === 'goal') {
     return dismissed.some((text) =>
       /(?:какую\s+задачу\s+должна\s+решить\s+покупка|недвижимост\p{L}*[^.!?]{0,80}(?:постоянн\p{L}*\s+жизн|отдых|инвестиц)|что\s+должно\s+измениться\s+после\s+покупки)/iu.test(text)
@@ -61,7 +84,7 @@ const dismissedPolicyIntent = (state: ConversationState, intent: 'goal' | 'exper
 
 function candidate(
   branch: DialogueBranch,
-  metric: string,
+  metric: string | null,
   semanticKey: string,
   reason: string,
   priority: number,
@@ -72,15 +95,17 @@ function candidate(
 /**
  * Chooses one conversational micro-goal.
  *
- * Methodology is represented as priorities, not as a 16-field questionnaire:
+ * Methodology is represented as priorities, not as a fixed questionnaire:
+ * - first orient in the client's search only while the call has no substantive facts;
+ * - after orientation, understand why the topic became relevant now;
  * - real past behaviour and current evidence outrank hypothetical questions;
  * - explicit pain keeps SPIN continuity in the specialized engine;
  * - criteria/anti-criteria, economics, timing and decision process are opened
  *   only when they can change the next action;
  * - a skipped policy hint is not immediately resurrected by this layer.
  *
- * P0 events, objections and specialized SPIN/research handoffs are handled
- * before/under this policy layer and must not be masked by generic qualification.
+ * Orientation and "why now" are micro-goals, not quality metrics. They guide
+ * the next turn but do not create a fake 13th mandatory criterion.
  */
 export function chooseDialoguePolicyTarget(
   state: ConversationState,
@@ -140,6 +165,47 @@ export function chooseDialoguePolicyTarget(
   }
   if (!urgencyKnown && /срок|месяц|квартал|когда.*(?:покуп|сделк)|как\s+скоро/iu.test(latest)) {
     decisions.push(candidate('timing_decision', 'urgency', 'ask_timeline', 'Клиент заговорил о сроках: фиксируем реальный горизонт решения.', 91));
+  }
+
+  const searchOrientationAsked = agentAsked(turns, searchOrientationPattern);
+  const orientationHintDismissed = dismissedPolicyIntent(state, 'search_orientation');
+  const hasSubstantiveQualification = Boolean(
+    goalKnown || criteriaKnown || locationKnown || propertyTypeKnown || budgetKnown || paymentKnown || urgencyKnown
+  );
+  if (
+    !researchMode &&
+    !searchExperienceKnown &&
+    !searchOrientationAsked &&
+    !orientationHintDismissed &&
+    !hasSubstantiveQualification
+  ) {
+    decisions.push(candidate(
+      'orientation',
+      null,
+      'ask_search_experience',
+      'В начале звонка сначала ориентируемся, насколько клиент уже погружён в рынок. Это не критерий качества и не анкета.',
+      92,
+    ));
+  }
+
+  const motiveAsked = agentAsked(turns, motiveNowPattern);
+  const motiveHintDismissed = dismissedPolicyIntent(state, 'motive_now');
+  const triggerAlreadyKnown = clientAlreadyExplainedWhyNow(turns);
+  const latestFollowsOrientation = searchOrientationPattern.test(latestAgent);
+  if (
+    (!researchMode || latestFollowsOrientation) &&
+    !triggerAlreadyKnown &&
+    !motiveAsked &&
+    !motiveHintDismissed &&
+    (latestFollowsOrientation || latestLooksLikePassiveSearch(latest))
+  ) {
+    decisions.push(candidate(
+      'orientation',
+      null,
+      'ask_motive_now',
+      'Этап поиска понятен, теперь выясняем, почему вопрос стал актуален именно сейчас. Это помогает выбрать следующую ветку, а не просто собрать ещё один факт.',
+      90,
+    ));
   }
 
   const goalHintDismissed = dismissedPolicyIntent(state, 'goal');
