@@ -44,6 +44,64 @@ function isAffirmativeAcknowledgement(text: string): boolean {
   return hasAffirmative && hasCommitment;
 }
 
+function hasClientMaterialsContext(text: string): boolean {
+  const lower = normalize(text);
+  return /(?:пришл\p{L}*|скин\p{L}*|отправ\p{L}*|присыл\p{L}*|материал\p{L}*|подборк\p{L}*)/iu.test(lower) ||
+    /(?:не\s+(?:надо|нужно|хочу)|пока\s+не\s+(?:надо|нужно))[^.!?]{0,35}информац\p{L}*/iu.test(lower);
+}
+
+function hasAgentMaterialsProposal(text: string): boolean {
+  const lower = normalize(text);
+  return /(?:пришл\p{L}*|скин\p{L}*|отправ\p{L}*|присыл\p{L}*|материал\p{L}*|подборк\p{L}*)/iu.test(lower);
+}
+
+function isFalseMaterialsResistance(
+  result: ConversationEventDetection | null,
+  turn: TranscriptTurn,
+  recentTurns: TranscriptTurn[],
+  state: ConversationState,
+): boolean {
+  if (result?.type !== 'NEXT_STEP_RESISTANCE' || result.nextStepTarget !== 'materials') return false;
+  const previousAgent = lastAgentBefore(turn, recentTurns);
+  const remembered = state.dialogueControl?.nextStepResistanceHistory?.materials;
+  const rememberedActive = Boolean(remembered && !['handled', 'resolved'].includes(String(remembered.status)));
+  return !hasClientMaterialsContext(turn.text) &&
+    !hasAgentMaterialsProposal(previousAgent?.text || '') &&
+    !rememberedActive;
+}
+
+function isLateResearchMode(
+  result: ConversationEventDetection | null,
+  turn: TranscriptTurn,
+  state: ConversationState,
+): boolean {
+  if (result?.type !== 'RESEARCH_MODE') return false;
+  if (state.dialogueControl?.researchMode) return true;
+
+  const goalKnown = Boolean(state.goal?.value || state.primaryGoal?.value);
+  const criteriaKnown = Boolean(state.criteria?.value || state.criteria?.items?.length);
+  const budgetKnown = Boolean(state.budget?.value);
+  const propertyTypeKnown = Boolean(state.propertyType?.value);
+  const alreadyQualified = goalKnown && (criteriaKnown || budgetKnown || propertyTypeKnown);
+  if (!alreadyQualified) return false;
+
+  const lower = normalize(turn.text);
+  const passiveCueOnly = /(?:пока\s+присматриваюсь|только\s+изучаю|просто\s+изучаю|изучаю\s+рынок)/iu.test(lower);
+  return passiveCueOnly;
+}
+
+function contextualizeLegacyResult(
+  result: ConversationEventDetection | null,
+  turn: TranscriptTurn,
+  recentTurns: TranscriptTurn[],
+  state: ConversationState,
+): ConversationEventDetection | null {
+  if (!result) return null;
+  if (isFalseMaterialsResistance(result, turn, recentTurns, state)) return null;
+  if (isLateResearchMode(result, turn, state)) return null;
+  return result;
+}
+
 function detectNextStepQuestion(
   turn: TranscriptTurn,
   state: ConversationState,
@@ -130,16 +188,23 @@ export function detectConversationEvent(
     const withoutQuestionMark = turn.text.replace(/\?/gu, '.');
     const result = legacy.detectConversationEvent({ ...turn, text: withoutQuestionMark }, recentTurns, state, now);
     if (result?.type === 'DIRECT_QUESTION') return null;
-    return result ? { ...result, evidenceTurnId: turn.id, evidenceQuote: turn.text } : null;
+    const contextual = contextualizeLegacyResult(result, turn, recentTurns, state);
+    return contextual ? { ...contextual, evidenceTurnId: turn.id, evidenceQuote: turn.text } : null;
   }
 
   if (turn.speaker === 'client' && isRhetoricalTagQuestion(turn.text)) {
     const withoutTag = turn.text.replace(/(?:,|—|-)\s*(?:да|верно|правильно)\s*\?\s*$/iu, '.');
     const result = legacy.detectConversationEvent({ ...turn, text: withoutTag }, recentTurns, state, now);
-    return result ? { ...result, evidenceTurnId: turn.id, evidenceQuote: turn.text } : null;
+    const contextual = contextualizeLegacyResult(result, turn, recentTurns, state);
+    return contextual ? { ...contextual, evidenceTurnId: turn.id, evidenceQuote: turn.text } : null;
   }
 
-  return legacy.detectConversationEvent(turn, recentTurns, state, now);
+  return contextualizeLegacyResult(
+    legacy.detectConversationEvent(turn, recentTurns, state, now),
+    turn,
+    recentTurns,
+    state,
+  );
 }
 
 export function applyConversationEvent(
