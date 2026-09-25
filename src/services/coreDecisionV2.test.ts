@@ -81,7 +81,6 @@ describe('Core Decision V2 live regressions', () => {
       newTurns: [last],
       recentTurns: turns,
       currentState: state,
-      reason: 'regression',
     });
 
     expect(result.suggestedReply || '').not.toMatch(/что из уже просмотренного.*что точно не подошло/iu);
