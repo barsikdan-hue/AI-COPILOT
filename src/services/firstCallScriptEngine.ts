@@ -39,10 +39,12 @@ function sanitizeInfrastructure(progress: ReturnType<typeof legacy.evaluateFirst
   const metric = progress.metrics?.infrastructure;
   if (!metric?.value) return progress;
   const clientText = norm(turns.filter((turn) => turn.speaker === 'client').map((turn) => turn.text).join(' '));
+  const clientMentionsSpa = /(?:^|[^\p{L}\p{N}])спа(?:$|[^\p{L}\p{N}])/iu.test(clientText);
+  const clientMentionsPool = /бассейн\p{L}*/iu.test(clientText);
   const items = String(metric.value).split(';').map((item) => item.trim()).filter(Boolean);
   const supported = items.filter((item) => {
     const lower = norm(item);
-    if (/бассейн|спа/iu.test(lower)) return /бассейн|спа/iu.test(clientText);
+    if (/бассейн|спа/iu.test(lower)) return clientMentionsPool || clientMentionsSpa;
     if (/школ|детск.*сад/iu.test(lower)) return /школ|детск.*сад/iu.test(clientText);
     if (/магаз|ресторан|бытов/iu.test(lower)) return /магаз|ресторан|кафе|сервис|инфраструктур/iu.test(clientText);
     return true;
@@ -65,12 +67,69 @@ function sanitizeInfrastructure(progress: ReturnType<typeof legacy.evaluateFirst
   };
 }
 
+function sanitizePaymentMethodUncertainty(
+  progress: ReturnType<typeof legacy.evaluateFirstCallScript>,
+  turns: TranscriptTurn[],
+): ReturnType<typeof legacy.evaluateFirstCallScript> {
+  let lastDecision: 'uncertain' | 'mortgage' | 'reject_mortgage' | null = null;
+  let evidence: TranscriptTurn | null = null;
+
+  for (const turn of turns) {
+    if (turn.speaker !== 'client') continue;
+    const text = norm(turn.text);
+    if (!/ипотек/iu.test(text)) continue;
+
+    const uncertain = /(?:не\s+(?:знаю|решил\p{L}*|определил\p{L}*)|сомнева\p{L}*|дума\p{L}*[^.!?]{0,40}(?:надо|нужно)\s+ли|(?:надо|нужно)\s+ли[^.!?]{0,35}ипотек|ипотек\p{L}*[^.!?]{0,45}или\s+не\s+(?:надо|нужно|брать|использовать))/iu.test(text);
+    const reject = /(?:не\s+(?:хочу|рассматрива\p{L}*|нужн\p{L}*|буду|собира\p{L}*)[^.!?]{0,30}ипотек|без\s+ипотек)/iu.test(text);
+    const confirm = /(?:хочу|буду|планиру\p{L}*|решил\p{L}*)[^.!?]{0,30}(?:брать\s+)?ипотек|(?:беру|берем|берём)\s+ипотек/iu.test(text);
+
+    if (uncertain) lastDecision = 'uncertain';
+    else if (reject) lastDecision = 'reject_mortgage';
+    else if (confirm) lastDecision = 'mortgage';
+    else continue;
+    evidence = turn;
+  }
+
+  if (lastDecision !== 'uncertain' || !evidence) return progress;
+
+  const paymentMethod = progress.metrics?.paymentMethod;
+  const ppi = progress.metrics?.ppi;
+  return {
+    ...progress,
+    metrics: {
+      ...progress.metrics,
+      paymentMethod: paymentMethod ? {
+        ...paymentMethod,
+        status: 'needs_clarification',
+        value: 'Ипотека рассматривается, решение не принято',
+        evidenceQuote: evidence.text,
+        evidenceTurnId: evidence.id,
+        semanticReason: 'Клиент обсуждает ипотеку как один из вариантов и прямо говорит, что решение ещё не принято.',
+        confidence: 0.98,
+        needsClarification: true,
+      } : paymentMethod,
+      ppi: ppi ? {
+        ...ppi,
+        status: 'not_confirmed',
+        value: null,
+        semanticReason: 'Ипотека не подтверждена и не исключена: консультация остаётся потенциальной, но пока не назначается.',
+        confidence: 0.8,
+      } : ppi,
+    },
+    ppi: progress.ppi ? {
+      ...progress.ppi,
+      status: 'not_confirmed',
+    } : progress.ppi,
+  };
+}
+
 export function evaluateFirstCallScript(
   turns: TranscriptTurn[],
   state: ConversationState,
 ): ReturnType<typeof legacy.evaluateFirstCallScript> {
   let progress = legacy.evaluateFirstCallScript(turns, state);
   progress = sanitizeInfrastructure(progress, turns);
+  progress = sanitizePaymentMethodUncertainty(progress, turns);
 
   const deferral = latestVideoDeferral(turns);
   if (!deferral.deferred || progress.metrics?.ppv?.status !== 'confirmed') return progress;
