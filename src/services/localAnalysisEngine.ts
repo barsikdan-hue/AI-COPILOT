@@ -1,6 +1,7 @@
 import * as legacy from './localAnalysisEngineLegacy';
 import type { AnalysisResponse, ConversationState, TranscriptTurn } from '../types';
 import { chooseDialoguePolicyTarget } from './dialoguePolicyEngine';
+import { evaluateFirstCallScript } from './firstCallScriptEngine';
 
 export * from './localAnalysisEngineLegacy';
 
@@ -67,7 +68,106 @@ function isNoExperienceAnswer(text: string): boolean {
   return /(?:не\s+могу\s+(?:ответить|ничего\s+выделить|выделить\s+(?:что-то|что\s+то|ничего)|сказать[^.!?]{0,40}(?:понрав|подош|ближе))|реально\s+не\s+могу\s+ничего\s+выделить|нечего\s+выделить|ничего\s+не\s+зацепило|ничего\s+конкретн\p{L}*\s+не\s+(?:смотрел\p{L}*|видел\p{L}*)|ярк\p{L}*\s+пример\p{L}*\s+(?:пока\s+)?нет)/iu.test(lower);
 }
 
-function sanitizeLiveState(result: any, turn: TranscriptTurn, turns: TranscriptTurn[]): any {
+function hasMaterialsResistanceContext(
+  clientText: string,
+  agentText: string,
+  current: ConversationState,
+): boolean {
+  const client = normalize(clientText);
+  const agent = normalize(agentText);
+  const clientExplicit = /(?:пришл\p{L}*|скин\p{L}*|отправ\p{L}*|присыл\p{L}*|материал\p{L}*|подборк\p{L}*)/iu.test(client) ||
+    /(?:не\s+(?:надо|нужно|хочу)|пока\s+не\s+(?:надо|нужно))[^.!?]{0,35}информац\p{L}*/iu.test(client);
+  const agentProposal = /(?:пришл\p{L}*|скин\p{L}*|отправ\p{L}*|присыл\p{L}*|материал\p{L}*|подборк\p{L}*)/iu.test(agent);
+  const remembered = current.dialogueControl?.nextStepResistanceHistory?.materials;
+  const rememberedActive = Boolean(remembered && !['handled', 'resolved'].includes(String(remembered.status)));
+  return clientExplicit || agentProposal || rememberedActive;
+}
+
+function sanitizeFalseMaterialsResistance(
+  result: any,
+  current: ConversationState,
+  turn: TranscriptTurn,
+  turns: TranscriptTurn[],
+): any {
+  if (turn.speaker !== 'client' || !result?.state) return result;
+  const previousAgent = previousAgentBefore(turn, turns);
+  const currentTurnCreatedMaterialsObjection = Boolean(
+    result.localObjection?.category === 'next_step_materials' ||
+    result.clientIntent?.category === 'next_step_materials' ||
+    (
+      result.state.activeObjection?.category === 'next_step_materials' &&
+      (result.state.activeObjection?.evidenceTurnIds || []).includes(turn.id)
+    )
+  );
+  if (!currentTurnCreatedMaterialsObjection) return result;
+  if (hasMaterialsResistanceContext(turn.text, previousAgent?.text || '', current)) return result;
+
+  const state: any = result.state;
+  const previousControl: any = current.dialogueControl || {};
+  const currentControl: any = state.dialogueControl || {};
+  const nextHistory = { ...(currentControl.nextStepResistanceHistory || {}) };
+  const priorMaterialsHistory = previousControl.nextStepResistanceHistory?.materials;
+  if (priorMaterialsHistory) nextHistory.materials = priorMaterialsHistory;
+  else delete nextHistory.materials;
+
+  const falseCurrentResistance =
+    currentControl.nextStepResistance?.target === 'materials' &&
+    currentControl.nextStepResistance?.lastEvidenceTurnId === turn.id;
+  const falseCurrentEvent =
+    currentControl.lastEventType === 'NEXT_STEP_RESISTANCE' &&
+    currentControl.lastEventTurnId === turn.id;
+
+  const nextControl = {
+    ...currentControl,
+    nextStepResistance: falseCurrentResistance ? previousControl.nextStepResistance : currentControl.nextStepResistance,
+    nextStepResistanceHistory: nextHistory,
+    blockedNextSteps: (currentControl.blockedNextSteps || []).filter(
+      (target: string) => target !== 'materials' || (previousControl.blockedNextSteps || []).includes('materials')
+    ),
+    lastEventType: falseCurrentEvent ? previousControl.lastEventType : currentControl.lastEventType,
+    lastEventTurnId: falseCurrentEvent ? previousControl.lastEventTurnId : currentControl.lastEventTurnId,
+  };
+
+  const falseObjectionInState =
+    state.objections?.items?.includes('next_step_materials') &&
+    (state.objections?.evidenceTurnIds || []).includes(turn.id);
+  const falseActiveObjection =
+    state.activeObjection?.category === 'next_step_materials' &&
+    (state.activeObjection?.evidenceTurnIds || []).includes(turn.id);
+
+  let cleanedState: any = {
+    ...state,
+    dialogueControl: nextControl,
+    events: (state.events || []).filter(
+      (event: any) => !(event.turnId === turn.id && event.type === 'NEXT_STEP_RESISTANCE')
+    ),
+    objections: falseObjectionInState ? current.objections : state.objections,
+    activeObjection: falseActiveObjection ? current.activeObjection : state.activeObjection,
+  };
+  cleanedState.scriptProgress = evaluateFirstCallScript(turns, cleanedState);
+
+  return {
+    ...result,
+    state: cleanedState,
+    event: result.event?.type === 'NEXT_STEP_RESISTANCE' && result.event?.nextStepTarget === 'materials'
+      ? null
+      : result.event,
+    localObjection: null,
+    clientIntent: {
+      type: 'fact',
+      category: 'research_status',
+      text: turn.text,
+      confidence: 0.94,
+    },
+  };
+}
+
+function sanitizeLiveState(
+  result: any,
+  turn: TranscriptTurn,
+  turns: TranscriptTurn[],
+  current: ConversationState,
+): any {
   if (turn.speaker !== 'client') return result;
   let state: any = result.state;
   if (!state) return result;
@@ -126,7 +226,7 @@ function sanitizeLiveState(result: any, turn: TranscriptTurn, turns: TranscriptT
     }
   }
 
-  return { ...result, state };
+  return sanitizeFalseMaterialsResistance({ ...result, state }, current, turn, turns);
 }
 
 export function advanceLocalConversation(
@@ -134,7 +234,7 @@ export function advanceLocalConversation(
 ): ReturnType<typeof legacy.advanceLocalConversation> {
   const [current, turn, turns] = args;
   const raw: any = legacy.advanceLocalConversation(current, turn, turns);
-  const sanitized: any = sanitizeLiveState(raw, turn, turns);
+  const sanitized: any = sanitizeLiveState(raw, turn, turns, current);
 
   if (turn.speaker === 'client' && isPassiveMarketComparison(turn.text)) {
     sanitized.localObjection = null;
