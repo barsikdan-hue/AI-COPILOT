@@ -57,9 +57,82 @@ function isDecisionalForMyselfPhrase(text: string): boolean {
   return /(?:^|\s)(?:я\s+)?для\s+себя\s+(?:уже\s+)?(?:решил|решила|определил|определила|понял|поняла|зафиксировал|зафиксировала)(?:\s|$)/iu.test(clean);
 }
 
+/**
+ * A rhetorical self-question inside a substantive answer is not a request for
+ * factual information from the agent. The live call phrase "Оно мне надо?"
+ * previously triggered the P0 DIRECT_QUESTION fallback and displaced SPIN.
+ */
+function isRhetoricalSelfQuestion(text: string): boolean {
+  return /(?:^|[.!…]\s*)(?:оно|это)\s+(?:мне|нам)\s+(?:вообще\s+)?(?:надо|нужно)\s*\?/iu.test(text || '');
+}
+
+/** "В банке держать неинтересно" describes the alternative, not disinterest in real estate. */
+function isAlternativeInstrumentDisinterest(text: string): boolean {
+  const lower = (text || '').toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
+  return /(?:банк|депозит|вклад)[^.!?]{0,55}(?:неинтерес|не\s+интерес)/iu.test(lower) ||
+    /(?:неинтерес|не\s+интерес)[^.!?]{0,55}(?:банк|депозит|вклад)/iu.test(lower);
+}
+
+/** Natural wording used in the live call for a Problem question. */
+function classifyAgentActionForLiveTurn(text: string) {
+  const action = classifyAgentAction(text);
+  if (
+    action === 'none' &&
+    /что[^?]{0,55}останавлива\p{L}*[^?]{0,35}(?:больше\s+всего|сильнее|сейчас)?/iu.test(text || '')
+  ) {
+    return 'asked_problem_question' as const;
+  }
+  return action;
+}
+
+function hasExplicitResidentialQuietCriterion(turns: TranscriptTurn[]): boolean {
+  return turns
+    .filter((turn) => turn.speaker === 'client')
+    .some((turn) => {
+      const lower = turn.text.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
+      return /(?:(?:хоч\p{L}*|нужн\p{L}*|важн\p{L}*|ценю|предпочита\p{L}*)[^.!?]{0,28}тишин\p{L}*|тишин\p{L}*[^.!?]{0,28}(?:важн\p{L}*|нужн\p{L}*|хоч\p{L}*|предпочита\p{L}*)|тих\p{L}+\s+(?:мест|район|двор)|спокойн\p{L}+\s+(?:мест|район|окруж)|без\s+шум\p{L}*|слишком\s+шумн\p{L}*|окна\s+выходил\p{L}*\s+на\s+дорог)/iu.test(lower);
+    });
+}
+
+function sanitizeFirstCallProgress(
+  progress: ReturnType<typeof evaluateFirstCallScript>,
+  turns: TranscriptTurn[]
+): ReturnType<typeof evaluateFirstCallScript> {
+  const criteria = progress.metrics?.criteria;
+  if (!criteria?.value || hasExplicitResidentialQuietCriterion(turns)) return progress;
+  if (!/тишина\s*\/\s*отсутствие\s+дорожного\s+шума/iu.test(criteria.value)) return progress;
+
+  const remaining = criteria.value
+    .split(';')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .filter((item) => !/тишина\s*\/\s*отсутствие\s+дорожного\s+шума/iu.test(item));
+
+  const cleanedCriteria = {
+    ...criteria,
+    status: remaining.length > 0 ? criteria.status : 'not_confirmed' as const,
+    value: remaining.length > 0 ? remaining.join('; ') : null,
+    evidenceQuote: remaining.length > 0 ? criteria.evidenceQuote : undefined,
+    evidenceTurnId: remaining.length > 0 ? criteria.evidenceTurnId : undefined,
+    semanticReason: remaining.length > 0
+      ? criteria.semanticReason
+      : 'Критерии пока не озвучены; слово «тишина» в контексте отсутствия ответа агента не является жилищным критерием.',
+    confidence: remaining.length > 0 ? criteria.confidence : 0.5,
+  };
+
+  return {
+    ...progress,
+    metrics: {
+      ...progress.metrics,
+      criteria: cleanedCriteria,
+    },
+  };
+}
+
 function sanitizeLiveFacts(
   text: string,
-  facts: ReturnType<typeof extractDeterministicFacts>
+  facts: ReturnType<typeof extractDeterministicFacts>,
+  previousAgentText: string | null = null
 ): ReturnType<typeof extractDeterministicFacts> {
   const lower = (text || '').toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
   const flatQuote = text.match(/квартир(?:а|у|ы|е|ой|ам|ами|ах)?/iu)?.[0] || null;
@@ -69,19 +142,86 @@ function sanitizeLiveFacts(
     /(?:не\s+(?:хочу|рассматрива\p{L}*|нужн\p{L}*|подход\p{L}*)\s+(?:эти\s+)?апартамент\p{L}*|апартамент\p{L}*(?:\s+мне)?\s+не\s+(?:нужн\p{L}*|подход\p{L}*|хочу|рассматрива\p{L}*))/iu.test(lower);
   const rejectsApartments = apartmentStatusConcern || apartmentDirectRejection;
 
-  if (!rejectsApartments || !flatQuote) return facts;
+  let sanitized = facts;
+  if (rejectsApartments && flatQuote) {
+    sanitized = facts.map((fact) => {
+      if (fact.category !== 'property_type' && fact.field !== 'propertyType') return fact;
+      if (!/апартамент/iu.test(fact.value || '')) return fact;
+      return {
+        ...fact,
+        value: 'Квартира',
+        evidenceQuote: flatQuote,
+        confidence: Math.max(fact.confidence, 0.98),
+        comment: 'Клиент положительно выбрал квартиру и отдельно описал апартаменты как нежелательный формат.',
+      };
+    });
+  }
 
-  return facts.map((fact) => {
-    if (fact.category !== 'property_type' && fact.field !== 'propertyType') return fact;
-    if (!/апартамент/iu.test(fact.value || '')) return fact;
-    return {
-      ...fact,
-      value: 'Квартира',
-      evidenceQuote: flatQuote,
-      confidence: Math.max(fact.confidence, 0.98),
-      comment: 'Клиент положительно выбрал квартиру и отдельно описал апартаменты как нежелательный формат.',
-    };
-  });
+  const hasGoalFact = sanitized.some((fact) => fact.field === 'goal' || fact.category === 'goal');
+  const preservationGoal = text.match(
+    /(?:вложить[^.!?]{0,55}(?:сохранить|не\s+обесцен\p{L}*)|припарковать[^.!?]{0,60}(?:сумм\p{L}*|деньг\p{L}*)[^.!?]{0,45}(?:не\s+обесцен\p{L}*|сохран\p{L}*))/iu
+  );
+  if (!hasGoalFact && preservationGoal) {
+    sanitized = [
+      ...sanitized,
+      {
+        category: 'goal',
+        field: 'goal',
+        value: 'Инвестиции / сохранение капитала',
+        evidenceQuote: preservationGoal[0].trim(),
+        evidenceTurnId: '',
+        confidence: 0.97,
+        status: 'confirmed',
+        comment: 'Клиент прямо обозначил сохранение капитала как задачу вложения.',
+      },
+    ];
+  }
+
+  const hasTimelineFact = sanitized.some((fact) => fact.field === 'purchaseTimeline' || fact.category === 'timeline');
+  const reversedTimeline = text.match(/месяц(?:а|ев)?\s*(?:два|2)\s*[-–—]\s*(?:три|3)/iu);
+  if (!hasTimelineFact && reversedTimeline) {
+    sanitized = [
+      ...sanitized,
+      {
+        category: 'timeline',
+        field: 'purchaseTimeline',
+        value: reversedTimeline[0].trim(),
+        evidenceQuote: reversedTimeline[0].trim(),
+        evidenceTurnId: '',
+        confidence: 0.97,
+        status: 'confirmed',
+      },
+    ];
+  }
+
+  const asksFirstPayment = /(?:средств\p{L}*\s+для\s+первого\s+платежа|первоначальн\p{L}*\s+взнос|первый\s+взнос|сумма\s+зависит\s+от\s+выбранной\s+схемы)/iu.test(previousAgentText || '');
+  const hasDownPaymentFact = sanitized.some((fact) => fact.field === 'downPayment' || fact.category === 'downPayment');
+  const availabilityQuote = asksFirstPayment ? text.match(/(?:в\s+целом\s+)?доступн(?:ы|а|о)/iu)?.[0] || null : null;
+  if (!hasDownPaymentFact && availabilityQuote) {
+    sanitized = [
+      ...sanitized,
+      {
+        category: 'downPayment',
+        field: 'downPayment',
+        value: 'Средства доступны; точный размер первого платежа зависит от выбранной схемы',
+        evidenceQuote: availabilityQuote,
+        evidenceTurnId: '',
+        confidence: 0.94,
+        status: 'confirmed',
+        needsClarification: true,
+        comment: 'Клиент подтвердил доступность средств, но не назвал точный размер первого платежа.',
+      },
+    ];
+  }
+
+  return sanitized;
+}
+
+function withEvidenceTurnId(
+  turnId: string,
+  facts: ReturnType<typeof extractDeterministicFacts>
+): ReturnType<typeof extractDeterministicFacts> {
+  return facts.map((fact) => fact.evidenceTurnId ? fact : { ...fact, evidenceTurnId: turnId });
 }
 
 /** Recompute amended evidence without undoing the agent's manual use/skip actions. */
@@ -99,9 +239,13 @@ export function advanceLocalConversation(current: ConversationState, turn: Trans
 
   if (turn.speaker === 'client') {
     const lookup = Object.fromEntries(turns.filter(t => t.speaker === 'client').map(t => [t.id, t.text]));
-    const extractedFacts = sanitizeLiveFacts(
-      turn.text,
-      extractDeterministicFacts(turn.text, turn.id, previousAgent?.text)
+    const extractedFacts = withEvidenceTurnId(
+      turn.id,
+      sanitizeLiveFacts(
+        turn.text,
+        extractDeterministicFacts(turn.text, turn.id, previousAgent?.text),
+        previousAgent?.text || null
+      )
     );
     state = mergeFactsDelta(state, extractedFacts, state.stage, undefined, turn.revision, lookup);
     const lowerClient = turn.text.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
@@ -120,10 +264,19 @@ export function advanceLocalConversation(current: ConversationState, turn: Trans
   } else if (turn.speaker === 'agent' && turn.text.includes('?')) {
     state = { ...state, askedQuestions: Array.from(new Set([...state.askedQuestions, turn.text])) };
   }
-  const event = detectConversationEvent(turn, turns, state);
+  const detectedEvent = detectConversationEvent(turn, turns, state);
+  const event = detectedEvent?.type === 'DIRECT_QUESTION' && isRhetoricalSelfQuestion(turn.text)
+    ? null
+    : detectedEvent;
   if (event) state = applyConversationEvent(state, event, turn);
-  const clientIntent = classifyClientTurnIntent(turn.text, state, previousAgent?.text);
-  const localObjection = turn.speaker === 'client' ? detectLocalObjection(turn.text, state, previousAgent?.text) : null;
+  const rawClientIntent = classifyClientTurnIntent(turn.text, state, previousAgent?.text);
+  const alternativeDisinterest = turn.speaker === 'client' && isAlternativeInstrumentDisinterest(turn.text);
+  const clientIntent = alternativeDisinterest && rawClientIntent.category === 'objection_interest'
+    ? { type: 'fact' as const, category: 'client_fact', text: turn.text, confidence: 0.95 }
+    : rawClientIntent;
+  const localObjection = turn.speaker === 'client' && !alternativeDisinterest
+    ? detectLocalObjection(turn.text, state, previousAgent?.text)
+    : null;
 
   // Soft resistance is a temporary mode, not a permanent mute switch. If the
   // client later gives a real answer/preference/fact, reopen normal guidance.
@@ -157,12 +310,12 @@ export function advanceLocalConversation(current: ConversationState, turn: Trans
       ].includes(event.type)
     );
     if (!controlEventBlocksSpin && !acknowledgementOnly && !decisionalForMyself) {
-      const previousAgentAction = previousAgent ? classifyAgentAction(previousAgent.text) : 'none';
+      const previousAgentAction = previousAgent ? classifyAgentActionForLiveTurn(previousAgent.text) : 'none';
       const spin = evaluateSpinAndHpb(turn, state.spin, previousAgentAction, previousAgent?.text || '', state);
       state = { ...state, spin: spin.updatedSpin, spinState: spin.updatedSpin };
     }
   }
-  const progress = evaluateFirstCallScript(turns, state);
+  const progress = sanitizeFirstCallProgress(evaluateFirstCallScript(turns, state), turns);
   state = { ...state, scriptProgress: progress, trustEvaluation: progress.trust, qualityResult: progress.quality };
   return { state, event, clientIntent, localObjection };
 }
@@ -293,9 +446,13 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
 
   const factsDelta = clientTurns.flatMap((turn) => {
     const previousAgent = previousMeaningfulAgentTurn(turn, allTurns);
-    return sanitizeLiveFacts(
-      turn.text,
-      extractDeterministicFacts(turn.text, turn.id, previousAgent?.text || null)
+    return withEvidenceTurnId(
+      turn.id,
+      sanitizeLiveFacts(
+        turn.text,
+        extractDeterministicFacts(turn.text, turn.id, previousAgent?.text || null),
+        previousAgent?.text || null
+      )
     );
   });
   const clientTurnLookup = Object.fromEntries(allTurns.filter(turn => turn.speaker === 'client').map(turn => [turn.id, turn.text]));
@@ -309,7 +466,12 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
   );
 
   const events = clientTurns
-    .map((turn) => detectConversationEvent(turn, allTurns, workingState))
+    .map((turn) => {
+      const detected = detectConversationEvent(turn, allTurns, workingState);
+      return detected?.type === 'DIRECT_QUESTION' && isRhetoricalSelfQuestion(turn.text)
+        ? null
+        : detected;
+    })
     .filter((event): event is NonNullable<typeof event> => Boolean(event))
     .sort((a, b) => b.priority - a.priority);
   const dominantEvent = events[0] || null;
@@ -332,8 +494,8 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
       ? activeObjectionGuidance
       : null;
 
-  const scriptProgress = evaluateFirstCallScript(allTurns, workingState);
-  const calculatedAgentAction = lastAgentTurn ? classifyAgentAction(lastAgentTurn.text) : 'none';
+  const scriptProgress = sanitizeFirstCallProgress(evaluateFirstCallScript(allTurns, workingState), allTurns);
+  const calculatedAgentAction = lastAgentTurn ? classifyAgentActionForLiveTurn(lastAgentTurn.text) : 'none';
 
   if (acknowledgementOnly) {
     return {
