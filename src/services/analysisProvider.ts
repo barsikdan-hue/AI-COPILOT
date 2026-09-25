@@ -5,6 +5,7 @@ import {
 } from '../types';
 import { buildLocalAnalysisResponse } from './localAnalysisEngine';
 import { isSubstantiveClientTurn } from './objectionEngine';
+import { applyLearnedSuggestion, rememberLateGeminiSuggestion } from './learnedSuggestionCache';
 
 export interface AnalysisPayload {
   sessionId: string;
@@ -99,7 +100,7 @@ export class AnalysisProvider {
   }
 
   public scheduleLocalFirst(payload: AnalysisPayload, onSuccess: (result: AnalysisResponse) => void, onError: (error: any) => void, onRefiningChange?: (value: boolean) => void, options: { amendment?: boolean; suppressRemote?: boolean } = {}) {
-    const local = buildLocalAnalysisResponse(payload);
+    const local = applyLearnedSuggestion(payload, buildLocalAnalysisResponse(payload));
     onSuccess(local);
     if (!this.remoteEnhancementEnabled) return;
     if (options.amendment) {
@@ -411,6 +412,7 @@ export class AnalysisProvider {
 
       this.lastValidResponse = data;
       this.analysisSuccess++;
+      if (data.suggestionExpired) rememberLateGeminiSuggestion(payload, data);
       onRefiningChange?.(false);
       onSuccess(data);
     } catch (err: any) {
