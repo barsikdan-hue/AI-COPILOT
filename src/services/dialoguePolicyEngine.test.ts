@@ -69,4 +69,34 @@ describe('Dialogue Policy Engine V1', () => {
     expect(decision?.branch).toBe('finance');
     expect(['budget', 'paymentMethod']).toContain(decision?.metric);
   });
+
+  it('does not mask the SPIN future-risk handoff after client has no concrete viewing history', () => {
+    const turns = [
+      turn('a1', 'agent', 'Как вообще сейчас ощущения от рынка Сочи? Давно присматриваетесь или только начали?', 1),
+      turn('c1', 'client', 'Только смотрю так долго, знаете ли, лениво, ничего конкретного.', 2),
+      turn('a2', 'agent', 'А что уже успели посмотреть и что из увиденного вам понравилось или, наоборот, оттолкнуло?', 3),
+      turn('c2', 'client', 'Да, знаете, я ничего конкретного не смотрел. Так, в общих чертах порасспрашивал там и здесь, но пока ничего.', 4),
+    ];
+    const state = buildState(turns);
+    const decision = chooseDialoguePolicyTarget(state, turns, state.scriptProgress);
+
+    expect(state.spin?.pastExperienceQuestionClosed || state.spinState?.pastExperienceQuestionClosed).toBe(true);
+    expect(state.spin?.researchMode || state.spinState?.researchMode).toBe(true);
+    expect(decision).toBeNull();
+  });
+
+  it('does not resurrect the same goal policy after the agent skipped that visible hint', () => {
+    const turns = [
+      turn('a1', 'agent', 'Добрый день. Как я могу к вам обращаться?', 1),
+      turn('c1', 'client', 'Андрей.', 2),
+    ];
+    const state = buildState(turns);
+    state.dismissedSuggestionTexts = [
+      'Что должно измениться после покупки: переезд, свой формат отдыха или работа капитала?',
+    ];
+
+    const decision = chooseDialoguePolicyTarget(state, turns, state.scriptProgress);
+
+    expect(decision?.semanticKey).not.toBe('ask_goal');
+  });
 });
