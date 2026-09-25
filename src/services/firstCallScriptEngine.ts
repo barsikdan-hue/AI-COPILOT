@@ -1,5 +1,5 @@
 import * as legacy from './firstCallScriptEngineLegacy';
-import type { ConversationState, TranscriptTurn } from '../types';
+import type { ConversationState, FirstCallMetric, TranscriptTurn } from '../types';
 
 export * from './firstCallScriptEngineLegacy';
 
@@ -177,7 +177,7 @@ function sanitizeTrustQuality(
     ...trust,
     status,
   };
-  const nextMetric = {
+  const nextMetric: FirstCallMetric = {
     ...metric,
     status,
     value: `${trustScore}% (содержательные реплики: ${substantive}, раскрыто тем: ${disclosedDomains}, открытые вопросы: ${openQuestions}, речь клиента: ${Math.round(clientRatio * 100)}%)`,
@@ -188,7 +188,7 @@ function sanitizeTrustQuality(
     needsClarification: status !== 'confirmed',
   };
 
-  const metrics = { ...progress.metrics, trust: nextMetric };
+  const metrics: Record<string, FirstCallMetric> = { ...progress.metrics, trust: nextMetric };
   const passedCoreCriteriaCount = legacy.CORE_12_CRITERIA_IDS.filter((id) => closed(metrics[id]?.status)).length;
   let quality = { ...progress.quality, passedCoreCriteriaCount };
 
@@ -196,12 +196,14 @@ function sanitizeTrustQuality(
     const nextOpen = legacy.FIRST_CALL_METRICS_LIST
       .filter((item) => item.isCoreCriteria && item.id !== 'trust' && !closed(metrics[item.id]?.status))
       .sort((a, b) => a.priorityOrder - b.priorityOrder)[0];
-    quality = {
-      ...quality,
-      immediatePriorityMetric: nextOpen?.id || null,
-      immediatePriorityHint: nextOpen ? `Уточнить: ${nextOpen.name}` : quality.immediatePriorityHint,
-      nextScriptStep: nextOpen ? nextOpen.name : quality.nextScriptStep,
-    };
+    if (nextOpen) {
+      quality = {
+        ...quality,
+        immediatePriorityMetric: nextOpen.id,
+        immediatePriorityHint: `Уточнить: ${nextOpen.name}`,
+        nextScriptStep: nextOpen.name,
+      };
+    }
   }
 
   return {
