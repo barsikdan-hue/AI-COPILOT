@@ -1,15 +1,20 @@
 import { SpeakerRole } from '../types';
 
+const normalizeTranscript = (value: string): string =>
+  String(value || '')
+    .toLocaleLowerCase('ru-RU')
+    .replace(/ё/g, 'е')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
+
 export function selectFinalTranscriptionText(finalTextRaw: string, interimTextRaw: string): string {
   const finalText = String(finalTextRaw || '').trim();
   const interimText = String(interimTextRaw || '').trim();
   if (!finalText) return interimText;
   if (!interimText) return finalText;
 
-  const normalize = (value: string) =>
-    value.toLowerCase().replace(/[^а-яёa-z0-9\s]/giu, ' ').replace(/\s+/g, ' ').trim();
-  const finalNorm = normalize(finalText);
-  const interimNorm = normalize(interimText);
+  const finalNorm = normalizeTranscript(finalText);
+  const interimNorm = normalizeTranscript(interimText);
   const finalWords = finalNorm.split(' ').filter(Boolean);
   const interimWords = interimNorm.split(' ').filter(Boolean);
 
@@ -24,6 +29,76 @@ export function selectFinalTranscriptionText(finalTextRaw: string, interimTextRa
   return tinyFinal && muchRicherInterim && interimContainsFinal ? interimText : finalText;
 }
 
+export const VAD_FINAL_GRACE_MS = 180;
+
+/**
+ * Gemini Live can emit ACTIVITY_END noticeably before its corrected final
+ * transcription. For realtime hints that delay is wasted because the local
+ * decision engine only needs a stable end-of-utterance hypothesis.
+ *
+ * We therefore promote the latest interim only after explicit server VAD end
+ * plus a short grace period. A real final arriving inside the grace window wins.
+ * A later equivalent final is ignored; a corrected final is emitted so the
+ * existing amendment pipeline can repair state without another cloud request.
+ */
+export class VadFinalCommitter {
+  private longestInterimText = '';
+  private optimisticFinalText = '';
+  private timer: ReturnType<typeof setTimeout> | null = null;
+
+  constructor(
+    private readonly commit: (text: string, timestamp: number) => void,
+    private readonly graceMs: number = VAD_FINAL_GRACE_MS
+  ) {}
+
+  public onInterim(textRaw: string): void {
+    const text = String(textRaw || '').trim();
+    if (!text) return;
+    if (text.length >= this.longestInterimText.length) this.longestInterimText = text;
+  }
+
+  public onActivity(active: boolean): void {
+    if (active) {
+      this.clearTimer();
+      return;
+    }
+
+    this.clearTimer();
+    if (!this.longestInterimText.trim()) return;
+
+    this.timer = setTimeout(() => {
+      this.timer = null;
+      const text = this.longestInterimText.trim();
+      if (!text) return;
+      this.optimisticFinalText = text;
+      this.commit(text, Date.now());
+    }, this.graceMs);
+  }
+
+  public onFinal(finalTextRaw: string, timestamp = Date.now()): void {
+    this.clearTimer();
+    const preservedText = selectFinalTranscriptionText(finalTextRaw, this.longestInterimText).trim();
+    const optimisticText = this.optimisticFinalText;
+    this.longestInterimText = '';
+    this.optimisticFinalText = '';
+
+    if (!preservedText) return;
+    if (optimisticText && normalizeTranscript(optimisticText) === normalizeTranscript(preservedText)) return;
+    this.commit(preservedText, timestamp);
+  }
+
+  public reset(): void {
+    this.clearTimer();
+    this.longestInterimText = '';
+    this.optimisticFinalText = '';
+  }
+
+  private clearTimer(): void {
+    if (!this.timer) return;
+    clearTimeout(this.timer);
+    this.timer = null;
+  }
+}
 
 export interface TranscriptionCallbacks {
   onStatusChange?: (role: SpeakerRole, status: 'idle' | 'connecting' | 'connected' | 'error' | 'closed') => void;
@@ -47,7 +122,7 @@ export class LiveTranscriptionChannel {
   private audioQueue: ArrayBuffer[] = [];
   private readonly maxQueuedChunks = 30;
   private readonly highWaterMarkBytes = 256 * 1024;
-  private longestInterimText = '';
+  private finalCommitter: VadFinalCommitter;
   public droppedAudioChunksCount: number = 0;
 
   public get reconnectCount(): number {
@@ -66,6 +141,9 @@ export class LiveTranscriptionChannel {
     this.role = role;
     this.sessionId = sessionId;
     this.callbacks = callbacks;
+    this.finalCommitter = new VadFinalCommitter((text, timestamp) => {
+      this.callbacks.onFinalTurn?.(this.role, text, timestamp);
+    });
   }
 
   public isConnected(): boolean {
@@ -105,17 +183,16 @@ export class LiveTranscriptionChannel {
           const data = JSON.parse(event.data);
           if (data.type === 'interim') {
             const interimText = String(data.text || '').trim();
-            if (interimText.length >= this.longestInterimText.length) this.longestInterimText = interimText;
+            this.finalCommitter.onInterim(interimText);
             this.callbacks.onInterimText?.(this.role, interimText);
           } else if (data.type === 'final') {
-            const finalText = String(data.text || '').trim();
-            const interimText = this.longestInterimText.trim();
-            const preservedText = selectFinalTranscriptionText(finalText, interimText);
-            this.longestInterimText = '';
-            this.callbacks.onFinalTurn?.(this.role, preservedText, data.timestamp || Date.now());
+            this.finalCommitter.onFinal(String(data.text || ''), data.timestamp || Date.now());
           } else if (data.type === 'voiceActivity') {
             const active = data.activity?.type === 'ACTIVITY_START';
+            // Record the local speech-end timestamp first. The optimistic final
+            // commit below is measured from this exact VAD edge.
             this.callbacks.onVoiceActivity?.(this.role, active);
+            this.finalCommitter.onActivity(active);
           } else if (data.type === 'status') {
             this.callbacks.onStatusChange?.(this.role, data.status);
           } else if (data.type === 'error') {
@@ -128,6 +205,7 @@ export class LiveTranscriptionChannel {
       };
 
       this.ws.onclose = (event) => {
+        this.finalCommitter.reset();
         if (!this.isIntentionalClose) {
           if (this.reconnectAttempts < this.maxReconnects) {
             this.reconnectAttempts++;
@@ -186,7 +264,7 @@ export class LiveTranscriptionChannel {
       this.audioFlushTimer = null;
     }
     this.audioQueue = [];
-    this.longestInterimText = '';
+    this.finalCommitter.reset();
     if (this.ws) {
       try {
         this.ws.close(1000, 'Normal closure');
