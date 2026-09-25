@@ -64,7 +64,7 @@ describe('Core Decision V2 live regressions', () => {
     let state = createInitialState();
     const push = (t: TranscriptTurn) => {
       turns.push(t);
-      state = advanceLocalConversation(state, t, turns);
+      state = advanceLocalConversation(state, t, turns).state;
     };
 
     push(turn('a4', 'agent', 'Сочи давно рассматриваете или только начали изучать рынок?', 1));
@@ -94,7 +94,9 @@ describe('Core Decision V2 live regressions', () => {
       turn('c7', 'client', 'Мне важны тишина, транспортная доступность и магазины рядом.', 2),
     ];
     let state = createInitialState();
-    for (const t of turns) state = advanceLocalConversation(state, t, turns.slice(0, turns.indexOf(t) + 1));
+    for (let i = 0; i < turns.length; i += 1) {
+      state = advanceLocalConversation(state, turns[i], turns.slice(0, i + 1)).state;
+    }
     const result = buildLocalAnalysisResponse({
       sessionId: 'core-v2-infra', revision: 2, newTurns: [turns[1]], recentTurns: turns, currentState: state,
     });
