@@ -17,9 +17,9 @@ function sourceForSuggestion(reply: Partial<SuggestedReply>): RecommendationSour
   return 'fallback';
 }
 
-function asRecommendationCandidate(reply: SuggestedReply): RecommendationCandidate {
+function asRecommendationCandidate(reply: SuggestedReply, identityOverride?: string): RecommendationCandidate {
   return {
-    id: reply.id,
+    id: identityOverride || reply.id || `candidate_${reply.basedOnRevision}_${reply.createdAt}`,
     source: sourceForSuggestion(reply),
     text: reply.text,
     shortReason: reply.shortReason || '',
@@ -101,11 +101,27 @@ export function shouldReplaceSuggestion(
   const currentIsFresh = now - current.createdAt <= currentTtl;
   if (!currentIsFresh) return true;
 
+  // A deterministic correction produced for the same client revision is not a
+  // competing next-action candidate. It is a replacement of the earlier local
+  // wording/meaning and must remain able to update the card immediately.
+  const currentSemanticKey = current.semanticKey || current.text.trim().toLocaleLowerCase('ru-RU');
+  const candidateSemanticKey = candidate.semanticKey || candidate.text.trim().toLocaleLowerCase('ru-RU');
+  const sameRevisionLocalCorrection =
+    candidate.basedOnRevision === current.basedOnRevision &&
+    ['local_engine', 'local_event'].includes(candidate.source || '') &&
+    ['local_engine', 'local_event'].includes(current.source || '') &&
+    candidate.createdAt > current.createdAt &&
+    candidateSemanticKey !== currentSemanticKey;
+  if (sameRevisionLocalCorrection) return true;
+
+  // Use stable synthetic identities here. Some legacy callers/tests create
+  // lightweight SuggestedReply objects without ids; comparing undefined ids
+  // made a losing candidate look like the arbitration winner.
   const arbitration = arbitrateRecommendationCandidates(
-    [asRecommendationCandidate(candidate)],
-    asRecommendationCandidate(current)
+    [asRecommendationCandidate(candidate, '__candidate__')],
+    asRecommendationCandidate(current, '__current__')
   );
-  return arbitration.winner?.id === candidate.id;
+  return arbitration.winner?.id === '__candidate__';
 }
 
 /** Branch constraints apply to both local and cloud candidates before display. */
