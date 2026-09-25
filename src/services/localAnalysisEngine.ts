@@ -64,7 +64,7 @@ function isMortgageUncertain(text: string): boolean {
 
 function isNoExperienceAnswer(text: string): boolean {
   const lower = normalize(text);
-  return /(?:не\s+могу\s+ответить|нечего\s+выделить|ничего\s+не\s+зацепило|ярк\p{L}*\s+пример\p{L}*\s+(?:пока\s+)?нет|не\s+могу\s+сказать[^.!?]{0,40}(?:понрав|подош|ближе))/iu.test(lower);
+  return /(?:не\s+могу\s+(?:ответить|ничего\s+выделить|выделить\s+(?:что-то|что\s+то|ничего)|сказать[^.!?]{0,40}(?:понрав|подош|ближе))|реально\s+не\s+могу\s+ничего\s+выделить|нечего\s+выделить|ничего\s+не\s+зацепило|ничего\s+конкретн\p{L}*\s+не\s+(?:смотрел\p{L}*|видел\p{L}*)|ярк\p{L}*\s+пример\p{L}*\s+(?:пока\s+)?нет)/iu.test(lower);
 }
 
 function sanitizeLiveState(result: any, turn: TranscriptTurn, turns: TranscriptTurn[]): any {
