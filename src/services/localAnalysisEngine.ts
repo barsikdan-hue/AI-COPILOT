@@ -1,5 +1,6 @@
 import * as legacy from './localAnalysisEngineLegacy';
 import type { AnalysisResponse, ConversationState, TranscriptTurn } from '../types';
+import { chooseDialoguePolicyTarget } from './dialoguePolicyEngine';
 
 export * from './localAnalysisEngineLegacy';
 
@@ -282,6 +283,23 @@ function chooseVariant(sessionId: string, key: string, variants: string[]): stri
   return variants[stableHash(`${sessionId}:${key}`) % variants.length];
 }
 
+function selectPolicyQualification(
+  input: any,
+  result: any,
+  turns: TranscriptTurn[],
+): { card: QualificationCard; text: string; score: number; branch: string; reason: string } | null {
+  const state: ConversationState = {
+    ...(input.currentState || {}),
+    scriptProgress: result.scriptProgress || input.currentState?.scriptProgress,
+  } as ConversationState;
+  const decision = chooseDialoguePolicyTarget(state, turns, state.scriptProgress);
+  if (!decision) return null;
+  const card = qualificationCards.find((item) => item.metric === decision.metric && item.key === decision.semanticKey);
+  if (!card) return null;
+  const text = chooseVariant(input.sessionId || 'session', card.key, card.variants);
+  return { card, text, score: decision.priority, branch: decision.branch, reason: decision.reason };
+}
+
 function selectContextualQualification(
   input: any,
   result: any,
@@ -347,19 +365,23 @@ function rewriteStableGenericCard(input: any, result: any): void {
   result.shortReason = `${result.shortReason || 'Контекстный вопрос.'} Формулировка выбрана из смыслового пула ${key}, а не из одной фиксированной карточки.`;
 }
 
-function applyContextualCard(result: any, selected: { card: QualificationCard; text: string; score: number }): void {
+function applyContextualCard(result: any, selected: { card: QualificationCard; text: string; score: number }, policy?: { branch: string; reason: string }): void {
   const metric = selected.card.metric;
   const metricInfo = result.scriptProgress?.metrics?.[metric];
   result.suggestedReply = selected.text;
-  result.shortReason = `${selected.card.reason} Контекстный score=${selected.score}; фиксированная очередь анкеты не используется.`;
-  result.candidateRuleId = `contextual_v2_${metric}`;
+  result.shortReason = policy
+    ? `${policy.reason} Dialogue branch=${policy.branch}; priority=${selected.score}.`
+    : `${selected.card.reason} Контекстный score=${selected.score}; фиксированная очередь анкеты не используется.`;
+  result.candidateRuleId = policy ? `dialogue_policy_${policy.branch}_${metric}` : `contextual_v2_${metric}`;
   result.selectedRuleId = result.candidateRuleId;
   result.closesMetric = metric;
   result.closesMetricLabel = metricInfo?.name || metric;
-  result.immediatePriority = `Контекстный приоритет: ${metricInfo?.name || metric}`;
+  result.immediatePriority = policy
+    ? `Активная ветка: ${policy.branch}; цель: ${metricInfo?.name || metric}`
+    : `Контекстный приоритет: ${metricInfo?.name || metric}`;
   result.actionType = 'CLARIFY';
   result.suggestionMode = 'WAIT';
-  result.priority = 57;
+  result.priority = policy ? Math.max(58, selected.score) : 57;
   result.expectedClientMeaning = null;
   result.eventType = null;
 }
@@ -373,8 +395,6 @@ export function buildLocalAnalysisResponse(
   const latestClient = [...turns].reverse().find((turn) => turn.speaker === 'client');
   const latestAgent = latestClient ? previousAgentBefore(latestClient, turns) : null;
 
-  // A neutral statement that the client compares market dynamics with deposits is
-  // research context, not an objection. Only explicit yield barriers stay in the objection engine.
   if (latestClient && isPassiveMarketComparison(latestClient.text) && result.closesMetric === 'objections') {
     result.suggestedReply = 'Когда сравниваете с депозитом, что для вас важнее в недвижимости: ликвидность, доходность или сохранение капитала?';
     result.shortReason = 'Сравнение с депозитом описывает способ оценки рынка, а не сопротивление покупке.';
@@ -389,8 +409,6 @@ export function buildLocalAnalysisResponse(
     result.eventType = null;
   }
 
-  // "Не могу выделить / яркого примера нет" answers the experience branch by
-  // saying there is no usable example. Do not ask the same semantic question again.
   if (
     latestClient && latestAgent && semanticKey(latestAgent.text) === 'ask_experience' &&
     isNoExperienceAnswer(latestClient.text) && semanticKey(result.suggestedReply || '') === 'ask_experience'
@@ -407,21 +425,30 @@ export function buildLocalAnalysisResponse(
         needsClarification: false,
       };
     }
-    const selected = selectContextualQualification(input, result, turns);
-    if (selected) applyContextualCard(result, selected);
   }
 
-  // High-priority control, objection and causal SPIN branches keep ownership.
-  // V2 only replaces questionnaire-like fallbacks and generic opening cards.
   const protectedReply = Boolean(
     result.eventType ||
+    result.candidateRuleId === 'contextual_market_comparison' ||
     ['OBJECTION_CLARIFICATION', 'RESPECT_STOP', 'ANSWER', 'SHOW_EVIDENCE', 'PROPOSE_NEXT_STEP'].includes(result.actionType) ||
     ['SPIN_IMPLICATION', 'SPIN_NEED_PAYOFF', 'HPB_PRESENTATION'].includes(result.suggestionMode)
   );
 
-  if (!protectedReply) rewriteStableGenericCard(input, result);
+  let policyApplied = false;
+  if (!protectedReply) {
+    const policySelection = selectPolicyQualification(input, result, turns);
+    if (policySelection) {
+      applyContextualCard(result, policySelection, {
+        branch: policySelection.branch,
+        reason: policySelection.reason,
+      });
+      policyApplied = true;
+    } else {
+      rewriteStableGenericCard(input, result);
+    }
+  }
 
-  const fallbackLike = !protectedReply && Boolean(
+  const fallbackLike = !protectedReply && !policyApplied && Boolean(
     String(result.candidateRuleId || '').startsWith('qualification_fallback_') ||
     result.candidateRuleId === 'semantic_ack_liveness' ||
     (result.priority <= 50 && result.closesMetric)
