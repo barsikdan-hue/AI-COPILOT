@@ -26,7 +26,7 @@ const semanticKey = (text: string): string => {
   const lower = normalize(text);
   if (/давно.*(?:рассматрива|присматрива)|только.*(?:изуча|рынок)|на каком.*этап.*рын/iu.test(lower)) return 'ask_search_experience';
   if (/что.*(?:причин|изменил).*сейчас|почему.*именно.*сейчас|тема недвижимости.*актуаль/iu.test(lower)) return 'ask_motive_now';
-  if (/что из.*(?:видел|смотрел|просмотр)|что.*не устроил|что.*точно не подош/iu.test(lower)) return 'ask_experience';
+  if (/что из.*(?:видел|смотрел|просмотр)|что.*не устроил|что.*точно не подош|из уже увиденного/iu.test(lower)) return 'ask_experience';
   if (/для чего|цель покупк|для жизни|отдых.*инвест|жить самому/iu.test(lower)) return 'ask_goal';
   if (/формат жилья|квартир.*апартамент|тип недвижим/iu.test(lower)) return 'ask_property_type';
   if (/район|локац|часть сочи|где.*сочи/iu.test(lower)) return 'ask_location';
@@ -38,6 +38,115 @@ const semanticKey = (text: string): string => {
   if (/кто.*участв.*выбор|решение.*сам|советоваться.*сем|с кем.*обсужд/iu.test(lower)) return 'ask_decision_makers';
   return 'other';
 };
+
+function previousAgentBefore(turn: TranscriptTurn, turns: TranscriptTurn[]): TranscriptTurn | null {
+  const before = turns.filter((candidate) => {
+    if (candidate.speaker !== 'agent' || candidate.id === turn.id) return false;
+    if (typeof candidate.revision === 'number' && typeof turn.revision === 'number') return candidate.revision < turn.revision;
+    return candidate.timestamp <= turn.timestamp;
+  });
+  return before.at(-1) || null;
+}
+
+function isPassiveMarketComparison(text: string): boolean {
+  const lower = normalize(text);
+  const mentionsComparison = /(?:сравнива\p{L}*|сопоставля\p{L}*)[^.!?]{0,80}(?:депозит|вклад|банк)|(?:депозит|вклад|банк)[^.!?]{0,80}(?:сравнива\p{L}*|сопоставля\p{L}*)/iu.test(lower);
+  const realBarrier = /(?:не\s+меньше|не\s+ниже|хуже|меньше|ниже|не\s+верю|сомнева\p{L}*|зачем[^.!?]{0,30}менять|смысла[^.!?]{0,30}нет)/iu.test(lower);
+  return mentionsComparison && !realBarrier;
+}
+
+function isMortgageUncertain(text: string): boolean {
+  const lower = normalize(text);
+  if (!/ипотек/iu.test(lower)) return false;
+  return /(?:не\s+(?:знаю|решил\p{L}*|определил\p{L}*)|сомнева\p{L}*|дума\p{L}*[^.!?]{0,45}(?:надо|нужно)\s+ли|(?:надо|нужно)\s+ли[^.!?]{0,40}ипотек|ипотек\p{L}*[^.!?]{0,45}или\s+не\s+(?:надо|нужно|брать|использовать))/iu.test(lower);
+}
+
+function isNoExperienceAnswer(text: string): boolean {
+  const lower = normalize(text);
+  return /(?:не\s+могу\s+ответить|нечего\s+выделить|ничего\s+не\s+зацепило|ярк\p{L}*\s+пример\p{L}*\s+(?:пока\s+)?нет|не\s+могу\s+сказать[^.!?]{0,40}(?:понрав|подош|ближе))/iu.test(lower);
+}
+
+function sanitizeLiveState(result: any, turn: TranscriptTurn, turns: TranscriptTurn[]): any {
+  if (turn.speaker !== 'client') return result;
+  let state: any = result.state;
+  if (!state) return result;
+
+  if (isPassiveMarketComparison(turn.text) && state.activeObjection?.category === 'objection_compare') {
+    const objectionEvidence = state.activeObjection?.evidenceTurnIds || [];
+    if (objectionEvidence.includes(turn.id)) {
+      state = {
+        ...state,
+        objections: state.objections?.value === 'objection_compare'
+          ? { value: null, items: [], evidenceTurnIds: [] }
+          : state.objections,
+        activeObjection: undefined,
+      };
+    }
+  }
+
+  if (isMortgageUncertain(turn.text)) {
+    state = {
+      ...state,
+      paymentMethod: {
+        value: null,
+        evidenceTurnIds: Array.from(new Set([...(state.paymentMethod?.evidenceTurnIds || []), turn.id])),
+      },
+      confirmedFacts: (state.confirmedFacts || []).map((fact: any) =>
+        fact.category === 'paymentMethod' && fact.turnId === turn.id
+          ? { ...fact, lifecycleStatus: 'superseded' as const }
+          : fact
+      ),
+    };
+  }
+
+  const previousAgent = previousAgentBefore(turn, turns);
+  if (previousAgent && semanticKey(previousAgent.text) === 'ask_experience' && isNoExperienceAnswer(turn.text)) {
+    const progress = state.scriptProgress;
+    if (progress?.metrics?.experience) {
+      state = {
+        ...state,
+        scriptProgress: {
+          ...progress,
+          metrics: {
+            ...progress.metrics,
+            experience: {
+              ...progress.metrics.experience,
+              status: 'not_applicable',
+              value: 'Клиент пока не выделяет удачные или неудачные просмотренные варианты',
+              evidenceQuote: turn.text,
+              evidenceTurnId: turn.id,
+              semanticReason: 'Клиент прямо сообщил, что не может выделить пример. Не повторяем тот же вопрос в этом звонке.',
+              confidence: 0.95,
+              needsClarification: false,
+            },
+          },
+        },
+      };
+    }
+  }
+
+  return { ...result, state };
+}
+
+export function advanceLocalConversation(
+  ...args: Parameters<typeof legacy.advanceLocalConversation>
+): ReturnType<typeof legacy.advanceLocalConversation> {
+  const [current, turn, turns] = args;
+  const raw: any = legacy.advanceLocalConversation(current, turn, turns);
+  const sanitized: any = sanitizeLiveState(raw, turn, turns);
+
+  if (turn.speaker === 'client' && isPassiveMarketComparison(turn.text)) {
+    sanitized.localObjection = null;
+    sanitized.clientIntent = {
+      type: 'fact',
+      category: 'market_comparison',
+      text: turn.text,
+      confidence: 0.96,
+    };
+  }
+
+  return sanitized as ReturnType<typeof legacy.advanceLocalConversation>;
+}
 
 const genericVariants: Record<string, string[]> = {
   ask_search_experience: [
@@ -238,12 +347,69 @@ function rewriteStableGenericCard(input: any, result: any): void {
   result.shortReason = `${result.shortReason || 'Контекстный вопрос.'} Формулировка выбрана из смыслового пула ${key}, а не из одной фиксированной карточки.`;
 }
 
+function applyContextualCard(result: any, selected: { card: QualificationCard; text: string; score: number }): void {
+  const metric = selected.card.metric;
+  const metricInfo = result.scriptProgress?.metrics?.[metric];
+  result.suggestedReply = selected.text;
+  result.shortReason = `${selected.card.reason} Контекстный score=${selected.score}; фиксированная очередь анкеты не используется.`;
+  result.candidateRuleId = `contextual_v2_${metric}`;
+  result.selectedRuleId = result.candidateRuleId;
+  result.closesMetric = metric;
+  result.closesMetricLabel = metricInfo?.name || metric;
+  result.immediatePriority = `Контекстный приоритет: ${metricInfo?.name || metric}`;
+  result.actionType = 'CLARIFY';
+  result.suggestionMode = 'WAIT';
+  result.priority = 57;
+  result.expectedClientMeaning = null;
+  result.eventType = null;
+}
+
 export function buildLocalAnalysisResponse(
   ...args: Parameters<typeof legacy.buildLocalAnalysisResponse>
 ): ReturnType<typeof legacy.buildLocalAnalysisResponse> {
   const input: any = args[0];
   const result: any = legacy.buildLocalAnalysisResponse(...args);
   const turns = uniqueTurns(input);
+  const latestClient = [...turns].reverse().find((turn) => turn.speaker === 'client');
+  const latestAgent = latestClient ? previousAgentBefore(latestClient, turns) : null;
+
+  // A neutral statement that the client compares market dynamics with deposits is
+  // research context, not an objection. Only explicit yield barriers stay in the objection engine.
+  if (latestClient && isPassiveMarketComparison(latestClient.text) && result.closesMetric === 'objections') {
+    result.suggestedReply = 'Когда сравниваете с депозитом, что для вас важнее в недвижимости: ликвидность, доходность или сохранение капитала?';
+    result.shortReason = 'Сравнение с депозитом описывает способ оценки рынка, а не сопротивление покупке.';
+    result.candidateRuleId = 'contextual_market_comparison';
+    result.selectedRuleId = result.candidateRuleId;
+    result.closesMetric = 'criteria';
+    result.closesMetricLabel = result.scriptProgress?.metrics?.criteria?.name || 'Важные критерии';
+    result.immediatePriority = 'Уточнить критерий сравнения';
+    result.actionType = 'CLARIFY';
+    result.suggestionMode = 'WAIT';
+    result.priority = 62;
+    result.eventType = null;
+  }
+
+  // "Не могу выделить / яркого примера нет" answers the experience branch by
+  // saying there is no usable example. Do not ask the same semantic question again.
+  if (
+    latestClient && latestAgent && semanticKey(latestAgent.text) === 'ask_experience' &&
+    isNoExperienceAnswer(latestClient.text) && semanticKey(result.suggestedReply || '') === 'ask_experience'
+  ) {
+    if (result.scriptProgress?.metrics?.experience) {
+      result.scriptProgress.metrics.experience = {
+        ...result.scriptProgress.metrics.experience,
+        status: 'not_applicable',
+        value: 'Клиент пока не выделяет удачные или неудачные просмотренные варианты',
+        evidenceQuote: latestClient.text,
+        evidenceTurnId: latestClient.id,
+        semanticReason: 'Клиент прямо сообщил, что не может выделить пример. Ветку не повторяем в этом звонке.',
+        confidence: 0.95,
+        needsClarification: false,
+      };
+    }
+    const selected = selectContextualQualification(input, result, turns);
+    if (selected) applyContextualCard(result, selected);
+  }
 
   // High-priority control, objection and causal SPIN branches keep ownership.
   // V2 only replaces questionnaire-like fallbacks and generic opening cards.
@@ -263,21 +429,7 @@ export function buildLocalAnalysisResponse(
 
   if (fallbackLike) {
     const selected = selectContextualQualification(input, result, turns);
-    if (selected) {
-      const metric = selected.card.metric;
-      const metricInfo = result.scriptProgress?.metrics?.[metric];
-      result.suggestedReply = selected.text;
-      result.shortReason = `${selected.card.reason} Контекстный score=${selected.score}; фиксированная очередь анкеты не используется.`;
-      result.candidateRuleId = `contextual_v2_${metric}`;
-      result.selectedRuleId = result.candidateRuleId;
-      result.closesMetric = metric;
-      result.closesMetricLabel = metricInfo?.name || metric;
-      result.immediatePriority = `Контекстный приоритет: ${metricInfo?.name || metric}`;
-      result.actionType = 'CLARIFY';
-      result.suggestionMode = 'WAIT';
-      result.priority = 57;
-      result.expectedClientMeaning = null;
-    }
+    if (selected) applyContextualCard(result, selected);
   }
 
   return result as AnalysisResponse;
