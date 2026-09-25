@@ -98,7 +98,10 @@ export function extractSemanticCriteria(text: string): SemanticCriterion[] {
     out,
     'quiet',
     'Тишина / спокойное окружение',
-    firstMatch(lower, /(?:тишин\p{L}*|тих\p{L}+\s+(?:мест|район|двор)|спокойн\p{L}+\s+(?:мест|район|окруж)|без\s+шум\p{L}*)/iu),
+    firstMatch(
+      lower,
+      /(?:(?:хоч\p{L}*|нужн\p{L}*|важн\p{L}*|ценю|предпочита\p{L}*)[^.!?]{0,24}тишин\p{L}*|тишин\p{L}*[^.!?]{0,24}(?:важн\p{L}*|нужн\p{L}*|хоч\p{L}*|предпочита\p{L}*)|тих\p{L}+\s+(?:мест|район|двор)|спокойн\p{L}+\s+(?:мест|район|окруж)|без\s+шум\p{L}*)/iu,
+    ),
   );
   addUniqueCriterion(
     out,
