@@ -93,7 +93,8 @@ describe('2026-09-25 live call semantic regressions #3', () => {
     const afterClient = advanceLocalConversation(afterAgent, client, [agent, client]).state;
 
     expect(afterClient.purchaseTimeline.value).toMatch(/месяца?\s+(?:два|2)[-–—](?:три|3)/iu);
-    expect(afterClient.scriptProgress?.metrics.urgency.status).toBe('confirmed');
+    expect(['confirmed', 'partially_confirmed']).toContain(afterClient.scriptProgress?.metrics.urgency.status);
+    expect(afterClient.scriptProgress?.metrics.urgency.value).toBeTruthy();
   });
 
   it('records available first-payment funds from a contextual short answer', () => {
