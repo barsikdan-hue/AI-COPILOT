@@ -41,7 +41,7 @@ function hasUsefulSochiExperienceContext(text: string): boolean {
   if (rejectsSochiMemoryBranch(lower)) return false;
   const place = /(?:сочи|адлер|сириус)/iu.test(lower);
   if (!place) return false;
-  return /(?:\bбыл(?:а|и)?\b|бывал\p{L}*|приезжал\p{L}*|приезжаю|жил(?:а|и)?\b|живу\b|отдыхал\p{L}*|останавливал\p{L}*|гулял\p{L}*|понрав\p{L}*|нравит\p{L}*|люблю\b|комфортн\p{L}*)/iu.test(lower);
+  return /(?:^|[^\p{L}\p{N}])(?:был(?:а|и)?|бывал\p{L}*|приезжал\p{L}*|приезжаю|жил(?:а|и)?|живу|отдыхал\p{L}*|останавливал\p{L}*|гулял\p{L}*|понрав\p{L}*|нравит\p{L}*|люблю|комфортн\p{L}*)(?=$|[^\p{L}\p{N}])/iu.test(lower);
 }
 
 export function getContextualDopamineQuestion(
