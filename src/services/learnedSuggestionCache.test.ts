@@ -50,8 +50,9 @@ beforeEach(() => clearLearnedSuggestionCacheForTests());
 
 describe('late Gemini teacher cache', () => {
   it('reuses a late Gemini card instantly for an analogous client meaning', () => {
+    const now = Date.now();
     const learnedFrom = payload('Мне важна тишина, но не хочу быть отрезанным от цивилизации, нужна нормальная логистика.');
-    expect(rememberLateGeminiSuggestion(learnedFrom, response(), 1000)).toBe(true);
+    expect(rememberLateGeminiSuggestion(learnedFrom, response(), now)).toBe(true);
 
     const future = payload('Хочу тихий район, но с нормальной логистикой и магазинами рядом.');
     const local = response({
@@ -60,7 +61,7 @@ describe('late Gemini teacher cache', () => {
       suggestedReply: 'По каким двум признакам вы сразу поймёте, что вариант подходит?',
       shortReason: 'Локально уточняем критерии.',
     });
-    const reused = applyLearnedSuggestion(future, local, 2000);
+    const reused = applyLearnedSuggestion(future, local, now + 1000);
 
     expect(reused.suggestedReply).toBe('Если выбирать между тишиной и доступностью, какой компромисс для вас допустим?');
     expect(reused.fallbackReason).toBe('learned_semantic_card');
@@ -68,10 +69,11 @@ describe('late Gemini teacher cache', () => {
   });
 
   it('does not reuse a learned card for an unrelated client meaning', () => {
+    const now = Date.now();
     expect(rememberLateGeminiSuggestion(
       payload('Мне важна тишина и нормальная логистика.'),
       response(),
-      1000,
+      now,
     )).toBe(true);
 
     const local = response({
@@ -79,28 +81,30 @@ describe('late Gemini teacher cache', () => {
       suggestionExpired: false,
       suggestedReply: 'По каким двум признакам вы сразу поймёте, что вариант подходит?',
     });
-    const unrelated = applyLearnedSuggestion(payload('Бюджет пока около двадцати миллионов.'), local, 2000);
+    const unrelated = applyLearnedSuggestion(payload('Бюджет пока около двадцати миллионов.'), local, now + 1000);
 
     expect(unrelated.suggestedReply).toBe(local.suggestedReply);
     expect(unrelated.fallbackReason).not.toBe('learned_semantic_card');
   });
 
   it('learns only late reusable semantic suggestions, not fresh or control answers', () => {
+    const now = Date.now();
     const p = payload('Сравниваю варианты, важны тишина и логистика.');
 
-    expect(rememberLateGeminiSuggestion(p, response({ suggestionExpired: false }), 1000)).toBe(false);
-    expect(rememberLateGeminiSuggestion(p, response({ actionType: 'ANSWER' }), 1000)).toBe(false);
-    expect(rememberLateGeminiSuggestion(p, response({ eventType: 'DIRECT_QUESTION', actionType: 'CLARIFY' }), 1000)).toBe(false);
+    expect(rememberLateGeminiSuggestion(p, response({ suggestionExpired: false }), now)).toBe(false);
+    expect(rememberLateGeminiSuggestion(p, response({ actionType: 'ANSWER' }), now)).toBe(false);
+    expect(rememberLateGeminiSuggestion(p, response({ eventType: 'DIRECT_QUESTION', actionType: 'CLARIFY' }), now)).toBe(false);
     expect(getLearnedSuggestionCardsForTests()).toHaveLength(0);
   });
 
   it('does not persist raw client transcript and strips a likely client-name vocative', () => {
+    const now = Date.now();
     const rawClient = 'Секретная фраза клиента про тихий район и нормальную логистику.';
     const p = payload(rawClient);
     expect(rememberLateGeminiSuggestion(
       p,
       response({ suggestedReply: 'Сергей, что важнее сохранить без компромисса: тишину или доступность?' }),
-      1000,
+      now,
     )).toBe(true);
 
     const stored = getLearnedSuggestionCardsForTests();
@@ -110,13 +114,14 @@ describe('late Gemini teacher cache', () => {
   });
 
   it('rejects reusable cards that contain transaction-specific numbers or money', () => {
+    const now = Date.now();
     expect(rememberLateGeminiSuggestion(
       payload('По бюджету пока сравниваю варианты.'),
       response({
         closesMetric: 'budget',
         suggestedReply: 'При бюджете 25 млн руб лучше смотреть два конкретных проекта.',
       }),
-      1000,
+      now,
     )).toBe(false);
     expect(getLearnedSuggestionCardsForTests()).toHaveLength(0);
   });
