@@ -9,8 +9,8 @@ import { AudioControls } from '../components/AudioControls';
 import { DiagnosticsDrawer } from '../components/DiagnosticsDrawer';
 import { AnalysisResponse, DiagnosticsData, SuggestedReply, TranscriptTurn } from '../types';
 
-const input = () => {
-  const turn: TranscriptTurn = { id: 'client-1', sessionId: 's', speaker: 'client', source: 'call_audio', text: 'Хочу квартиру в Сочи для отдыха.', isFinal: true, revision: 1, timestamp: Date.now() };
+const input = (text = 'Хочу квартиру в Сочи для отдыха.') => {
+  const turn: TranscriptTurn = { id: 'client-1', sessionId: 's', speaker: 'client', source: 'call_audio', text, isFinal: true, revision: 1, timestamp: Date.now() };
   const state = advanceLocalConversation(createInitialState(), turn, [turn]).state;
   return { sessionId: 's', revision: 1, newTurns: [turn], recentTurns: [turn], currentState: state };
 };
@@ -18,7 +18,9 @@ afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 describe('4.0.2 local-first and suggestion lifecycle', () => {
   it('T10 local actionable callback completes within 300ms while Gemini takes 9s', async () => {
-    vi.useFakeTimers(); const payload = input(); let displayed: AnalysisResponse | undefined;
+    vi.useFakeTimers();
+    const payload = input('Хочу квартиру в Сочи для отдыха, но сомневаюсь, что понимаю реальные риски выбора.');
+    let displayed: AnalysisResponse | undefined;
     const times: number[] = []; const start = performance.now();
     const fetchMock = vi.fn(() => new Promise(resolve => setTimeout(() => resolve({ ok: true, json: async () => ({ sessionId: 's', basedOnRevision: 1, shouldSuggest: false, modelUsed: 'gemini', latencyMs: 9000 }) }), 9000)));
     vi.stubGlobal('fetch', fetchMock); const provider = new AnalysisProvider(); provider.setSession('s'); provider.setRemoteEnhancementEnabled(true);
@@ -31,7 +33,9 @@ describe('4.0.2 local-first and suggestion lifecycle', () => {
     provider.cancelPending();
   });
   it('T11 a real provider hard timeout preserves the local card and reports diagnostics', async () => {
-    vi.useFakeTimers(); const payload = input(); let displayed: AnalysisResponse | undefined; const errors = vi.fn();
+    vi.useFakeTimers();
+    const payload = input('Хочу квартиру в Сочи для отдыха, но сомневаюсь, что понимаю реальные риски выбора.');
+    let displayed: AnalysisResponse | undefined; const errors = vi.fn();
     vi.stubGlobal('fetch', vi.fn((_url, options) => new Promise((_resolve, reject) => options.signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError'))))));
     const provider = new AnalysisProvider(); provider.setSession('s'); provider.setRemoteEnhancementEnabled(true);
     provider.scheduleLocalFirst(payload, result => { if (result.shouldSuggest) displayed = result; }, errors);
