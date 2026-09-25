@@ -13,6 +13,15 @@ function hasAny(text: string, terms: string[]) {
   return terms.some((term) => lower.includes(term));
 }
 
+function hasFamilyContext(text: string): boolean {
+  const lower = text.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
+  return /(?:^|[^\p{L}\p{N}])(?:семь(?:я|и|ю|ей)|супруг(?:а|и|ом|у)?|муж|жена|дети|детей|ребенок|ребенка|сын|дочь)(?=$|[^\p{L}\p{N}])/iu.test(lower);
+}
+
+function hasHobbyContext(text: string): boolean {
+  return /(?:хобби|увлека\p{L}*|свободн\p{L}*\s+врем|спорт|прогул\p{L}*|отдых\p{L}*)/iu.test(text || '');
+}
+
 export function getContextualDopamineQuestion(
   state: ConversationState,
   turns: TranscriptTurn[],
@@ -37,16 +46,19 @@ export function getContextualDopamineQuestion(
     candidates.push(...pools[category].map(text => ({ text, category: category as DopamineSuggestion['category'], reason })));
   };
 
-  // First adapt to the LAST meaningful client topic, then use broader session context.
+  // Personal rapport is allowed only when the CLIENT actually opened that topic.
+  // Substring stems like "дет" previously matched words such as "ведет" and
+  // fabricated a family context out of "смотрю, как рынок себя ведет".
   if (hasAny(latest, ['инвест', 'доход', 'арендный доход', 'сдавать', 'сдачи', 'капитал', 'окупаем'])) add('investor', 'Вопрос адаптирован под инвестиционный мотив клиента.');
-  if (hasAny(latest, ['семь', 'супруг', 'дет'])) add('family', 'Дофаминовый вопрос продолжает текущий семейный сценарий клиента.');
+  if (hasFamilyContext(latest)) add('family', 'Личный вопрос продолжает реально озвученный семейный контекст клиента.');
   if (hasAny(latest, ['работ', 'професс', 'бизнес', 'предприним'])) add('work', 'Личный вопрос естественно продолжает тему работы клиента.');
-  if (hasAny(latest, ['сочи', 'адлер', 'сириус', 'море', 'приезж', 'отдых'])) add('sochi', 'Личный вопрос продолжает только что затронутую тему Сочи и отдыха.');
+  if (hasAny(latest, ['сочи', 'адлер', 'сириус', 'море', 'приезж', 'отдых'])) add('sochi', 'Личный вопрос продолжает только что затронутую клиентом тему Сочи и отдыха.');
+  if (hasHobbyContext(latest)) add('hobbies', 'Личный вопрос продолжает уже раскрытую клиентом тему отдыха или увлечений.');
 
-  if (!candidates.length && (state.decisionMakers?.value || hasAny(allClient, ['семь', 'супруг', 'дет']))) add('family', 'Дофаминовый вопрос связан с семейным сценарием клиента.');
-  if (!candidates.length && hasAny(allClient, ['сочи', 'адлер', 'сириус', 'море', 'приезж'])) add('sochi', 'Личный вопрос по уже упомянутому опыту Сочи.');
+  if (!candidates.length && (state.decisionMakers?.value || hasFamilyContext(allClient))) add('family', 'Личный вопрос связан с уже подтверждённым семейным сценарием клиента.');
+  if (!candidates.length && hasAny(allClient, ['сочи', 'адлер', 'сириус', 'море', 'приезж'])) add('sochi', 'Личный вопрос по уже упомянутому клиентом опыту Сочи.');
   if (!candidates.length && (state.employment?.value || hasAny(allClient, ['работ', 'бизнес', 'предприним']))) add('work', 'Личный вопрос продолжает уже раскрытую тему работы.');
-  add('hobbies', 'Мягкий личный вопрос для доверия без отрыва от разговора.');
+  if (!candidates.length && hasHobbyContext(allClient)) add('hobbies', 'Личный вопрос продолжает ранее раскрытую клиентом тему отдыха или увлечений.');
 
   for (const candidate of candidates) {
     if (checkSemanticAntiRepeat(candidate.text, state, turns).accepted) return candidate;
