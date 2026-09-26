@@ -115,13 +115,18 @@ export function extractSemanticKey(replyOrText: Partial<SuggestedReply> | string
     return 'ask_family_mortgage';
   }
 
-  // 6. Decision Makers (LPR)
+  // 6. Decision Makers (LPR). Live speech often phrases the same topic as
+  // "финальное решение за вами?" or "будете сверять варианты с семьёй".
+  // These must share one semantic key or cooldown/anti-repeat cannot protect us.
   if (
     lower.includes('кто принимает решение') ||
     lower.includes('с кем советуетесь') ||
     lower.includes('совместно с кем') ||
     /кто\s+еще[^?]{0,25}участв/iu.test(lower) ||
-    lower.includes('что для супруга будет')
+    lower.includes('что для супруга будет') ||
+    /финальн\p{L}*\s+решен\p{L}*[^?]{0,35}(?:за\s+(?:вами|мной)|сам\p{L}*|семь\p{L}*|супруг\p{L}*)/iu.test(lower) ||
+    /сверя\p{L}*[^?]{0,35}вариант\p{L}*[^?]{0,30}(?:семь\p{L}*|супруг\p{L}*|жен\p{L}*|муж\p{L}*)/iu.test(lower) ||
+    /(?:решен\p{L}*|выбор)[^?]{0,35}(?:с\s+семь\p{L}*|с\s+супруг\p{L}*|вместе\s+с)/iu.test(lower)
   ) {
     return 'ask_decision_makers';
   }

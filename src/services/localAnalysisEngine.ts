@@ -37,7 +37,7 @@ const semanticKey = (text: string): string => {
   if (/ипотек.*рассроч|собственн.*средств|способ покупк|форма оплаты/iu.test(lower)) return 'ask_payment_method';
   if (/первоначальн.*взнос|перв.*платеж|средства.*доступ/iu.test(lower)) return 'ask_down_payment';
   if (/срок|как скоро|когда.*покуп/iu.test(lower)) return 'ask_timeline';
-  if (/кто.*участв.*выбор|решение.*сам|советоваться.*сем|с кем.*обсужд/iu.test(lower)) return 'ask_decision_makers';
+  if (/кто.*участв.*выбор|решение.*сам|советоваться.*сем|с кем.*обсужд|финальн.*решен.*(?:за вами|за мной)|сверя.*вариант.*сем/iu.test(lower)) return 'ask_decision_makers';
   return 'other';
 };
 
@@ -60,7 +60,32 @@ function isPassiveMarketComparison(text: string): boolean {
 function isMortgageUncertain(text: string): boolean {
   const lower = normalize(text);
   if (!/ипотек/iu.test(lower)) return false;
-  return /(?:не\s+(?:знаю|решил\p{L}*|определил\p{L}*)|сомнева\p{L}*|дума\p{L}*[^.!?]{0,45}(?:надо|нужно)\s+ли|(?:надо|нужно)\s+ли[^.!?]{0,40}ипотек|ипотек\p{L}*[^.!?]{0,45}или\s+не\s+(?:надо|нужно|брать|использовать))/iu.test(lower);
+  const explicitUncertainty = /(?:не\s+(?:знаю|решил\p{L}*|определил\p{L}*)|сомнева\p{L}*|дума\p{L}*[^.!?]{0,45}(?:надо|нужно)\s+ли|(?:надо|нужно)\s+ли[^.!?]{0,40}ипотек|ипотек\p{L}*[^.!?]{0,45}или\s+не\s+(?:надо|нужно|брать|использовать))/iu.test(lower);
+  const schemeNotChosen = /(?:схем\p{L}*|вариант\p{L}*)[^.!?]{0,45}(?:пока\s+)?не\s+(?:выбран\p{L}*|определен\p{L}*|определён\p{L}*)|(?:окончательн\p{L}*|пока)[^.!?]{0,35}(?:схем\p{L}*|вариант\p{L}*)[^.!?]{0,35}не\s+(?:выбран\p{L}*|определен\p{L}*|определён\p{L}*)/iu.test(lower);
+  const alternativeChoice = /(?:либо|или)[^.!?]{0,35}ипотек\p{L}*[^.!?]{0,45}(?:либо|или)[^.!?]{0,35}рассроч\p{L}*|ипотек\p{L}*[^.!?]{0,45}(?:либо|или)[^.!?]{0,35}рассроч\p{L}*/iu.test(lower);
+  return explicitUncertainty || schemeNotChosen || (alternativeChoice && /(?:возможн\p{L}*|рассматрива\p{L}*|пока|схем\p{L}*|вариант\p{L}*)/iu.test(lower));
+}
+
+function hasAvailableDownPaymentWithoutAmount(text: string): boolean {
+  const lower = normalize(text);
+  if (!/перв\p{L}*\s+взнос\p{L}*/iu.test(lower)) return false;
+  if (/\d+(?:[.,]\d+)?\s*(?:млн|миллион\p{L}*|тыс\p{L}*|%)/iu.test(lower)) return false;
+  return /(?:часть\s+средств|средств\p{L}*|деньг\p{L}*)[^.!?]{0,55}(?:уже\s+)?(?:есть|доступн\p{L}*|на\s+руках)[^.!?]{0,55}перв\p{L}*\s+взнос\p{L}*|перв\p{L}*\s+взнос\p{L}*[^.!?]{0,55}(?:средств\p{L}*|деньг\p{L}*)[^.!?]{0,35}(?:есть|доступн\p{L}*|на\s+руках)/iu.test(lower);
+}
+
+function isJointDecisionAnswer(text: string): boolean {
+  const lower = normalize(text);
+  const mentionsOtherDecisionMaker = /(?:супруг\p{L}*|жен\p{L}*|муж\p{L}*|семь\p{L}*|партнер\p{L}*|партнёр\p{L}*)/iu.test(lower);
+  if (!mentionsOtherDecisionMaker) return false;
+  return /(?:буд\p{L}*\s+обсужда\p{L}*|обсужда\p{L}*)[^.!?]{0,35}(?:вместе|с\s+(?:супруг\p{L}*|жен\p{L}*|муж\p{L}*|семь\p{L}*|партнер\p{L}*|партнёр\p{L}*))|решен\p{L}*[^.!?]{0,18}совместн\p{L}*|совместн\p{L}*[^.!?]{0,18}решен\p{L}*|не\s+только\s+за\s+мной/iu.test(lower);
+}
+
+function isDistancePreferenceNotObjection(text: string): boolean {
+  const lower = normalize(text);
+  if (/не\s+слишком\s+далеко/iu.test(lower)) return true;
+  const explicitBarrier = /(?:слишком\s+далеко|далеко\s+ехать|далеко\s+добират\p{L}*|далеко\s+от\s+моря|неудобн\p{L}*\s+локац\p{L}*)/iu.test(lower);
+  if (explicitBarrier) return false;
+  return /(?:пешком[^.!?]{0,55}(?:важн\p{L}*|хоч\p{L}*|удобн\p{L}*)|(?:важн\p{L}*|хоч\p{L}*)[^.!?]{0,55}пешком)/iu.test(lower);
 }
 
 function isNoExperienceAnswer(text: string): boolean {
@@ -185,12 +210,26 @@ function sanitizeLiveState(
     }
   }
 
-  if (isMortgageUncertain(turn.text)) {
+  const distancePreference = isDistancePreferenceNotObjection(turn.text);
+  if (distancePreference && state.activeObjection?.category === 'objection_location') {
+    const objectionEvidence = state.activeObjection?.evidenceTurnIds || [];
+    if (objectionEvidence.includes(turn.id)) {
+      state = {
+        ...state,
+        objections: current.objections,
+        activeObjection: current.activeObjection,
+      };
+    }
+  }
+
+  const mortgageUncertain = isMortgageUncertain(turn.text);
+  if (mortgageUncertain) {
     state = {
       ...state,
       paymentMethod: {
         value: null,
         evidenceTurnIds: Array.from(new Set([...(state.paymentMethod?.evidenceTurnIds || []), turn.id])),
+        needsClarification: true,
       },
       confirmedFacts: (state.confirmedFacts || []).map((fact: any) =>
         fact.category === 'paymentMethod' && fact.turnId === turn.id
@@ -198,6 +237,108 @@ function sanitizeLiveState(
           : fact
       ),
     };
+    if (state.scriptProgress?.metrics) {
+      state = {
+        ...state,
+        scriptProgress: {
+          ...state.scriptProgress,
+          metrics: {
+            ...state.scriptProgress.metrics,
+            paymentMethod: {
+              ...state.scriptProgress.metrics.paymentMethod,
+              status: 'needs_clarification',
+              value: 'Ипотека / рассрочка (схема не выбрана)',
+              evidenceQuote: turn.text,
+              evidenceTurnId: turn.id,
+              semanticReason: 'Клиент рассматривает ипотеку и рассрочку как альтернативы и не выбрал окончательную схему.',
+              confidence: 0.98,
+              needsClarification: true,
+            },
+            ppi: {
+              ...state.scriptProgress.metrics.ppi,
+              status: 'not_confirmed',
+              value: null,
+              semanticReason: 'Ипотека не подтверждена и не исключена.',
+              confidence: 0.8,
+            },
+          },
+          ppi: state.scriptProgress.ppi
+            ? { ...state.scriptProgress.ppi, status: 'not_confirmed' }
+            : state.scriptProgress.ppi,
+        },
+      };
+    }
+  }
+
+  const downPaymentAvailable = hasAvailableDownPaymentWithoutAmount(turn.text);
+  if (downPaymentAvailable) {
+    state = {
+      ...state,
+      downPayment: {
+        value: 'Средства на первый взнос доступны; точный размер не назван',
+        evidenceTurnIds: Array.from(new Set([...(state.downPayment?.evidenceTurnIds || []), turn.id])),
+        needsClarification: true,
+      },
+      confirmedFacts: (state.confirmedFacts || []).map((fact: any) =>
+        fact.category === 'downPayment' && fact.turnId === turn.id
+          ? { ...fact, lifecycleStatus: 'superseded' as const }
+          : fact
+      ),
+    };
+    if (state.scriptProgress?.metrics?.downPayment) {
+      state = {
+        ...state,
+        scriptProgress: {
+          ...state.scriptProgress,
+          metrics: {
+            ...state.scriptProgress.metrics,
+            downPayment: {
+              ...state.scriptProgress.metrics.downPayment,
+              status: 'partially_confirmed',
+              value: 'Средства на первый взнос доступны; точный размер не назван',
+              evidenceQuote: turn.text,
+              evidenceTurnId: turn.id,
+              semanticReason: 'Клиент подтвердил наличие средств, но не назвал сумму первоначального взноса.',
+              confidence: 0.96,
+              needsClarification: true,
+            },
+          },
+        },
+      };
+    }
+  }
+
+  const jointDecision = isJointDecisionAnswer(turn.text);
+  if (jointDecision) {
+    state = {
+      ...state,
+      decisionMakers: {
+        value: 'Совместно с супругом / семьёй',
+        evidenceTurnIds: Array.from(new Set([...(state.decisionMakers?.evidenceTurnIds || []), turn.id])),
+        needsClarification: false,
+      },
+    };
+    if (state.scriptProgress?.metrics?.decisionMaker) {
+      state = {
+        ...state,
+        scriptProgress: {
+          ...state.scriptProgress,
+          metrics: {
+            ...state.scriptProgress.metrics,
+            decisionMaker: {
+              ...state.scriptProgress.metrics.decisionMaker,
+              status: 'confirmed',
+              value: 'Совместно с супругом / семьёй',
+              evidenceQuote: turn.text,
+              evidenceTurnId: turn.id,
+              semanticReason: 'Клиент прямо сообщил, что финальное решение принимается совместно.',
+              confidence: 0.98,
+              needsClarification: false,
+            },
+          },
+        },
+      };
+    }
   }
 
   const previousAgent = previousAgentBefore(turn, turns);
@@ -226,7 +367,24 @@ function sanitizeLiveState(
     }
   }
 
-  return sanitizeFalseMaterialsResistance({ ...result, state }, current, turn, turns);
+  const sanitized = sanitizeFalseMaterialsResistance({ ...result, state }, current, turn, turns);
+
+  if (distancePreference) {
+    return {
+      ...sanitized,
+      localObjection: sanitized.localObjection?.category === 'objection_location' ? null : sanitized.localObjection,
+      clientIntent: sanitized.clientIntent?.category === 'objection_location' || sanitized.clientIntent?.type === 'objection'
+        ? {
+            type: 'preference',
+            category: 'location_preference',
+            text: turn.text,
+            confidence: 0.98,
+          }
+        : sanitized.clientIntent,
+    };
+  }
+
+  return sanitized;
 }
 
 export function advanceLocalConversation(
@@ -589,12 +747,6 @@ export function buildLocalAnalysisResponse(
       policySelection.card.key === existingKey
     );
 
-    // Policy owns which branch is active, not every sentence. Preserve a
-    // specialized legacy wording when it already targets the same micro-goal.
-    // The only deliberate exception is early research mode: after a search-
-    // orientation answer, "why now" must bridge before the future-risk probe.
-    // After a real past-experience question Dialogue Policy returns null, so
-    // the existing research_future_risk handoff remains protected.
     if (
       policySelection &&
       (qualificationLike || earlyTriggerBridge) &&
