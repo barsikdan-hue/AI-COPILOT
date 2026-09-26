@@ -21,7 +21,81 @@ const isWhyNowQuestion = (text: string): boolean => {
   return /(?:что.*(?:причин|изменил).*сейчас|почему.*именно.*сейчас|что\s+сейчас\s+подтолкнул|тема\s+недвижимости.*актуаль|почему\s+к\s+вопросу.*верну|какую\s+задачу[^?]{0,70}именно\s+на\s+этом\s+этапе)/iu.test(lower);
 };
 
+const isExplicitPain = (text: string): boolean => {
+  const lower = normalize(text);
+  return /(?:слишком\s+шумн|очень\s+шумн|дорога\s+под\s+окнами|меша\p{L}*|не\s+устраива\p{L}*|проблем\p{L}*|риск\p{L}*|боюсь|опаса\p{L}*|теря\p{L}*|страда\p{L}*|плохо\s+сп|не\s+могу\s+сп|сложно\s+отдых|неудобн\p{L}*|сер(?:ая|ые|ую|ых)\s+схем|обман\p{L}*|непонятн\p{L}*\s+статус|не\s+понима\p{L}*[^.!?]{0,50}(?:отлич|разниц|выб)|много\s+(?:вариант|объект|презентац)|кучу\s+(?:вариант|объект|презентац)|простаива\p{L}*|не\s+сда\p{L}*|сложно\s+продать)/iu.test(lower);
+};
+
+const isPreferenceOnly = (text: string): boolean => {
+  const lower = normalize(text);
+  if (isExplicitPain(lower)) return false;
+  return /(?:важн\p{L}*|важнее|хоч\p{L}*|нужн\p{L}*|предпочита\p{L}*|чтобы|спокойн\p{L}*|без\s+толпы|без\s+суеты|пешком\s+до\s+моря|тишин\p{L}*|нормальн\p{L}*\s+сред)/iu.test(lower);
+};
+
+const pairedDeepSpinAction = (action: AgentActionType): boolean =>
+  ['asked_problem_question', 'asked_implication_question', 'asked_need_payoff_question'].includes(action);
+
+function spinReadiness(currentSpinState: any, context: any): boolean {
+  const hasGoal = Boolean(context?.goal?.value || context?.primaryGoal?.value);
+  const hasCriteria = Boolean(context?.criteria?.value || context?.criteria?.items?.length);
+  const hasSituationBase = (currentSpinState?.situation?.length || 0) >= 2;
+  return hasGoal && hasCriteria && hasSituationBase;
+}
+
+function keepSituationOnly(currentSpinState: any, updatedSpin: any): any {
+  return {
+    ...currentSpinState,
+    situation: updatedSpin?.situation || currentSpinState?.situation || [],
+    lastClientEvidence: updatedSpin?.lastClientEvidence || currentSpinState?.lastClientEvidence || '',
+  };
+}
+
 export function classifyAgentAction(text: string): AgentActionType {
   if (isWhyNowQuestion(text)) return 'none';
   return legacy.classifyAgentAction(text);
+}
+
+/**
+ * SPIN remains available immediately for explicit client pain and for answers
+ * to actual Problem / Implication / Need-payoff questions. The guard targets
+ * one failure only: a normal preference being promoted into the FIRST Problem
+ * and immediately producing an Implication question.
+ *
+ * Example: "важнее тишина, нормальная среда, пешком до моря" is a criterion,
+ * not permission to ask "что больше всего страдает". We do not use a timer;
+ * the transition depends on accumulated state and semantic evidence.
+ */
+export function evaluateSpinAndHpb(
+  ...args: Parameters<typeof legacy.evaluateSpinAndHpb>
+): ReturnType<typeof legacy.evaluateSpinAndHpb> {
+  const result: any = legacy.evaluateSpinAndHpb(...args);
+  const clientTurn: any = args[0];
+  const currentSpinState: any = args[1];
+  const lastAgentAction = args[2] as AgentActionType;
+  const context: any = args[4];
+
+  const noActiveProblemChain =
+    (currentSpinState?.problem?.length || 0) === 0 &&
+    (currentSpinState?.implication?.length || 0) === 0;
+
+  const shouldDelayPreferenceImplication =
+    result?.suggestionMode === 'SPIN_IMPLICATION' &&
+    noActiveProblemChain &&
+    !pairedDeepSpinAction(lastAgentAction) &&
+    isPreferenceOnly(clientTurn?.text || '') &&
+    !spinReadiness(currentSpinState, context);
+
+  if (!shouldDelayPreferenceImplication) {
+    return result;
+  }
+
+  return {
+    ...result,
+    suggestionMode: 'WAIT',
+    suggestedText: 'Что из того, что уже смотрели или обсуждали, оказалось ближе к вашей задаче, а что сразу не подошло?',
+    shortReason: 'SPIN отложен: клиент пока обозначил критерий/предпочтение, а не подтверждённую проблему. Сначала накапливаем контекст и доверие, затем углубляем реальную боль.',
+    expectedClientMeaning: 'Клиент добавляет фактический контекст и прошлый опыт; SPIN подключается позже, если появляется реальная проблема.',
+    hpb: undefined,
+    updatedSpin: keepSituationOnly(currentSpinState, result.updatedSpin),
+  } as ReturnType<typeof legacy.evaluateSpinAndHpb>;
 }
