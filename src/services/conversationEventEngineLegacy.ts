@@ -203,6 +203,12 @@ function extractCorrection(text: string): string | null {
   if (direct?.[2]) return direct[2].trim().replace(/[.!?]+$/u, '');
   const explicitRevision = text.match(/(?:^|[.!?]\s*)нет\s*,?\s*вс[её]-?таки\s+(.{2,100})/iu);
   if (explicitRevision?.[1]) return explicitRevision[1].trim().replace(/[.!?]+$/u, '');
+  const paymentRevision = text.match(
+    /(?:способ\s+оплаты\s+меня\p{L}*\s*[:,-]?\s*(.{2,100})|ипотек\p{L}*[^.!?]{0,35}не\s+хоч\p{L}*\s*[,;:-]\s*(.{2,100}))/iu
+  );
+  if (paymentRevision?.[1] || paymentRevision?.[2]) {
+    return (paymentRevision[1] || paymentRevision[2]).trim().replace(/[.!?]+$/u, '');
+  }
   const clarification = text.match(/(?:вы\s+ошиблись|поправлю|точнее)\s*[:,-]?\s*(.{2,100})/iu);
   return clarification?.[1]?.trim().replace(/[.!?]+$/u, '') || null;
 }

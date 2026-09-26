@@ -315,7 +315,7 @@ export function extractDeterministicFacts(
   }
 
   // 4. Payment Method & Financing
-  const cashMatch = lower.match(/(?:наличн(?:ые|ыми|ых)|расчет\s*наличными|расчёт\s*наличными|100%\s*оплата|свои\s*средства|собственн(?:ые|ыми)\s*средств(?:а|ами))/iu);
+  const cashMatch = lower.match(/(?:наличн(?:ые|ыми|ых)|расчет\s*наличными|расчёт\s*наличными|100%\s*оплата|свои\s*средства|собственн(?:ые|ыми)\s*средств(?:а|ами)|(?:куп\p{L}*|покуп\p{L}*|оплат\p{L}*|бер\p{L}*)[^.!?]{0,24}за\s+свои(?:\s+средств\p{L}*)?)/iu);
   
   // Explicit current negative intent towards mortgage (e.g. "не хочу ипотеку", "не нужна ипотека", "без ипотеки")
   const explicitMortgageNegative = lower.match(

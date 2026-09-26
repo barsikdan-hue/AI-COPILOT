@@ -63,7 +63,8 @@ function isMortgageUncertain(text: string): boolean {
   const explicitUncertainty = /(?:не\s+(?:знаю|решил\p{L}*|определил\p{L}*)|сомнева\p{L}*|дума\p{L}*[^.!?]{0,45}(?:надо|нужно)\s+ли|(?:надо|нужно)\s+ли[^.!?]{0,40}ипотек|ипотек\p{L}*[^.!?]{0,45}или\s+не\s+(?:надо|нужно|брать|использовать))/iu.test(lower);
   const schemeNotChosen = /(?:схем\p{L}*|вариант\p{L}*)[^.!?]{0,45}(?:пока\s+)?не\s+(?:выбран\p{L}*|определен\p{L}*|определён\p{L}*)|(?:окончательн\p{L}*|пока)[^.!?]{0,35}(?:схем\p{L}*|вариант\p{L}*)[^.!?]{0,35}не\s+(?:выбран\p{L}*|определен\p{L}*|определён\p{L}*)/iu.test(lower);
   const alternativeChoice = /(?:либо|или)[^.!?]{0,35}ипотек\p{L}*[^.!?]{0,45}(?:либо|или)[^.!?]{0,35}рассроч\p{L}*|ипотек\p{L}*[^.!?]{0,45}(?:либо|или)[^.!?]{0,35}рассроч\p{L}*/iu.test(lower);
-  return explicitUncertainty || schemeNotChosen || (alternativeChoice && /(?:возможн\p{L}*|рассматрива\p{L}*|пока|схем\p{L}*|вариант\p{L}*)/iu.test(lower));
+  const partialOwnFunds = /(?:часть|дол\p{L}*)[^.!?]{0,35}(?:денег|средств)[^.!?]{0,55}(?:остальн\p{L}*|ипотек\p{L}*)|(?:остальн\p{L}*)[^.!?]{0,35}(?:возможн\p{L}*\s+)?ипотек\p{L}*/iu.test(lower);
+  return explicitUncertainty || schemeNotChosen || partialOwnFunds || (alternativeChoice && /(?:возможн\p{L}*|рассматрива\p{L}*|пока|схем\p{L}*|вариант\p{L}*)/iu.test(lower));
 }
 
 function hasAvailableDownPaymentWithoutAmount(text: string): boolean {

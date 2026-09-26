@@ -64,7 +64,7 @@ describe('FIX ITERATION 2 fact-state consistency', () => {
     expect(second.result.state.scriptProgress?.metrics.familyMortgage.value).toMatch(/детей нет|не примен/iu);
   });
 
-  it.fails('PAYMENT: records cash and a true correction for the unresolved shorthand wording', () => {
+  it('PAYMENT: records cash and a true correction for the shorthand wording', () => {
     const mortgage = clientTurn('payment-1', 'Рассматриваю ипотеку.', 1);
     const first = advance(createInitialState(), [], mortgage);
     const cash = clientTurn('payment-2', 'Ипотеку всё-таки не хочу, куплю за свои.', 2);
