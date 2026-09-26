@@ -57,9 +57,10 @@ describe('live session 1790411451382 regressions', () => {
     r.add('А как вы планируете оплачивать покупку? Есть ли условия, от которых это зависит?', 'agent');
     r.add('Часть средств у меня уже есть для первого взноса, но окончательно схема пока не выбрана. Либо часть в ипотеку, либо рассрочка возможна.');
 
-    expect(r.state.paymentMethod.value).toMatch(/ипотек.*рассроч|рассроч.*ипотек/iu);
+    expect(r.state.paymentMethod.value).toBeNull();
     expect(r.state.paymentMethod.needsClarification).toBe(true);
     expect(r.state.scriptProgress?.metrics.paymentMethod.status).toBe('needs_clarification');
+    expect(r.state.scriptProgress?.metrics.paymentMethod.value).toMatch(/ипотек.*рассроч|рассроч.*ипотек/iu);
     expect(r.state.scriptProgress?.metrics.ppi.status).not.toBe('not_applicable');
 
     expect(r.state.downPayment.value).toMatch(/средств.*доступ|средств.*есть|точн.*размер.*не назван/iu);
