@@ -41,3 +41,21 @@ export function classifyAgentAction(text: string): AgentActionType {
   if (isPropertyFormatQuestion(text)) return 'asked_qualification_question';
   return legacy.classifyAgentAction(text);
 }
+
+export function evaluateSpinAndHpb(
+  ...args: Parameters<typeof legacy.evaluateSpinAndHpb>
+): ReturnType<typeof legacy.evaluateSpinAndHpb> {
+  const [clientTurn, currentSpinState, lastAgentAction = 'none', lastAgentTurnText = '', context] = args;
+  const effectiveAgentAction: AgentActionType =
+    lastAgentAction === 'presented_object' && isPropertyFormatQuestion(lastAgentTurnText)
+      ? 'asked_qualification_question'
+      : lastAgentAction;
+
+  return legacy.evaluateSpinAndHpb(
+    clientTurn,
+    currentSpinState,
+    effectiveAgentAction,
+    lastAgentTurnText,
+    context,
+  );
+}
