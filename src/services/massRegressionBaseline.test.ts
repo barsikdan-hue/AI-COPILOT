@@ -36,24 +36,10 @@ describe('AI Copilot mass offline regression baseline', () => {
           },
           {
             "count": 64,
-            "invariant": "INV_CONTEXT_NEXT_ACTION",
-            "key": "077a65288c94",
-            "priority": "P1",
-            "probableLayer": "event routing",
-          },
-          {
-            "count": 64,
             "invariant": "INV_CONSISTENCY",
             "key": "463804bfb794",
             "priority": "P1",
             "probableLayer": "canonical fact extraction",
-          },
-          {
-            "count": 64,
-            "invariant": "INV_CONTEXT_NEXT_ACTION",
-            "key": "c21d7957eefc",
-            "priority": "P1",
-            "probableLayer": "event detection",
           },
           {
             "count": 32,
@@ -91,11 +77,11 @@ describe('AI Copilot mass offline regression baseline', () => {
             "probableLayer": "next-action/recommendation selection",
           },
         ],
-        "fail": 357,
-        "fingerprint": "4078c0ae41b842ff9f3db156a0e49361e674553e723a8e9a2820f408ffef9e3c",
+        "fail": 229,
+        "fingerprint": "b1442bbfd7b4198973cf6b1b78d80dffa534d649b61095c364fbe710d9c895d2",
         "generatedScenarios": 3200,
-        "pass": 11643,
-        "passRate": 97.02,
+        "pass": 11771,
+        "passRate": 98.09,
         "seed": 99537922,
       }
     `);

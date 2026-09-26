@@ -103,6 +103,31 @@ const configuredEvent = (
   ...overrides,
 });
 
+const configuredSoftResistanceEvent = (
+  config: EventRuleConfig,
+  turn: TranscriptTurn,
+  state: ConversationState,
+): ConversationEventDetection => {
+  const alreadyCounted = (state.events || []).some(
+    (event) => event.turnId === turn.id && event.type === 'SOFT_RESISTANCE'
+  );
+  const priorCount = Math.max(
+    0,
+    (state.dialogueControl?.softResistanceCount || 0) - (alreadyCounted ? 1 : 0)
+  );
+  const repeated = priorCount >= 1;
+  return configuredEvent(config, turn, {
+    priority: repeated ? 97 : config.priority,
+    suggestedReply: repeated
+      ? 'Понял. Отправлю конкретный материал без длинного опроса. Когда удобно коротко сверить выводы после просмотра?'
+      : config.suggestion,
+    shortReason: repeated
+      ? 'Повторное мягкое сопротивление стало границей: материал и один конкретный возврат без дальнейшего опроса.'
+      : config.shortReason,
+    suppressesAnalysis: repeated,
+  });
+};
+
 function extractCallbackTime(text: string): string | null {
   const match = text.match(
     /(?:(сегодня|завтра|послезавтра)\s*)?(?:ровно\s*)?(?:в\s*)?(\d{1,2})(?::|\s)(\d{2})/iu
@@ -519,6 +544,10 @@ export function detectConversationEvent(
 
   if (hasDirectQuestion(turn.text) && !isBarrierQuestion(turn.text)) {
     const intent = classifyDirectQuestionIntent(turn.text, previousAgent?.text || null);
+    const materialRequest = intent === 'materials_request' ? findConfig('SOFT_RESISTANCE') : null;
+    if (materialRequest) {
+      return configuredSoftResistanceEvent(materialRequest, turn, state);
+    }
     return {
       type: 'DIRECT_QUESTION',
       priority: 105,
@@ -588,24 +617,7 @@ export function detectConversationEvent(
 
   const softResistance = findConfig('SOFT_RESISTANCE');
   if (softResistance && includesConfiguredPhrase(text, softResistance)) {
-    const alreadyCounted = (state.events || []).some(
-      (event) => event.turnId === turn.id && event.type === 'SOFT_RESISTANCE'
-    );
-    const priorCount = Math.max(
-      0,
-      (state.dialogueControl?.softResistanceCount || 0) - (alreadyCounted ? 1 : 0)
-    );
-    const repeated = priorCount >= 1;
-    return configuredEvent(softResistance, turn, {
-      priority: repeated ? 97 : softResistance.priority,
-      suggestedReply: repeated
-        ? 'Понял. Отправлю конкретный материал без длинного опроса. Когда удобно коротко сверить выводы после просмотра?'
-        : softResistance.suggestion,
-      shortReason: repeated
-        ? 'Повторное мягкое сопротивление стало границей: материал и один конкретный возврат без дальнейшего опроса.'
-        : softResistance.shortReason,
-      suppressesAnalysis: repeated,
-    });
+    return configuredSoftResistanceEvent(softResistance, turn, state);
   }
 
   const finance = findConfig('FINANCE_VERIFY');
