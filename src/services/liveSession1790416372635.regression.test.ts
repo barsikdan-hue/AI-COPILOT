@@ -57,7 +57,7 @@ describe('live session 1790416372635 regressions', () => {
     expect(classifyAgentAction(text)).not.toBe('presented_object');
   });
 
-  it('does not issue CHECK_ALIGNMENT after the client merely answers the format question', () => {
+  it('does not generate the false presentation-alignment card after a format answer', () => {
     const turns = [
       turn('a1', 'agent', 'А по формату уже определились — квартира, апартаменты или готовы сравнить оба?', 1),
       turn('c1', 'client', 'Готов сравнить оба варианта, но с фокусом на не превращать это в работу.', 2),
@@ -71,7 +71,7 @@ describe('live session 1790416372635 regressions', () => {
       currentState: state,
     });
 
-    expect(analysis.suggestionMode).not.toBe('CHECK_ALIGNMENT');
     expect(analysis.suggestedReply || '').not.toMatch(/насколько\s+это\s+решает\s+именно\s+тот\s+вопрос/iu);
+    expect(analysis.shortReason || '').not.toMatch(/провел\s+презентац|провёл\s+презентац/iu);
   });
 });
