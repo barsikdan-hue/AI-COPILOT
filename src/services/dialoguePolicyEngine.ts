@@ -53,10 +53,11 @@ const latestAgentBeforeLatestClient = (turns: TranscriptTurn[]): string => {
 };
 
 const clientHasNoConcreteExperience = (text: string): boolean =>
-  /(?:ничего\s+конкретн\p{L}*\s+не\s+(?:смотрел\p{L}*|видел\p{L}*)|не\s+могу\s+(?:ничего\s+)?выделить|нечего\s+выделить|ничего\s+не\s+зацепило|ярк\p{L}*\s+пример\p{L}*\s+(?:пока\s+)?нет|только\s+(?:смотрю|изучаю|присматриваюсь)[^.!?]{0,70}ничего\s+конкретн)/iu.test(text);
+  /(?:ничего\s+конкретн\p{L}*\s+не\s+(?:смотрел\p{L}*|видел\p{L}*)|(?:пока\s+)?конкретн\p{L}*\s+не\s+(?:смотрел\p{L}*|видел\p{L}*)|не\s+могу\s+(?:ничего\s+)?выделить|нечего\s+выделить|ничего\s+не\s+зацепило|ярк\p{L}*\s+пример\p{L}*\s+(?:пока\s+)?нет|только\s+(?:смотрю|изучаю|присматриваюсь)[^.!?]{0,70}ничего\s+конкретн)/iu.test(text);
 
 const searchOrientationPattern = /(?:как\s+вообще[^?]{0,40}рынк|давно.*(?:рассматрива|присматрива|отслежива)|интерес\s+появил\p{L}*\s+недавно|только.*(?:начал|начала|начали|изуча).*рын|на\s+каком.*этап.*рын|уже\s+сравниваете\s+конкретн.*вариант)/iu;
 const motiveNowPattern = /(?:что.*(?:причин|изменил).*сейчас|почему.*именно.*сейчас|что\s+сейчас\s+подтолкнул|тема\s+недвижимости.*актуаль|почему\s+к\s+вопросу.*верну|какую\s+задачу[^?]{0,70}именно\s+на\s+этом\s+этапе)/iu;
+const goalQuestionPattern = /(?:для\s+чего|цель\s+покупк|для\s+жизни|отдых.*инвест|постоянн.*жизн|какую\s+задачу\s+(?:должна|должен)\s+решить\s+покупк|что\s+должно\s+измениться.*покупк)/iu;
 
 const latestLooksLikePassiveSearch = (text: string): boolean =>
   /(?:только\s+(?:начал\p{L}*|смотрю|изучаю)|присматрива\p{L}*|пока\s+(?:смотрю|изучаю|интересуюсь)|ничего\s+конкретн|в\s+общих\s+черт|давно\s+(?:смотрю|присматриваюсь)|просто\s+(?:смотрю|изучаю))/iu.test(text);
@@ -139,22 +140,31 @@ export function chooseDialoguePolicyTarget(
   const paymentKnown = closed(progress, 'paymentMethod') || Boolean(state.paymentMethod?.value && !state.paymentMethod.needsClarification);
   const urgencyKnown = closed(progress, 'urgency') || Boolean(state.purchaseTimeline?.value || state.urgency?.value);
   const decisionMakerKnown = closed(progress, 'decisionMaker') || Boolean(state.decisionMakers?.value);
-  const searchExperienceKnown = Boolean(state.searchExperience?.value);
   const researchMode = Boolean(
     state.dialogueControl?.researchMode ||
     state.spin?.researchMode ||
     state.spinState?.researchMode
   );
+  const recentPassiveSearchKnown = turns.some(
+    (turn) => turn.speaker === 'client' && latestLooksLikePassiveSearch(normalize(turn.text))
+  );
+  const searchExperienceKnown = Boolean(state.searchExperience?.value) || recentPassiveSearchKnown;
   const pastExperienceClosedBySpin = Boolean(
     state.spin?.pastExperienceQuestionClosed ||
     state.spinState?.pastExperienceQuestionClosed
   );
+  const noConcreteExperienceKnown = turns.some(
+    (turn) => turn.speaker === 'client' && clientHasNoConcreteExperience(normalize(turn.text))
+  );
   const experienceClosed =
     closed(progress, 'experience') ||
     progress.metrics.experience?.status === 'declined_to_disclose' ||
-    pastExperienceClosedBySpin;
+    pastExperienceClosedBySpin ||
+    noConcreteExperienceKnown;
   const financingUncertain =
     /(?:не\s+(?:знаю|решил|решила|определил|определила)|дума\p{L}*|сомнева\p{L}*)[^.!?]{0,70}(?:ипотек|свои|собственн.*средств|рассроч)|ипотек\p{L}*[^.!?]{0,55}или[^.!?]{0,35}(?:свои|собственн.*средств)|(?:свои|собственн.*средств)[^.!?]{0,55}или[^.!?]{0,35}ипотек/iu.test(latest);
+  const affordabilityIntent =
+    /(?:(?:что|сколько)[^.!?]{0,35}(?:могу|можем)[^.!?]{0,20}(?:себе\s+)?позволить|на\s+что[^.!?]{0,20}(?:хватит|хватает)|(?:какой\s+)?бюджет[^.!?]{0,25}(?:доступен|реален|потяну))/iu.test(latest);
 
   const latestAnswersPastExperience =
     /(?:что\s+из.*(?:видел|смотрел)|что.*не\s+устроил|что.*понрав|что.*оттолкнул|уже\s+успели\s+посмотреть|из\s+уже\s+увиденного)/iu.test(latestAgent) &&
@@ -169,8 +179,16 @@ export function chooseDialoguePolicyTarget(
   if (!criteriaKnown && /тишин|шум|логист|дорог|далеко|море|вид|магазин|инфраструкт|ликвид|перепрод|важн|критери|компромисс|точно\s+не|не\s+хочу|исключа\p{L}*/iu.test(latest)) {
     decisions.push(candidate('criteria', 'criteria', 'ask_criteria', 'Клиент уже описывает критерии, анти-критерии или компромиссы: развиваем именно эту ветку.', 96));
   }
-  if (!budgetKnown && /бюджет|цен|стоимост|миллион|дорог/iu.test(latest)) {
-    decisions.push(candidate('finance', 'budget', 'ask_budget', 'Клиент перевёл разговор в деньги: сначала фиксируем рабочий диапазон.', 94));
+  if (!budgetKnown && (/бюджет|цен|стоимост|миллион|дорог/iu.test(latest) || affordabilityIntent)) {
+    decisions.push(candidate(
+      'finance',
+      'budget',
+      'ask_budget',
+      affordabilityIntent
+        ? 'Клиент хочет понять доступный ему диапазон: фиксируем рабочий бюджет вместо встречного общего уточнения.'
+        : 'Клиент перевёл разговор в деньги: сначала фиксируем рабочий диапазон.',
+      affordabilityIntent ? 95 : 94,
+    ));
   }
   if (financingUncertain) {
     decisions.push(candidate('finance', 'paymentMethod', 'ask_payment_method', 'Клиент сам обозначил неопределённость по способу покупки: остаёмся в финансовой ветке.', 98));
@@ -226,7 +244,7 @@ export function chooseDialoguePolicyTarget(
   if (
     !goalKnown &&
     !goalHintDismissed &&
-    !agentAsked(turns, /для\s+чего|цель\s+покупк|для\s+жизни|отдых.*инвест|постоянн.*жизн|какую\s+задачу.*покупк|что\s+должно\s+измениться.*покупк/iu)
+    !agentAsked(turns, goalQuestionPattern)
   ) {
     decisions.push(candidate('goal', 'goal', 'ask_goal', 'Сначала выясняем реальную задачу/желаемый результат покупки, иначе квалификация превращается в анкету.', 88));
   }
