@@ -147,11 +147,11 @@ function sanitizeExplicitSeasonalGoal(
   }
   if (!evidence) return progress;
 
-  const metrics = {
+  const metrics: Record<string, FirstCallMetric> = {
     ...progress.metrics,
     goal: {
       ...goalMetric,
-      status: 'confirmed' as const,
+      status: 'confirmed',
       value: 'Отдых и сезонное проживание',
       evidenceQuote: evidence.text,
       evidenceTurnId: evidence.id,
@@ -161,13 +161,16 @@ function sanitizeExplicitSeasonalGoal(
     },
   };
   const passedCoreCriteriaCount = legacy.CORE_12_CRITERIA_IDS.filter((id) => closed(metrics[id]?.status)).length;
-  const quality = progress.quality.immediatePriorityMetric === 'goal'
+  const nextOpen = legacy.FIRST_CALL_METRICS_LIST
+    .filter((item) => item.isCoreCriteria && item.id !== 'goal' && !closed(metrics[item.id]?.status))
+    .sort((a, b) => a.priorityOrder - b.priorityOrder)[0];
+  const quality = progress.quality.immediatePriorityMetric === 'goal' && nextOpen
     ? {
         ...progress.quality,
         passedCoreCriteriaCount,
-        immediatePriorityMetric: null,
-        immediatePriorityHint: 'Цель покупки уже подтверждена по смыслу клиента; выбрать следующий незакрытый шаг.',
-        nextScriptStep: 'Продолжить квалификацию без повтора Goal',
+        immediatePriorityMetric: nextOpen.id,
+        immediatePriorityHint: `Уточнить: ${nextOpen.name}`,
+        nextScriptStep: nextOpen.name,
       }
     : { ...progress.quality, passedCoreCriteriaCount };
 
