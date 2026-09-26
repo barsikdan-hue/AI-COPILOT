@@ -82,7 +82,10 @@ function sanitizePaymentMethodUncertainty(
     const text = norm(turn.text);
     if (!/ипотек/iu.test(text)) continue;
 
-    const uncertain = /(?:не\s+(?:знаю|решил\p{L}*|определил\p{L}*)|сомнева\p{L}*|дума\p{L}*[^.!?]{0,40}(?:надо|нужно)\s+ли|(?:надо|нужно)\s+ли[^.!?]{0,35}ипотек|ипотек\p{L}*[^.!?]{0,45}или\s+не\s+(?:надо|нужно|брать|использовать))/iu.test(text);
+    const explicitUncertainty = /(?:не\s+(?:знаю|решил\p{L}*|определил\p{L}*)|сомнева\p{L}*|дума\p{L}*[^.!?]{0,40}(?:надо|нужно)\s+ли|(?:надо|нужно)\s+ли[^.!?]{0,35}ипотек|ипотек\p{L}*[^.!?]{0,45}или\s+не\s+(?:надо|нужно|брать|использовать))/iu.test(text);
+    const schemeNotChosen = /(?:схем\p{L}*|вариант\p{L}*)[^.!?]{0,45}(?:пока\s+)?не\s+(?:выбран\p{L}*|определен\p{L}*|определён\p{L}*)|(?:окончательн\p{L}*|пока)[^.!?]{0,35}(?:схем\p{L}*|вариант\p{L}*)[^.!?]{0,35}не\s+(?:выбран\p{L}*|определен\p{L}*|определён\p{L}*)/iu.test(text);
+    const alternativeChoice = /(?:либо|или)[^.!?]{0,35}ипотек\p{L}*[^.!?]{0,45}(?:либо|или)[^.!?]{0,35}рассроч\p{L}*|ипотек\p{L}*[^.!?]{0,45}(?:либо|или)[^.!?]{0,35}рассроч\p{L}*/iu.test(text);
+    const uncertain = explicitUncertainty || schemeNotChosen || (alternativeChoice && /(?:возможн\p{L}*|рассматрива\p{L}*|пока|схем\p{L}*|вариант\p{L}*)/iu.test(text));
     const reject = /(?:не\s+(?:хочу|рассматрива\p{L}*|нужн\p{L}*|буду|собира\p{L}*)[^.!?]{0,30}ипотек|без\s+ипотек)/iu.test(text);
     const confirm = /(?:хочу|буду|планиру\p{L}*|решил\p{L}*)[^.!?]{0,30}(?:брать\s+)?ипотек|(?:беру|берем|берём)\s+ипотек/iu.test(text);
 
@@ -104,10 +107,10 @@ function sanitizePaymentMethodUncertainty(
       paymentMethod: paymentMethod ? {
         ...paymentMethod,
         status: 'needs_clarification',
-        value: 'Ипотека рассматривается, решение не принято',
+        value: 'Ипотека / рассрочка (схема не выбрана)',
         evidenceQuote: evidence.text,
         evidenceTurnId: evidence.id,
-        semanticReason: 'Клиент обсуждает ипотеку как один из вариантов и прямо говорит, что решение ещё не принято.',
+        semanticReason: 'Клиент рассматривает ипотеку и рассрочку как альтернативы и прямо не выбрал окончательную схему.',
         confidence: 0.98,
         needsClarification: true,
       } : paymentMethod,
