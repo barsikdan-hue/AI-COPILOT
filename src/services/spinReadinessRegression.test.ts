@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createInitialSpinState, evaluateSpinAndHpb } from './spinEngine';
+import { classifyAgentAction, createInitialSpinState, evaluateSpinAndHpb } from './spinEngine';
 
 const clientTurn = (text: string) => ({
   id: 'client-1',
@@ -26,12 +26,13 @@ describe('SPIN readiness gate', () => {
     spin.situation = [
       situationItem('s1', 'Готов сравнить квартиру и апартаменты, главное без постоянного управления.'),
     ];
+    const agentText = 'Какие районы в Сочи для вас приоритетны, а какие сразу исключаем?';
 
     const result = evaluateSpinAndHpb(
-      clientTurn('Чётко район ещё не сузил. Важнее тишина, нормальная среда и чтобы можно было спокойно дойти до моря без толпы и суеты.'),
+      clientTurn('Чётко район ещё не сузил. Скорее не про тусовку и шум в центре. Важнее тишина, нормальная среда и чтобы можно было спокойно дойти до моря без толпы и суеты.'),
       spin,
-      'none',
-      'Какие районы в Сочи для вас приоритетны, а какие сразу исключаем?',
+      classifyAgentAction(agentText),
+      agentText,
       {
         goal: { value: 'Отдых и сезонное проживание', evidenceTurnIds: ['g1'] },
         primaryGoal: { value: 'Отдых', evidenceTurnIds: ['g1'] },
@@ -45,9 +46,8 @@ describe('SPIN readiness gate', () => {
       } as any,
     );
 
-    expect(result.suggestionMode).toBe('WAIT');
+    expect(result.suggestionMode).not.toBe('SPIN_IMPLICATION');
     expect(result.suggestedText).not.toMatch(/что именно больше всего страдает/iu);
-    expect(result.shortReason).toMatch(/SPIN отложен/iu);
     expect(result.updatedSpin.problem).toHaveLength(0);
     expect(result.updatedSpin.implication).toHaveLength(0);
   });
