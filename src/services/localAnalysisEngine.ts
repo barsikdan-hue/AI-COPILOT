@@ -82,9 +82,10 @@ function isJointDecisionAnswer(text: string): boolean {
 
 function isDistancePreferenceNotObjection(text: string): boolean {
   const lower = normalize(text);
+  if (/не\s+слишком\s+далеко/iu.test(lower)) return true;
   const explicitBarrier = /(?:слишком\s+далеко|далеко\s+ехать|далеко\s+добират\p{L}*|далеко\s+от\s+моря|неудобн\p{L}*\s+локац\p{L}*)/iu.test(lower);
   if (explicitBarrier) return false;
-  return /(?:не\s+слишком\s+далеко|пешком[^.!?]{0,55}(?:важн\p{L}*|хоч\p{L}*|удобн\p{L}*|не\s+слишком\s+далеко)|(?:важн\p{L}*|хоч\p{L}*)[^.!?]{0,55}пешком)/iu.test(lower);
+  return /(?:пешком[^.!?]{0,55}(?:важн\p{L}*|хоч\p{L}*|удобн\p{L}*)|(?:важн\p{L}*|хоч\p{L}*)[^.!?]{0,55}пешком)/iu.test(lower);
 }
 
 function isNoExperienceAnswer(text: string): boolean {
@@ -221,29 +222,56 @@ function sanitizeLiveState(
     }
   }
 
-  if (isMortgageUncertain(turn.text)) {
+  const mortgageUncertain = isMortgageUncertain(turn.text);
+  if (mortgageUncertain) {
     state = {
       ...state,
       paymentMethod: {
-        value: 'Ипотека / рассрочка (схема не выбрана)',
+        value: null,
         evidenceTurnIds: Array.from(new Set([...(state.paymentMethod?.evidenceTurnIds || []), turn.id])),
         needsClarification: true,
       },
       confirmedFacts: (state.confirmedFacts || []).map((fact: any) =>
         fact.category === 'paymentMethod' && fact.turnId === turn.id
-          ? {
-              ...fact,
-              value: 'Ипотека / рассрочка (схема не выбрана)',
-              needsClarification: true,
-              status: 'needs_clarification',
-              lifecycleStatus: 'needs_verification' as const,
-            }
+          ? { ...fact, lifecycleStatus: 'superseded' as const }
           : fact
       ),
     };
+    if (state.scriptProgress?.metrics) {
+      state = {
+        ...state,
+        scriptProgress: {
+          ...state.scriptProgress,
+          metrics: {
+            ...state.scriptProgress.metrics,
+            paymentMethod: {
+              ...state.scriptProgress.metrics.paymentMethod,
+              status: 'needs_clarification',
+              value: 'Ипотека / рассрочка (схема не выбрана)',
+              evidenceQuote: turn.text,
+              evidenceTurnId: turn.id,
+              semanticReason: 'Клиент рассматривает ипотеку и рассрочку как альтернативы и не выбрал окончательную схему.',
+              confidence: 0.98,
+              needsClarification: true,
+            },
+            ppi: {
+              ...state.scriptProgress.metrics.ppi,
+              status: 'not_confirmed',
+              value: null,
+              semanticReason: 'Ипотека не подтверждена и не исключена.',
+              confidence: 0.8,
+            },
+          },
+          ppi: state.scriptProgress.ppi
+            ? { ...state.scriptProgress.ppi, status: 'not_confirmed' }
+            : state.scriptProgress.ppi,
+        },
+      };
+    }
   }
 
-  if (hasAvailableDownPaymentWithoutAmount(turn.text)) {
+  const downPaymentAvailable = hasAvailableDownPaymentWithoutAmount(turn.text);
+  if (downPaymentAvailable) {
     state = {
       ...state,
       downPayment: {
@@ -253,19 +281,35 @@ function sanitizeLiveState(
       },
       confirmedFacts: (state.confirmedFacts || []).map((fact: any) =>
         fact.category === 'downPayment' && fact.turnId === turn.id
-          ? {
-              ...fact,
-              value: 'Средства на первый взнос доступны; точный размер не назван',
-              needsClarification: true,
-              status: 'needs_clarification',
-              lifecycleStatus: 'needs_verification' as const,
-            }
+          ? { ...fact, lifecycleStatus: 'superseded' as const }
           : fact
       ),
     };
+    if (state.scriptProgress?.metrics?.downPayment) {
+      state = {
+        ...state,
+        scriptProgress: {
+          ...state.scriptProgress,
+          metrics: {
+            ...state.scriptProgress.metrics,
+            downPayment: {
+              ...state.scriptProgress.metrics.downPayment,
+              status: 'partially_confirmed',
+              value: 'Средства на первый взнос доступны; точный размер не назван',
+              evidenceQuote: turn.text,
+              evidenceTurnId: turn.id,
+              semanticReason: 'Клиент подтвердил наличие средств, но не назвал сумму первоначального взноса.',
+              confidence: 0.96,
+              needsClarification: true,
+            },
+          },
+        },
+      };
+    }
   }
 
-  if (isJointDecisionAnswer(turn.text)) {
+  const jointDecision = isJointDecisionAnswer(turn.text);
+  if (jointDecision) {
     state = {
       ...state,
       decisionMakers: {
@@ -274,6 +318,27 @@ function sanitizeLiveState(
         needsClarification: false,
       },
     };
+    if (state.scriptProgress?.metrics?.decisionMaker) {
+      state = {
+        ...state,
+        scriptProgress: {
+          ...state.scriptProgress,
+          metrics: {
+            ...state.scriptProgress.metrics,
+            decisionMaker: {
+              ...state.scriptProgress.metrics.decisionMaker,
+              status: 'confirmed',
+              value: 'Совместно с супругом / семьёй',
+              evidenceQuote: turn.text,
+              evidenceTurnId: turn.id,
+              semanticReason: 'Клиент прямо сообщил, что финальное решение принимается совместно.',
+              confidence: 0.98,
+              needsClarification: false,
+            },
+          },
+        },
+      };
+    }
   }
 
   const previousAgent = previousAgentBefore(turn, turns);
@@ -302,21 +367,13 @@ function sanitizeLiveState(
     }
   }
 
-  let sanitized = sanitizeFalseMaterialsResistance({ ...result, state }, current, turn, turns);
-  state = sanitized.state;
-  const progress = evaluateFirstCallScript(turns, state);
-  state = {
-    ...state,
-    scriptProgress: progress,
-    trustEvaluation: progress.trust,
-    qualityResult: progress.quality,
-  };
+  const sanitized = sanitizeFalseMaterialsResistance({ ...result, state }, current, turn, turns);
 
   if (distancePreference) {
-    sanitized = {
+    return {
       ...sanitized,
       localObjection: sanitized.localObjection?.category === 'objection_location' ? null : sanitized.localObjection,
-      clientIntent: sanitized.clientIntent?.category === 'objection_location'
+      clientIntent: sanitized.clientIntent?.category === 'objection_location' || sanitized.clientIntent?.type === 'objection'
         ? {
             type: 'preference',
             category: 'location_preference',
@@ -327,7 +384,7 @@ function sanitizeLiveState(
     };
   }
 
-  return { ...sanitized, state };
+  return sanitized;
 }
 
 export function advanceLocalConversation(
@@ -690,12 +747,6 @@ export function buildLocalAnalysisResponse(
       policySelection.card.key === existingKey
     );
 
-    // Policy owns which branch is active, not every sentence. Preserve a
-    // specialized legacy wording when it already targets the same micro-goal.
-    // The only deliberate exception is early research mode: after a search-
-    // orientation answer, "why now" must bridge before the future-risk probe.
-    // After a real past-experience question Dialogue Policy returns null, so
-    // the existing research_future_risk handoff remains protected.
     if (
       policySelection &&
       (qualificationLike || earlyTriggerBridge) &&
