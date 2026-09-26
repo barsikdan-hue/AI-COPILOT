@@ -57,10 +57,14 @@ const clientHasNoConcreteExperience = (text: string): boolean =>
 
 const searchOrientationPattern = /(?:как\s+вообще[^?]{0,40}рынк|давно.*(?:рассматрива|присматрива|отслежива)|интерес\s+появил\p{L}*\s+недавно|только.*(?:начал|начала|начали|изуча).*рын|на\s+каком.*этап.*рын|уже\s+сравниваете\s+конкретн.*вариант)/iu;
 const motiveNowPattern = /(?:что.*(?:причин|изменил).*сейчас|почему.*именно.*сейчас|что\s+сейчас\s+подтолкнул|тема\s+недвижимости.*актуаль|почему\s+к\s+вопросу.*верну|какую\s+задачу[^?]{0,70}именно\s+на\s+этом\s+этапе)/iu;
-const goalQuestionPattern = /(?:для\s+чего|цель\s+покупк|для\s+жизни|отдых.*инвест|постоянн.*жизн|какую\s+задачу\s+(?:должна|должен)\s+решить\s+покупк|что\s+должно\s+измениться.*покупк)/iu;
+const goalQuestionPattern = /(?:для\s+чего|цель\s+покупк|для\s+жизни|отдых.*инвест|(?:отдых|сезонн\p{L}*\s+визит\p{L}*)[^?]{0,100}(?:переезд|постоянн\p{L}*\s+прожив)|постоянн.*(?:жизн|прожив)|какую\s+задачу\s+(?:должна|должен)\s+решить\s+покупк|что\s+должно\s+измениться.*покупк)/iu;
 
 const latestLooksLikePassiveSearch = (text: string): boolean =>
   /(?:только\s+(?:начал\p{L}*|смотрю|изучаю)|присматрива\p{L}*|пока\s+(?:смотрю|изучаю|интересуюсь)|ничего\s+конкретн|в\s+общих\s+черт|давно\s+(?:смотрю|присматриваюсь)|просто\s+(?:смотрю|изучаю))/iu.test(text);
+
+const clientDefersGoal = (clientText: string, agentText: string): boolean =>
+  goalQuestionPattern.test(agentText) &&
+  /(?:пока(?:\s+еще)?\s+не\s+(?:решил\p{L}*|определил\p{L}*|знаю)|еще\s+не\s+(?:решил\p{L}*|определил\p{L}*|знаю)|не\s+(?:решил\p{L}*|определил\p{L}*)[^.!?]{0,35}(?:пока|еще)|просто\s+(?:смотрю|изучаю|присматриваюсь)|пока\s+просто\s+(?:смотрю|изучаю|присматриваюсь))/iu.test(clientText);
 
 const clientAlreadyExplainedWhyNow = (turns: TranscriptTurn[]): boolean =>
   turns
@@ -165,6 +169,7 @@ export function chooseDialoguePolicyTarget(
     /(?:не\s+(?:знаю|решил|решила|определил|определила)|дума\p{L}*|сомнева\p{L}*)[^.!?]{0,70}(?:ипотек|свои|собственн.*средств|рассроч)|ипотек\p{L}*[^.!?]{0,55}или[^.!?]{0,35}(?:свои|собственн.*средств)|(?:свои|собственн.*средств)[^.!?]{0,55}или[^.!?]{0,35}ипотек/iu.test(latest);
   const affordabilityIntent =
     /(?:(?:что|сколько)[^.!?]{0,35}(?:могу|можем)[^.!?]{0,20}(?:себе\s+)?позволить|на\s+что[^.!?]{0,20}(?:хватит|хватает)|(?:какой\s+)?бюджет[^.!?]{0,25}(?:доступен|реален|потяну))/iu.test(latest);
+  const goalDeferred = !goalKnown && clientDefersGoal(latest, latestAgent);
 
   const latestAnswersPastExperience =
     /(?:что\s+из.*(?:видел|смотрел)|что.*не\s+устроил|что.*понрав|что.*оттолкнул|уже\s+успели\s+посмотреть|из\s+уже\s+увиденного)/iu.test(latestAgent) &&
@@ -243,6 +248,21 @@ export function chooseDialoguePolicyTarget(
   const goalHintDismissed = dismissedPolicyIntent(state, 'goal');
   if (
     !goalKnown &&
+    goalDeferred &&
+    !criteriaKnown &&
+    !agentAsked(turns, /критери|без\s+чего|что\s+важнее|компромисс|точно.*готов.*уступ/iu)
+  ) {
+    decisions.push(candidate(
+      'criteria',
+      'criteria',
+      'ask_criteria',
+      'Клиент пока не определил сценарий покупки. Не повторяем Goal разными словами: временно идём через критерии, чтобы помочь сформировать ориентир.',
+      87,
+    ));
+  }
+  if (
+    !goalKnown &&
+    !goalDeferred &&
     !goalHintDismissed &&
     !agentAsked(turns, goalQuestionPattern)
   ) {
