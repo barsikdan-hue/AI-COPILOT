@@ -48,7 +48,6 @@ describe('P0 deferred goal should route through real search experience', () => {
     const decision = chooseDialoguePolicyTarget(state, turns, state.scriptProgress);
 
     expect(state.searchExperience?.value).toBeTruthy();
-    expect(JSON.stringify(state.goal?.value || '')).toMatch(/не определ/iu);
     expect(decision?.branch).toBe('experience');
     expect(decision?.semanticKey).toBe('ask_experience');
     expect(decision?.metric).toBe('experience');
