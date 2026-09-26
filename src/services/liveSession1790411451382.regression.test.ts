@@ -63,8 +63,8 @@ describe('live session 1790411451382 regressions', () => {
     expect(r.state.scriptProgress?.metrics.paymentMethod.value).toMatch(/ипотек.*рассроч|рассроч.*ипотек/iu);
     expect(r.state.scriptProgress?.metrics.ppi.status).not.toBe('not_applicable');
 
-    expect(r.state.downPayment.value).toMatch(/средств.*доступ|средств.*есть|точн.*размер.*не назван/iu);
-    expect(r.state.downPayment.needsClarification).toBe(true);
+    expect(r.state.downPayment?.value).toMatch(/средств.*доступ|средств.*есть|точн.*размер.*не назван/iu);
+    expect(r.state.downPayment?.needsClarification).toBe(true);
     expect(r.state.scriptProgress?.metrics.downPayment.status).not.toBe('confirmed');
     expect(r.state.scriptProgress?.metrics.downPayment.value).not.toMatch(/конкретн.*сумм/iu);
   });
