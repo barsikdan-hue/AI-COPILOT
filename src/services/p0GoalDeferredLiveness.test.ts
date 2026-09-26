@@ -56,8 +56,8 @@ describe('P0 goal-deferred recommendation liveness', () => {
     expect(state.goal.value).toBeNull();
     expect(decision).not.toBeNull();
     expect(decision?.semanticKey).not.toBe('ask_goal');
-    expect(decision?.branch).toBe('criteria');
-    expect(decision?.metric).toBe('criteria');
+    expect(decision?.branch).toBe('experience');
+    expect(decision?.metric).toBe('experience');
 
     const latest = turns.at(-1)!;
     const response = buildLocalAnalysisResponse({
@@ -70,7 +70,8 @@ describe('P0 goal-deferred recommendation liveness', () => {
 
     expect(response.shouldSuggest).toBe(true);
     expect(response.suggestedReply).toBeTruthy();
-    expect(response.closesMetric).toBe('criteria');
-    expect(response.candidateRuleId).toContain('dialogue_policy_criteria_ask_criteria');
+    expect(response.closesMetric).toBe('experience');
+    expect(response.candidateRuleId).toContain('dialogue_policy_experience_ask_experience');
+    expect(response.suggestedReply || '').not.toMatch(/два обязательных критерия|без чего вариант сразу отпад/iu);
   });
 });
