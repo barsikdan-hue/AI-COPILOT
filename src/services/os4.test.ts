@@ -154,8 +154,17 @@ describe('ANDREI OS 4 deterministic core', () => {
       'budget_correction'
     );
     expect(facts.find((fact) => fact.field === 'budget')?.value).toBe('6 млн руб');
-    const turn = makeTurn('budget_correction', 'client', text, 1);
-    expect(detectConversationEvent(turn, [turn], createInitialState())?.type).toBe('FACT_CORRECTION');
+    const prior = mergeFactsDelta(
+      createInitialState(),
+      [{ field: 'budget', category: 'budget', value: '10 млн руб', evidenceQuote: '10 миллионов', evidenceTurnId: 'budget_original' }],
+      'diagnostics',
+      null,
+      1,
+      { budget_original: 'Бюджет 10 миллионов' }
+    );
+    const original = makeTurn('budget_original', 'client', 'Бюджет 10 миллионов.', 1);
+    const turn = makeTurn('budget_correction', 'client', text, 2);
+    expect(detectConversationEvent(turn, [original, turn], prior)?.type).toBe('FACT_CORRECTION');
   });
 
   it('does not store a rejected property format as the client preference', () => {

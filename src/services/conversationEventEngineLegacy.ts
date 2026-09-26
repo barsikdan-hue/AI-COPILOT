@@ -1,4 +1,5 @@
 import { detectNextStepResistance, nextStepResistanceReply, updateObjectionLifecycle } from './objectionEngine';
+import { extractDeterministicFacts } from './deterministicFacts';
 import eventRulesData from '../../conversation-events.json';
 import {
   ActionType,
@@ -200,8 +201,36 @@ function extractCorrection(text: string): string | null {
     /(?:^|[^\p{L}\p{N}])не\s+(.{1,60}?)(?:,\s*|\s+)а\s+(.{1,80})(?:[.!?]|$)/iu
   );
   if (direct?.[2]) return direct[2].trim().replace(/[.!?]+$/u, '');
+  const explicitRevision = text.match(/(?:^|[.!?]\s*)нет\s*,?\s*вс[её]-?таки\s+(.{2,100})/iu);
+  if (explicitRevision?.[1]) return explicitRevision[1].trim().replace(/[.!?]+$/u, '');
   const clarification = text.match(/(?:вы\s+ошиблись|поправлю|точнее)\s*[:,-]?\s*(.{2,100})/iu);
   return clarification?.[1]?.trim().replace(/[.!?]+$/u, '') || null;
+}
+
+function hasConfirmedFactReplacement(
+  turn: TranscriptTurn,
+  recentTurns: TranscriptTurn[],
+  state: ConversationState,
+): boolean {
+  const facts = state.confirmedFacts || [];
+  const linkedReplacement = facts.some((fact) => {
+    if (fact.turnId !== turn.id || !fact.supersedesFactId || fact.lifecycleStatus !== 'confirmed') return false;
+    const previous = facts.find((candidate) => candidate.id === fact.supersedesFactId);
+    return Boolean(previous && previous.lifecycleStatus === 'superseded' && normalize(previous.value) !== normalize(fact.value));
+  });
+  if (linkedReplacement) return true;
+
+  // Some direct callers ask for event detection before the current turn is
+  // merged. In that boundary, compare the incoming deterministic fact with a
+  // previously confirmed active fact from the same semantic category.
+  const previousAgent = lastAgentBefore(turn, recentTurns);
+  const incomingFacts = extractDeterministicFacts(turn.text, turn.id, previousAgent?.text || null);
+  return incomingFacts.some((incoming) => facts.some((previous) =>
+    previous.turnId !== turn.id &&
+    previous.category === incoming.category &&
+    previous.lifecycleStatus === 'confirmed' &&
+    normalize(previous.value) !== normalize(incoming.value)
+  ));
 }
 
 function hasDirectQuestion(text: string): boolean {
@@ -497,7 +526,7 @@ export function detectConversationEvent(
   }
 
   const correction = extractCorrection(turn.text);
-  if (correction) {
+  if (correction && hasConfirmedFactReplacement(turn, recentTurns, state)) {
     const correctedBudget = /миллион|млн|бюджет|предел/iu.test(turn.text) && state.budget?.value
       ? `Принял: ${state.budget.value} — актуальный предел. Предыдущее значение больше не учитываю.`
       : 'Принял поправку. Дальше опираемся на новую версию факта, старую не учитываю.';
