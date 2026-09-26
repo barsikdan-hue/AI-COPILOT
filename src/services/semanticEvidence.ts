@@ -150,8 +150,14 @@ export function detectSearchExperience(text: string): SemanticSearchExperience |
   const purchase = firstMatch(lower, /(?:уже\s+покупал\p{L}*\s+недвижимост\p{L}*|есть\s+опыт\s+покупк\p{L}*|не\s+первая\s+покупк\p{L}*)/iu);
   if (purchase) return { value: 'Есть опыт покупки недвижимости', evidenceQuote: purchase, level: 'purchase' };
 
-  const viewings = firstMatch(lower, /(?:был\p{L}*\s+на\s+показ\p{L}*|ездил\p{L}*\s+на\s+показ\p{L}*|смотрел\p{L}*\s+несколько\s+(?:объект\p{L}*|жк)|видел\p{L}*\s+несколько\s+(?:объект\p{L}*|жк)|уже\s+несколько\s+(?:объект\p{L}*|жк)\s+(?:смотрел\p{L}*|видел\p{L}*))/iu);
+  const viewings = firstMatch(lower, /(?:был\p{L}*\s+на\s+показ\p{L}*|ездил\p{L}*\s+на\s+показ\p{L}*|(?:смотрел\p{L}*|видел\p{L}*|увидел\p{L}*)\s+(?:один|одну|пару|несколько)\s+(?:объект\p{L}*|вариант\p{L}*|жк|квартир\p{L}*)|уже\s+(?:один|одну|пару|несколько)\s+(?:объект\p{L}*|вариант\p{L}*|жк|квартир\p{L}*)\s+(?:смотрел\p{L}*|видел\p{L}*))/iu);
   if (viewings) return { value: 'Есть опыт просмотров и сравнения объектов', evidenceQuote: viewings, level: 'viewings' };
+
+  const digitalOnly = firstMatch(
+    lower,
+    /(?:(?:в\s+интернете|онлайн)\s+(?:смотрел\p{L}*|изучал\p{L}*)[^.!?]{0,45}(?:вживую|очно)[^.!?]{0,20}(?:ещ[её]\s+)?нет|(?:вживую|очно)[^.!?]{0,20}(?:ещ[её]\s+)?не\s+(?:смотрел\p{L}*|ездил\p{L}*)[^.!?]{0,45}(?:в\s+интернете|онлайн))/iu,
+  );
+  if (digitalOnly) return { value: 'Изучал варианты онлайн; очных просмотров ещё не было', evidenceQuote: digitalOnly, level: 'browsing' };
 
   const agentContact = firstMatch(
     lower,
@@ -161,7 +167,7 @@ export function detectSearchExperience(text: string): SemanticSearchExperience |
 
   const browsing = firstMatch(
     lower,
-    /(?:смотрю\s+(?:рынок|недвижимост|вариант)|изучаю\s+рынок|присматриваюсь|прицениваюсь|только\s+начал\p{L}*\s+изуча\p{L}*|(?:уже\s+)?(?:месяц|полтора\s+месяца)[^.!?]{0,25}(?:смотр\p{L}*|изуча\p{L}*|ковыря\p{L}*)|смотрю\s+где-то\s+\p{L}+\s+месяц\p{L}*)/iu,
+    /(?:смотрю\s+(?:рынок|недвижимост|вариант)|изучаю\s+рынок|присматриваюсь|прицениваюсь|только\s+начал\p{L}*\s+(?:изуча\p{L}*|смотре\p{L}*)\s+(?:рынок|недвижимост|вариант\p{L}*)|(?:уже\s+)?(?:месяц|полтора\s+месяца)[^.!?]{0,25}(?:смотр\p{L}*|изуча\p{L}*|ковыря\p{L}*)|смотрю\s+где-то\s+\p{L}+\s+месяц\p{L}*)/iu,
   );
   if (browsing) return { value: 'Изучает рынок / находится в процессе выбора', evidenceQuote: browsing, level: 'browsing' };
 

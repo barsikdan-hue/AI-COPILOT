@@ -53,10 +53,10 @@ const latestAgentBeforeLatestClient = (turns: TranscriptTurn[]): string => {
 };
 
 const clientHasNoConcreteExperience = (text: string): boolean =>
-  /(?:ничего\s+конкретн\p{L}*\s+не\s+(?:смотрел\p{L}*|видел\p{L}*)|(?:пока\s+)?конкретн\p{L}*\s+не\s+(?:смотрел\p{L}*|видел\p{L}*)|не\s+могу\s+(?:ничего\s+)?выделить|нечего\s+выделить|ничего\s+не\s+зацепило|ярк\p{L}*\s+пример\p{L}*\s+(?:пока\s+)?нет|только\s+(?:смотрю|изучаю|присматриваюсь)[^.!?]{0,70}ничего\s+конкретн)/iu.test(text);
+  /(?:(?:пока\s+)?ничего\s+(?:конкретн\p{L}*\s+)?не\s+(?:смотрел\p{L}*|видел\p{L}*)|конкретн\p{L}*\s+(?:вариант\p{L}*|объект\p{L}*)\s+(?:пока\s+|ещ[её]\s+)?не\s+(?:смотрел\p{L}*|видел\p{L}*)|(?:пока\s+)?конкретн\p{L}*\s+не\s+(?:смотрел\p{L}*|видел\p{L}*)|не\s+могу\s+(?:ничего\s+)?выделить|нечего\s+выделить|ничего\s+не\s+зацепило|ярк\p{L}*\s+пример\p{L}*\s+(?:пока\s+)?нет|только\s+(?:смотрю|изучаю|присматриваюсь)[^.!?]{0,70}ничего\s+конкретн)/iu.test(text);
 
 const clientHasConcretePastExperience = (text: string): boolean =>
-  /(?:(?:смотрел\p{L}*|видел\p{L}*|ездил\p{L}*|показывал\p{L}*|присылал\p{L}*|общал\p{L}*)[^.!?]{0,90}(?:объект|вариант|жк|квартир|апартамент|дом)|(?:понравил\p{L}*|не\s+устроил\p{L}*|не\s+подош\p{L}*|оттолкнул\p{L}*|компромисс)[^.!?]{0,80}(?:объект|вариант|жк|квартир|апартамент|дом)?)/iu.test(text);
+  /(?:(?:смотрел\p{L}*|видел\p{L}*|увидел\p{L}*|ездил\p{L}*|показывал\p{L}*|присылал\p{L}*|общал\p{L}*)[^.!?]{0,90}(?:объект|вариант|жк|квартир|апартамент|дом)|(?:понравил\p{L}*|не\s+устроил\p{L}*|не\s+подош\p{L}*|оттолкнул\p{L}*|компромисс)[^.!?]{0,80}(?:объект|вариант|жк|квартир|апартамент|дом)?)/iu.test(text);
 
 const searchOrientationPattern = /(?:как\s+вообще[^?]{0,40}рынк|давно.*(?:рассматрива|присматрива|отслежива)|интерес\s+появил\p{L}*\s+недавно|только.*(?:начал|начала|начали|изуча).*рын|на\s+каком.*этап.*рын|уже\s+сравниваете\s+конкретн.*вариант)/iu;
 const motiveNowPattern = /(?:что.*(?:причин|изменил).*сейчас|почему.*именно.*сейчас|что\s+сейчас\s+подтолкнул|тема\s+недвижимости.*актуаль|почему\s+к\s+вопросу.*верну|какую\s+задачу[^?]{0,70}именно\s+на\s+этом\s+этапе)/iu;
@@ -64,7 +64,7 @@ const goalQuestionPattern = /(?:для\s+чего|цель\s+покупк|для
 const pastExperienceQuestionPattern = /(?:что\s+из\s+того[^?]{0,80}(?:смотрел|увидел)|что\s+уже\s+успели\s+посмотреть|какие\s+варианты\s+уже\s+успели\s+посмотреть|что[^?]{0,50}(?:понравил|не\s+устроил|не\s+подош|оттолкнул)|главн\p{L}*\s+компромисс|после\s+прошлых\s+просмотр)/iu;
 
 const latestLooksLikePassiveSearch = (text: string): boolean =>
-  /(?:только\s+(?:начал\p{L}*|смотрю|изучаю)|присматрива\p{L}*|пока\s+(?:смотрю|изучаю|интересуюсь)|ничего\s+конкретн|в\s+общих\s+черт|давно\s+(?:смотрю|присматриваюсь)|просто\s+(?:смотрю|изучаю))/iu.test(text);
+  /(?:только\s+(?:начал\p{L}*|смотрю|изучаю)|присматрива\p{L}*|пока\s+(?:смотрю|изучаю|интересуюсь)|ничего\s+конкретн|в\s+общих\s+черт|давно\s+(?:смотрю|присматриваюсь)|просто\s+(?:смотрю|изучаю)|(?:в\s+интернете|онлайн)\s+(?:смотрел\p{L}*|изучал\p{L}*))/iu.test(text);
 
 const clientDefersGoal = (clientText: string, agentText: string): boolean =>
   goalQuestionPattern.test(agentText) &&
@@ -175,6 +175,7 @@ export function chooseDialoguePolicyTarget(
   );
   const pastExperienceAsked = agentAskedInSession(state, turns, pastExperienceQuestionPattern);
   const experienceClosed =
+    progress.metrics.experience?.status === 'not_applicable' ||
     progress.metrics.experience?.status === 'declined_to_disclose' ||
     pastExperienceClosedBySpin ||
     noConcreteExperienceKnown ||
@@ -228,6 +229,7 @@ export function chooseDialoguePolicyTarget(
   );
   if (
     !researchMode &&
+    !experienceClosed &&
     !searchExperienceKnown &&
     !searchOrientationAsked &&
     !orientationHintDismissed &&

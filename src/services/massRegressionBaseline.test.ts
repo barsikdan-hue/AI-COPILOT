@@ -69,19 +69,12 @@ describe('AI Copilot mass offline regression baseline', () => {
             "priority": "P1",
             "probableLayer": "canonical fact extraction",
           },
-          {
-            "count": 9,
-            "invariant": "INV_CLOSED_BRANCH",
-            "key": "80d80da8fa60",
-            "priority": "P1",
-            "probableLayer": "next-action/recommendation selection",
-          },
         ],
-        "fail": 229,
-        "fingerprint": "b1442bbfd7b4198973cf6b1b78d80dffa534d649b61095c364fbe710d9c895d2",
+        "fail": 220,
+        "fingerprint": "a569c5e66c8a1cbffe8bb95e87635f961dfb219c0f96fe34a646279046f3e101",
         "generatedScenarios": 3200,
-        "pass": 11771,
-        "passRate": 98.09,
+        "pass": 11780,
+        "passRate": 98.17,
         "seed": 99537922,
       }
     `);
