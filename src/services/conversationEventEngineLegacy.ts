@@ -203,6 +203,8 @@ function extractCorrection(text: string): string | null {
   if (direct?.[2]) return direct[2].trim().replace(/[.!?]+$/u, '');
   const explicitRevision = text.match(/(?:^|[.!?]\s*)нет\s*,?\s*вс[её]-?таки\s+(.{2,100})/iu);
   if (explicitRevision?.[1]) return explicitRevision[1].trim().replace(/[.!?]+$/u, '');
+  const budgetIncrease = text.match(/(?:^|[.!?]\s*)нет\s*,?\s*((?:мож\p{L}*|готов\p{L}*)[^.!?]{0,30}(?:подняться|увеличить|расширить)[^.!?]{0,60})/iu);
+  if (budgetIncrease?.[1]) return budgetIncrease[1].trim().replace(/[.!?]+$/u, '');
   const paymentRevision = text.match(
     /(?:способ\s+оплаты\s+меня\p{L}*\s*[:,-]?\s*(.{2,100})|ипотек\p{L}*[^.!?]{0,35}не\s+хоч\p{L}*\s*[,;:-]\s*(.{2,100}))/iu
   );
