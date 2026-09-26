@@ -21,9 +21,6 @@ const isWhyNowQuestion = (text: string): boolean => {
   return /(?:что.*(?:причин|изменил).*сейчас|почему.*именно.*сейчас|что\s+сейчас\s+подтолкнул|тема\s+недвижимости.*актуаль|почему\s+к\s+вопросу.*верну|какую\s+задачу[^?]{0,70}именно\s+на\s+этом\s+этапе)/iu.test(lower);
 };
 
-const isDeepSpinSuggestion = (mode: string | null | undefined): boolean =>
-  Boolean(mode && ['SPIN_PROBLEM', 'SPIN_IMPLICATION', 'SPIN_NEED_PAYOFF', 'HPB_PRESENTATION'].includes(mode));
-
 const isExplicitPain = (text: string): boolean => {
   const lower = normalize(text);
   return /(?:слишком\s+шумн|очень\s+шумн|дорога\s+под\s+окнами|меша\p{L}*|не\s+устраива\p{L}*|проблем\p{L}*|риск\p{L}*|боюсь|опаса\p{L}*|теря\p{L}*|страда\p{L}*|плохо\s+сп|не\s+могу\s+сп|сложно\s+отдых|неудобн\p{L}*|сер(?:ая|ые|ую|ых)\s+схем|обман\p{L}*|непонятн\p{L}*\s+статус|не\s+понима\p{L}*[^.!?]{0,50}(?:отлич|разниц|выб)|много\s+(?:вариант|объект|презентац)|кучу\s+(?:вариант|объект|презентац)|простаива\p{L}*|не\s+сда\p{L}*|сложно\s+продать)/iu.test(lower);
@@ -59,14 +56,14 @@ export function classifyAgentAction(text: string): AgentActionType {
 }
 
 /**
- * SPIN remains available immediately for an explicit client problem or for an
- * answer to an actual Problem/Implication/Need-payoff question. What we block
- * is the false transition from an ordinary preference into a pain chain.
+ * SPIN remains available immediately for explicit client pain and for answers
+ * to actual Problem / Implication / Need-payoff questions. The guard targets
+ * one failure only: a normal preference being promoted into the FIRST Problem
+ * and immediately producing an Implication question.
  *
  * Example: "важнее тишина, нормальная среда, пешком до моря" is a criterion,
- * not permission to ask "что больше всего страдает". Until enough context is
- * accumulated, that path stays in discovery. The gate is semantic/state-based,
- * not a five/eight-minute timer.
+ * not permission to ask "что больше всего страдает". We do not use a timer;
+ * the transition depends on accumulated state and semantic evidence.
  */
 export function evaluateSpinAndHpb(
   ...args: Parameters<typeof legacy.evaluateSpinAndHpb>
@@ -77,13 +74,18 @@ export function evaluateSpinAndHpb(
   const lastAgentAction = args[2] as AgentActionType;
   const context: any = args[4];
 
-  const shouldDelayPreferenceSpin =
-    isDeepSpinSuggestion(result?.suggestionMode) &&
+  const noActiveProblemChain =
+    (currentSpinState?.problem?.length || 0) === 0 &&
+    (currentSpinState?.implication?.length || 0) === 0;
+
+  const shouldDelayPreferenceImplication =
+    result?.suggestionMode === 'SPIN_IMPLICATION' &&
+    noActiveProblemChain &&
     !pairedDeepSpinAction(lastAgentAction) &&
     isPreferenceOnly(clientTurn?.text || '') &&
     !spinReadiness(currentSpinState, context);
 
-  if (!shouldDelayPreferenceSpin) {
+  if (!shouldDelayPreferenceImplication) {
     return result;
   }
 
