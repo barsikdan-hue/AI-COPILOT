@@ -53,7 +53,7 @@ export function getContextualDopamineQuestion(
   if (state.dialogueControl?.clientBoundaryActive) return null;
 
   const progress: any = state.scriptProgress;
-  const trust: any = progress?.trust || state.trustEvaluation;
+  const trust: any = progress?.metrics?.trust || progress?.trust || state.trustEvaluation;
   if (trust?.status === 'confirmed') return null;
 
   const recentAgent = turns.filter(t => t.speaker === 'agent').slice(-4).map(t => t.text).join(' ');
