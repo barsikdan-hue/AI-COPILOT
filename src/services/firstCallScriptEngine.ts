@@ -129,6 +129,90 @@ function sanitizePaymentMethodUncertainty(
   };
 }
 
+function sanitizeExplicitSeasonalGoal(
+  progress: ReturnType<typeof legacy.evaluateFirstCallScript>,
+  turns: TranscriptTurn[],
+): ReturnType<typeof legacy.evaluateFirstCallScript> {
+  const goalMetric = progress.metrics?.goal;
+  if (!goalMetric || closed(goalMetric.status)) return progress;
+
+  let evidence: TranscriptTurn | null = null;
+  for (const turn of turns) {
+    if (turn.speaker !== 'client') continue;
+    const text = norm(turn.text);
+    const personalUse = /(?:кажд\p{L}*\s+отпуск|отдых\p{L}*|приезжа\p{L}*|приехать|сезонн\p{L}*|сво[её]\s+(?:место|жилье|жильё)|где\s+жить)/iu.test(text);
+    const seaContext = /(?:мор|сочи|курорт)/iu.test(text);
+    const nonPermanentUse = /(?:если\s+не\s+живу\s+постоянно|не\s+живу\s+постоянно|в\s+остальн\p{L}*\s+время|между\s+приезд\p{L}*)/iu.test(text);
+    if ((personalUse && seaContext) || (personalUse && nonPermanentUse)) evidence = turn;
+  }
+  if (!evidence) return progress;
+
+  const metrics: Record<string, FirstCallMetric> = {
+    ...progress.metrics,
+    goal: {
+      ...goalMetric,
+      status: 'confirmed',
+      value: 'Отдых и сезонное проживание',
+      evidenceQuote: evidence.text,
+      evidenceTurnId: evidence.id,
+      semanticReason: 'Клиент прямо описал личное сезонное использование/отдых; повторно спрашивать отдых против ПМЖ не нужно.',
+      confidence: 0.97,
+      needsClarification: false,
+    },
+  };
+  const passedCoreCriteriaCount = legacy.CORE_12_CRITERIA_IDS.filter((id) => closed(metrics[id]?.status)).length;
+  const nextOpen = legacy.FIRST_CALL_METRICS_LIST
+    .filter((item) => item.isCoreCriteria && item.id !== 'goal' && !closed(metrics[item.id]?.status))
+    .sort((a, b) => a.priorityOrder - b.priorityOrder)[0];
+  const quality = progress.quality.immediatePriorityMetric === 'goal' && nextOpen
+    ? {
+        ...progress.quality,
+        passedCoreCriteriaCount,
+        immediatePriorityMetric: nextOpen.id,
+        immediatePriorityHint: `Уточнить: ${nextOpen.name}`,
+        nextScriptStep: nextOpen.name,
+      }
+    : { ...progress.quality, passedCoreCriteriaCount };
+
+  return { ...progress, metrics, quality };
+}
+
+function sanitizeDownPaymentWithoutAmount(
+  progress: ReturnType<typeof legacy.evaluateFirstCallScript>,
+  turns: TranscriptTurn[],
+): ReturnType<typeof legacy.evaluateFirstCallScript> {
+  const metric = progress.metrics?.downPayment;
+  if (!metric) return progress;
+  let evidence: TranscriptTurn | null = null;
+
+  for (const turn of turns) {
+    if (turn.speaker !== 'client') continue;
+    const text = norm(turn.text);
+    if (!/(?:первоначальн\p{L}*|перв\p{L}*)\s+взнос/iu.test(text)) continue;
+    const hasAmount = /\d+(?:[.,]\d+)?\s*(?:млн|миллион\p{L}*|тыс\p{L}*|%|руб)/iu.test(text);
+    const hasFunds = /(?:часть\s+средств|средств\p{L}*|деньг\p{L}*)[^.!?]{0,60}(?:есть|доступн\p{L}*|на\s+руках)|(?:есть|доступн\p{L}*)[^.!?]{0,50}(?:часть\s+средств|средств\p{L}*|деньг\p{L}*)/iu.test(text);
+    if (hasFunds && !hasAmount) evidence = turn;
+  }
+  if (!evidence) return progress;
+
+  return {
+    ...progress,
+    metrics: {
+      ...progress.metrics,
+      downPayment: {
+        ...metric,
+        status: 'partially_confirmed',
+        value: 'Средства на первый взнос доступны; точный размер не назван',
+        evidenceQuote: evidence.text,
+        evidenceTurnId: evidence.id,
+        semanticReason: 'Клиент подтвердил наличие средств на первоначальный взнос, но не назвал конкретную сумму.',
+        confidence: 0.97,
+        needsClarification: true,
+      },
+    },
+  };
+}
+
 /**
  * `trust` is a proxy for a working advisory dialogue, not a quota of personal
  * questions. Client engagement and useful disclosure are stronger evidence
@@ -224,6 +308,8 @@ export function evaluateFirstCallScript(
   let progress = legacy.evaluateFirstCallScript(turns, state);
   progress = sanitizeInfrastructure(progress, turns);
   progress = sanitizePaymentMethodUncertainty(progress, turns);
+  progress = sanitizeExplicitSeasonalGoal(progress, turns);
+  progress = sanitizeDownPaymentWithoutAmount(progress, turns);
   progress = sanitizeTrustQuality(progress, state);
 
   const deferral = latestVideoDeferral(turns);
