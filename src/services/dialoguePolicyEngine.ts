@@ -32,6 +32,14 @@ const closed = (progress: FirstCallScriptProgress | undefined, metric: string): 
 const agentAsked = (turns: TranscriptTurn[], pattern: RegExp): boolean =>
   turns.some((turn) => turn.speaker === 'agent' && pattern.test(normalize(turn.text)));
 
+const agentAskedInSession = (
+  state: ConversationState,
+  turns: TranscriptTurn[],
+  pattern: RegExp,
+): boolean =>
+  agentAsked(turns, pattern) ||
+  (state.askedQuestions || []).some((question) => pattern.test(normalize(question)));
+
 const latestClientText = (turns: TranscriptTurn[]): string =>
   normalize([...turns].reverse().find((turn) => turn.speaker === 'client')?.text || '');
 
@@ -114,6 +122,12 @@ export function chooseDialoguePolicyTarget(
 ): DialoguePolicyDecision | null {
   if (!progress?.metrics) return null;
 
+  // Once the client has agreed the next step, discovery is over for this first
+  // call. New direct questions / objections are handled by the event layer.
+  if (state.nextStepAgreement?.status === 'agreed' || Boolean(state.agreedNextStep?.value)) {
+    return null;
+  }
+
   const latest = latestClientText(turns);
   const latestAgent = latestAgentBeforeLatestClient(turns);
   const decisions: DialoguePolicyDecision[] = [];
@@ -167,7 +181,7 @@ export function chooseDialoguePolicyTarget(
     decisions.push(candidate('timing_decision', 'urgency', 'ask_timeline', 'Клиент заговорил о сроках: фиксируем реальный горизонт решения.', 91));
   }
 
-  const searchOrientationAsked = agentAsked(turns, searchOrientationPattern);
+  const searchOrientationAsked = agentAskedInSession(state, turns, searchOrientationPattern);
   const orientationHintDismissed = dismissedPolicyIntent(state, 'search_orientation');
   const hasSubstantiveQualification = Boolean(
     goalKnown || criteriaKnown || locationKnown || propertyTypeKnown || budgetKnown || paymentKnown || urgencyKnown
@@ -188,7 +202,7 @@ export function chooseDialoguePolicyTarget(
     ));
   }
 
-  const motiveAsked = agentAsked(turns, motiveNowPattern);
+  const motiveAsked = agentAskedInSession(state, turns, motiveNowPattern);
   const motiveHintDismissed = dismissedPolicyIntent(state, 'motive_now');
   const triggerAlreadyKnown = clientAlreadyExplainedWhyNow(turns);
   const latestFollowsOrientation = searchOrientationPattern.test(latestAgent);

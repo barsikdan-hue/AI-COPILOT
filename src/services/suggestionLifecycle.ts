@@ -102,15 +102,16 @@ export function shouldReplaceSuggestion(
   const currentIsFresh = now - current.createdAt <= currentTtl;
   if (!currentIsFresh) return true;
 
-  // A deterministic correction produced for the same client revision is not a
-  // competing next-action candidate. It is a replacement of the earlier local
-  // wording/meaning and must remain able to update the card immediately.
+  // A deterministic correction produced by the same local source for the same
+  // client revision is a replacement of wording/meaning. Cross-source updates
+  // (especially local_engine vs local_event) must go through normal arbitration
+  // so a lower-value diagnostic card cannot erase an event such as a meeting contract.
   const currentSemanticKey = current.semanticKey || current.text.trim().toLocaleLowerCase('ru-RU');
   const candidateSemanticKey = candidate.semanticKey || candidate.text.trim().toLocaleLowerCase('ru-RU');
   const sameRevisionLocalCorrection =
     candidate.basedOnRevision === current.basedOnRevision &&
+    candidate.source === current.source &&
     ['local_engine', 'local_event'].includes(candidate.source || '') &&
-    ['local_engine', 'local_event'].includes(current.source || '') &&
     candidate.createdAt > current.createdAt &&
     candidateSemanticKey !== currentSemanticKey;
   if (sameRevisionLocalCorrection) return true;
@@ -138,6 +139,33 @@ export function isSuggestionAllowedByState(candidate: Partial<SuggestedReply>, s
   if (blocked.includes('ppi') && proposes && /брокер|специалист|ипотечн.*консультац/iu.test(text) && !/видео|показ|специалист.{0,5}застройщик/iu.test(text)) return false;
   if (blocked.includes('ppv') && proposes && /видео|показ/iu.test(text)) return false;
   const confirmationEvent = ['MEETING_CONTRACT', 'NEXT_STEP_REOPENED'].includes(String(candidate.eventType || ''));
+
+  // An agreed next step closes first-call discovery. From this point ordinary
+  // Goal / Experience / Criteria / SPIN questions are stale by definition.
+  // Only explicit new client events may reopen or alter the plan.
+  const nextStepAgreed =
+    state.nextStepAgreement?.status === 'agreed' ||
+    Boolean(state.agreedNextStep?.value);
+  if (nextStepAgreed) {
+    const allowedPostAgreementEvent = [
+      'CLIENT_STOP',
+      'TIME_CONSTRAINT',
+      'SOFT_RESISTANCE',
+      'NEXT_STEP_RESISTANCE',
+      'NEXT_STEP_REOPENED',
+      'EXPLICIT_REJECTION',
+      'DIRECT_QUESTION',
+      'MEETING_CONTRACT',
+      'FACT_CORRECTION',
+    ].includes(String(candidate.eventType || ''));
+    const allowedPostAgreementAction = [
+      'ANSWER',
+      'OBJECTION_CLARIFICATION',
+      'RESPECT_STOP',
+      'WAIT',
+    ].includes(String(candidate.actionType || ''));
+    if (!allowedPostAgreementEvent && !allowedPostAgreementAction) return false;
+  }
 
   const derivedOnlyCriteriaClosure =
     candidate.closesMetric === 'criteria' &&
