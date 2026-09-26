@@ -3,6 +3,7 @@ import type { ConversationState, TranscriptTurn } from '../types';
 import { createInitialState } from './conversationStore';
 import { chooseDialoguePolicyTarget } from './dialoguePolicyEngine';
 import { advanceLocalConversation, buildLocalAnalysisResponse } from './localAnalysisEngine';
+import { checkSemanticAntiRepeat } from './semanticAntiRepeat';
 
 const clientTurn = (text: string, id = 'client-goal'): TranscriptTurn => ({
   id,
@@ -27,76 +28,119 @@ function analyze(text: string) {
     recentTurns: [turn],
     currentState: state,
   });
-  const activeGoalFacts = (state.confirmedFacts || []).filter(
+  const currentGoalFacts = (state.confirmedFacts || []).filter(
     (fact) =>
       ['goal', 'goal_primary', 'goal_secondary'].includes(fact.category) &&
-      fact.lifecycleStatus === 'confirmed',
+      !['superseded', 'rejected'].includes(String(fact.lifecycleStatus)),
   );
-  return { state, policy, response, activeGoalFacts };
+  return { turn, state, policy, response, currentGoalFacts };
 }
 
-const expectConfirmedPersonalLiving = (result: ReturnType<typeof analyze>) => {
-  expect(result.state.goal.value).toMatch(/личн.*прожив/iu);
-  expect(result.state.primaryGoal?.value).toMatch(/личн.*прожив/iu);
-  expect(result.state.goal.value).toBe(result.state.primaryGoal?.value);
-  expect(result.activeGoalFacts).toEqual(expect.arrayContaining([
-    expect.objectContaining({ category: 'goal', value: expect.stringMatching(/личн.*прожив/iu) }),
-    expect.objectContaining({ category: 'goal_primary', value: expect.stringMatching(/личн.*прожив/iu) }),
+const expectUnresolvedSelfUse = (result: ReturnType<typeof analyze>) => {
+  expect(result.state.goal).toMatchObject({
+    value: 'Для себя (формат уточняется)',
+    needsClarification: true,
+  });
+  expect(result.state.primaryGoal).toMatchObject({
+    value: 'Для себя (формат уточняется)',
+    needsClarification: true,
+  });
+  expect(result.currentGoalFacts).toEqual(expect.arrayContaining([
+    expect.objectContaining({
+      category: 'goal',
+      value: 'Для себя (формат уточняется)',
+      lifecycleStatus: 'needs_verification',
+    }),
+    expect.objectContaining({
+      category: 'goal_primary',
+      value: 'Для себя (формат уточняется)',
+      lifecycleStatus: 'needs_verification',
+    }),
+  ]));
+  expect(result.state.scriptProgress?.metrics.goal).toMatchObject({
+    status: 'needs_clarification',
+    needsClarification: true,
+  });
+  expect(result.state.scriptProgress?.metrics.goal.value || '').not.toMatch(/постоянн.*прожив|переезд/iu);
+  expect(result.policy?.semanticKey).toBe('ask_search_experience');
+};
+
+const expectPermanentLiving = (result: ReturnType<typeof analyze>) => {
+  expect(result.state.goal).toMatchObject({
+    value: 'Постоянное личное проживание',
+  });
+  expect(result.state.goal.needsClarification).not.toBe(true);
+  expect(result.state.primaryGoal).toMatchObject({
+    value: 'Постоянное личное проживание',
+  });
+  expect(result.state.primaryGoal?.needsClarification).not.toBe(true);
+  expect(result.currentGoalFacts).toEqual(expect.arrayContaining([
+    expect.objectContaining({ category: 'goal', value: 'Постоянное личное проживание', lifecycleStatus: 'confirmed' }),
+    expect.objectContaining({ category: 'goal_primary', value: 'Постоянное личное проживание', lifecycleStatus: 'confirmed' }),
   ]));
   expect(result.state.scriptProgress?.metrics.goal).toMatchObject({
     status: 'confirmed',
-    value: expect.stringMatching(/прожив/iu),
+    value: expect.stringMatching(/постоян|переезд/iu),
+    needsClarification: false,
   });
   expect(result.policy?.semanticKey).not.toBe('ask_goal');
-  expect(result.response.candidateRuleId || '').not.toMatch(/ask_goal/iu);
 };
 
-describe('personal living goal regression', () => {
-  it('keeps positive personal living separate from negated investment', () => {
+describe('self-use versus permanent residence regression', () => {
+  it.each([
+    'Хочу жить сам.',
+    'Хочу сам там жить.',
+    'Покупаю для себя, буду там жить.',
+  ])('keeps explicit self-use unresolved without permanent evidence: %s', (text) => {
+    const result = analyze(text);
+    expectUnresolvedSelfUse(result);
+    expect(checkSemanticAntiRepeat(
+      'Понял. А для себя — это больше про отдых, сезонное проживание или планируете жить постоянно?',
+      result.state,
+      [result.turn],
+    ).accepted).toBe(true);
+  });
+
+  it('keeps self-use separate from negated investment', () => {
     const result = analyze('Не для инвестиций, хочу жить сам.');
 
-    expectConfirmedPersonalLiving(result);
-    expect(result.activeGoalFacts.map((fact) => fact.value).join(' ')).not.toMatch(/инвест/iu);
-    expect(result.state.scriptProgress?.metrics.goal.value).not.toMatch(/инвест/iu);
+    expectUnresolvedSelfUse(result);
+    expect(result.currentGoalFacts.map((fact) => fact.value).join(' ')).not.toMatch(/инвест/iu);
+    expect(result.state.scriptProgress?.metrics.goal.value || '').not.toMatch(/инвест/iu);
   });
 
   it.each([
-    'Хочу сам там жить.',
-    'Покупаю для себя, буду там жить.',
-  ])('recognizes explicit self-living intent: %s', (text) => {
-    expectConfirmedPersonalLiving(analyze(text));
+    'Планирую переехать и жить постоянно.',
+    'Буду жить сам постоянно.',
+  ])('confirms permanent residence only from explicit permanent evidence: %s', (text) => {
+    expectPermanentLiving(analyze(text));
   });
 
-  it('does not turn negated self-living into a positive living goal', () => {
+  it('does not collapse time-limited self-use into permanent residence', () => {
+    const result = analyze('Буду жить сам пару месяцев в году.');
+
+    expect(result.state.goal.value || '').not.toMatch(/постоянн.*прожив/iu);
+    expect(result.state.primaryGoal?.value || '').not.toMatch(/постоянн.*прожив/iu);
+    expect(result.state.scriptProgress?.metrics.goal.value || '').not.toMatch(/постоянн.*прожив|переезд/iu);
+  });
+
+  it('does not collapse summer visits into permanent residence', () => {
+    const result = analyze('Для себя, приезжать на лето.');
+
+    expect(result.state.goal.value || '').not.toMatch(/постоянн.*прожив/iu);
+    expect(result.state.primaryGoal?.value || '').not.toMatch(/постоянн.*прожив/iu);
+    expect(result.state.scriptProgress?.metrics.goal.value || '').not.toMatch(/постоянн.*прожив|переезд/iu);
+  });
+
+  it('does not create self-use or permanent residence from negated living', () => {
     const result = analyze('Сам там жить не буду, хочу сдавать.');
+    const currentValues = result.currentGoalFacts.map((fact) => fact.value).join(' ');
 
-    expect(result.state.goal.value || '').not.toMatch(/личн.*прожив|постоянн.*прожив/iu);
-    expect(result.activeGoalFacts.map((fact) => fact.value).join(' ')).not.toMatch(/личн.*прожив|постоянн.*прожив/iu);
+    expect(result.state.goal.value || '').not.toMatch(/для себя|личн.*прожив|постоянн.*прожив/iu);
+    expect(currentValues).not.toMatch(/для себя|личн.*прожив|постоянн.*прожив/iu);
   });
 
-  it('preserves vacation semantics when permanent living is rejected', () => {
-    const result = analyze('Не хочу там жить постоянно, только приезжать на отдых.');
-
-    expect(result.state.goal.value).toMatch(/отдых|сезон/iu);
-    expect(result.state.goal.value).not.toMatch(/постоянн.*прожив/iu);
-    expect(result.state.scriptProgress?.metrics.goal.value).toMatch(/отдых|сезон/iu);
-  });
-
-  it('does not collapse time-limited living plus rental into permanent personal living', () => {
-    const result = analyze('Буду жить там пару месяцев в году и остальное время сдавать.');
-
-    expect(result.state.goal.value || '').not.toMatch(/^постоянное личное проживание$/iu);
-    expect(result.state.scriptProgress?.metrics.goal.value || '').not.toMatch(/^постоянное проживание/u);
-  });
-
-  it('does not assign third-party living to the client', () => {
-    const result = analyze('Квартиру беру маме, жить будет она.');
-
-    expect(result.state.goal.value || '').not.toMatch(/личн.*прожив|постоянн.*прожив/iu);
-    expect(result.activeGoalFacts.map((fact) => fact.value).join(' ')).not.toMatch(/личн.*прожив|постоянн.*прожив/iu);
-  });
-
-  it('keeps self-living versus rental uncertainty unconfirmed', () => {
+  it('keeps self-use versus rental uncertainty unconfirmed', () => {
     const result = analyze('Пока не знаю, жить самому или сдавать.');
 
     expect(result.state.goal.value).toBeNull();

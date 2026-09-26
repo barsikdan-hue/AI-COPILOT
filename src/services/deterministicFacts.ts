@@ -302,16 +302,13 @@ export function extractDeterministicFacts(
     /(?:для\s*отдыха|сезонн(?:ое|ого|ом)?\s*проживан(?:ие|ия|ии)|приезжать\s+(?:на\s*)?(?:отдых|каникул)|на\s*каникулы|для\s*каникул|периодически\s*приезжать)/iu
   );
 
-  const personalLivingMatches = Array.from(lower.matchAll(
+  const selfUseLivingMatches = Array.from(lower.matchAll(
     /(?:хоч\p{L}*\s+(?:(?:сам(?:ому)?|сама)\s+)?(?:там\s+)?жить(?:\s+(?:сам(?:ому)?|сама))?|(?:сам(?:ому)?|сама)\s+(?:там\s+)?буд\p{L}*\s+жить|для\s+себя[^.!?]{0,45}буд\p{L}*\s+(?:там\s+)?жить|буд\p{L}*\s+(?:там\s+)?жить[^.!?]{0,45}для\s+себя)/giu
   ));
-  const livingMatches = explicitNoPermanentLiving ? [] : [
-    ...Array.from(
-      lower.matchAll(/(?:для\s*(?:постоянной\s*)?жизни|для\s*постоянного\s*проживания|постоянно\s*жить|буд(?:у|ем)\s*жить\s+постоянно|переезжа(?:ем|ть)|переезд|пмж)/giu)
-    ),
-    ...personalLivingMatches,
-  ].sort((left, right) => (left.index || 0) - (right.index || 0));
-  const livingMatch = livingMatches.find((match) => {
+  const permanentLivingMatches = explicitNoPermanentLiving ? [] : Array.from(
+    lower.matchAll(/(?:для\s*(?:постоянной\s*)?жизни|для\s*постоянного\s*проживания|постоянно\s*жить|жить\s+постоянно|буд(?:у|ем)\s+жить(?:\s+(?:сам(?:ому)?|сама))?\s+постоянно|переезжа(?:ем|ть)|переезд|пмж)/giu)
+  );
+  const positiveLivingMatch = (matches: RegExpMatchArray[]) => matches.find((match) => {
     const startIndex = match.index || 0;
     const before = lower.slice(Math.max(0, startIndex - 55), startIndex);
     const after = lower.slice(startIndex + match[0].length, startIndex + match[0].length + 65);
@@ -321,6 +318,14 @@ export function extractDeterministicFacts(
       /^\s*[^.!?]{0,35}не\s+(?:хоч\p{L}*|планиру\p{L}*|собира\p{L}*|буд\p{L}*|рассматрива\p{L}*)/iu.test(after)
     );
   }) || null;
+  const permanentLivingMatch = positiveLivingMatch(permanentLivingMatches);
+  const selfUseLivingMatch = positiveLivingMatch(selfUseLivingMatches);
+
+  const addUnresolvedSelfUse = (quote: string, confidence = 0.95) => {
+    const extra = { needsClarification: true };
+    addFact('goal_primary', 'primaryGoal', 'Для себя (формат уточняется)', quote, confidence, extra);
+    addFact('goal', 'goal', 'Для себя (формат уточняется)', quote, confidence, extra);
+  };
 
   if (investmentMatch) {
     const mixedPersonal = Boolean(personalVisitMatch || leisureMatch);
@@ -341,9 +346,11 @@ export function extractDeterministicFacts(
         0.94
       );
     }
-  } else if (livingMatch) {
-    addFact('goal_primary', 'primaryGoal', 'Постоянное личное проживание', livingMatch[0].trim());
-    addFact('goal', 'goal', 'Постоянное личное проживание', livingMatch[0].trim());
+  } else if (permanentLivingMatch) {
+    addFact('goal_primary', 'primaryGoal', 'Постоянное личное проживание', permanentLivingMatch[0].trim());
+    addFact('goal', 'goal', 'Постоянное личное проживание', permanentLivingMatch[0].trim());
+  } else if (selfUseLivingMatch) {
+    addUnresolvedSelfUse(selfUseLivingMatch[0].trim());
   } else if (leisureMatch || personalVisitMatch) {
     const leisureQuote = (leisureMatch || personalVisitMatch)![0].trim();
     addFact('goal_primary', 'primaryGoal', 'Отдых и сезонное проживание', leisureQuote);
@@ -354,7 +361,7 @@ export function extractDeterministicFacts(
     );
     const agentAskedUsage = /(?:для\s+себя|для\s+кого|как\s+планиру\p{L}*\s+использ|цель\s+покупк|для\s+чего)/iu.test(previousAgentLower);
     if (hasPhrase(lower, 'для себя') && !explicitNoPermanentLiving && (forMyselfUsageMatch || agentAskedUsage)) {
-      addFact('goal', 'goal', 'Для себя (формат уточняется)', 'для себя', 0.9);
+      addUnresolvedSelfUse('для себя', 0.9);
     }
   }
 

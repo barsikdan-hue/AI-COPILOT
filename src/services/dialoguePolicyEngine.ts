@@ -146,7 +146,8 @@ export function chooseDialoguePolicyTarget(
   const latestAgent = latestAgentBeforeLatestClient(turns);
   const decisions: DialoguePolicyDecision[] = [];
   const goalHasDeferredValue = isDeferredGoalValue(state.goal?.value) || isDeferredGoalValue(progress.metrics.goal?.value);
-  const goalKnown = !goalHasDeferredValue && (closed(progress, 'goal') || Boolean(state.goal?.value));
+  const goalNeedsClarification = Boolean(state.goal?.needsClarification || progress.metrics.goal?.needsClarification);
+  const goalKnown = !goalHasDeferredValue && !goalNeedsClarification && (closed(progress, 'goal') || Boolean(state.goal?.value));
   const criteriaKnown = closed(progress, 'criteria') || Boolean(state.criteria?.value || state.criteria?.items?.length);
   const locationKnown = closed(progress, 'location') || Boolean(state.location?.value);
   const propertyTypeKnown = closed(progress, 'propertyType') || Boolean(state.propertyType?.value);

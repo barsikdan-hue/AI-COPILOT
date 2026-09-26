@@ -110,6 +110,7 @@ function semanticallyConsistent(left: string, right: string): boolean {
   const families = [
     /инвест|вложен|капитал|доход/iu,
     /жизн|прожив|пмж|переезд/iu,
+    /для себя|личн\p{L}*\s+использ/iu,
     /ипотек/iu,
     /собствен|налич|свои средств/iu,
     /нет детей|не примен/iu,

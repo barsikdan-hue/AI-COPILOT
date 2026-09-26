@@ -94,7 +94,7 @@ const factCases: FactGoldenCase[] = [
   { kind: 'fact', id: 'fact.goal.rent', invariant: 'INV_CONSISTENCY', priority: 'P0', text: 'Хочу сдавать квартиру посуточно.', field: 'goal', expectedValue: /инвест|сдач/iu },
   { kind: 'fact', id: 'fact.goal.rest', invariant: 'INV_CONSISTENCY', priority: 'P0', text: 'Нужна недвижимость для отдыха пару раз в год.', field: 'goal', expectedValue: /отдых/iu },
   { kind: 'fact', id: 'fact.goal.first-contrast', invariant: 'INV_FIRST_FACT_NOT_CORRECTION', priority: 'P0', text: 'Я не для жизни смотрю, а как вложение.', field: 'goal', expectedValue: /инвест/iu, forbiddenEvent: 'FACT_CORRECTION' },
-  { kind: 'fact', id: 'fact.goal.negated-investment', invariant: 'INV_NEGATION', priority: 'P0', text: 'Не для инвестиций, хочу жить сам.', field: 'goal', expectedValue: /жизн|прожив/iu, forbiddenValue: /^инвестиции$/iu },
+  { kind: 'fact', id: 'fact.goal.negated-investment', invariant: 'INV_NEGATION', priority: 'P0', text: 'Не для инвестиций, хочу жить сам.', field: 'goal', expectedValue: /для себя/iu, forbiddenValue: /^(?:инвестиции|постоянное личное проживание)$/iu },
   { kind: 'fact', id: 'fact.payment.mortgage', invariant: 'INV_CONSISTENCY', priority: 'P0', text: 'Покупаю в ипотеку.', field: 'paymentMethod', expectedValue: /ипотек/iu },
   { kind: 'fact', id: 'fact.payment.cash', invariant: 'INV_CONSISTENCY', priority: 'P0', text: 'Покупаю только за собственные средства.', field: 'paymentMethod', expectedValue: /собствен|налич/iu },
   { kind: 'fact', id: 'fact.payment.no-mortgage', invariant: 'INV_NEGATION', priority: 'P0', text: 'Ипотека мне не нужна.', field: 'paymentMethod', forbiddenValue: /^ипотека$/iu },
