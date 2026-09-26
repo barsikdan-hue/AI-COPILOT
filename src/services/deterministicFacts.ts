@@ -388,9 +388,18 @@ export function extractDeterministicFacts(
 
   // 5. Family & Children (Family Mortgage eligibility check)
   const adultChildren = detectAdultChildren(trimmed);
+  const childAgeToken = '(?:1[0-7]|[0-9]|семнадцать|шестнадцать|пятнадцать|четырнадцать|тринадцать|двенадцать|одиннадцать|десять|девять|восемь|семь|шесть|пять|четыре|три|два|две|один|одна)';
+  const childAgeMatch = lower.match(new RegExp(
+    `(?:(?:реб[её]н(?:ок|ку|ка|ком)|сын(?:у|а)?|дочер(?:и|ь)|дочк(?:е|а|у))(?:(?:[^.!?]{0,24}?(?:ему|ей)\\s*(?:уже\\s*)?(${childAgeToken})(?=$|[^\\p{L}\\p{N}]))|(?:\\s+(?:уже\\s*)?(${childAgeToken})\\s*(?:год(?:а)?|лет)))|(?:оговорил(?:ся|ась)|поправлю|точнее)[^.!?]{0,30}?(?:ему|ей)\\s*(?:уже\\s*)?(${childAgeToken})(?=$|[^\\p{L}\\p{N}]))`,
+    'iu'
+  ));
+  const childAgeRaw = childAgeMatch?.[1] || childAgeMatch?.[2] || childAgeMatch?.[3] || null;
+  const childAgeIsRange = /(?:реб[её]н(?:ок|ку|ка)|дети|сыну|дочери).{0,20}(?:меньше|младше|до|еще нет|ещё нет)\s*(?:7|семи)(?:\s*лет)?/iu.test(lower);
+  const childAge = childAgeRaw && !childAgeIsRange ? parseBudgetNumber(childAgeRaw) : null;
+  const hypotheticalChildReference = /(?:возможн\p{L}*|может\s+быть)[^.!?]{0,70}(?:покуп\p{L}*|оформ\p{L}*)[^.!?]{0,35}на\s+(?:дочь|сына|реб[её]нка)|(?:покуп\p{L}*|оформ\p{L}*)[^.!?]{0,35}на\s+(?:дочь|сына|реб[её]нка)[^.!?]{0,55}пока\s+не\s+решил\p{L}*/iu.test(lower);
   // Scoped negation: "детей до 7 лет нет" is specific to the under-7 eligibility, not proof of having no kids at all
   const noChildUnder7Match = lower.match(
-    /(?:(?:нет|нету|без)\s*(?:маленьких\s*)?детей\s*(?:до\s*7\s*(?:лет|года)?)|детей\s*(?:до\s*7\s*(?:лет|года)?)\s*(?:у\s*нас\s*)?(?:пока\s*)?нет)/iu
+    /(?:(?:нет|нету|без)\s*(?:маленьких\s*)?детей\s*(?:до\s*(?:7|семи)\s*(?:лет|года)?)|детей\s*(?:до\s*(?:7|семи)\s*(?:лет|года)?)\s*(?:у\s*нас\s*)?(?:пока\s*)?нет)/iu
   );
   // General negation: client explicitly has no children
   const noChildrenMatch = !noChildUnder7Match && lower.match(
@@ -402,7 +411,7 @@ export function extractDeterministicFacts(
     /(?:(?:реб[её]нк(?:у|а)?|дет(?:ям|ей|и)|сыну|дочер(?:и|ь)|дочк(?:е|а|у))\s*(?:до\s*7\s*(?:лет|года)?|[1-6]\s*(?:год(?:а)?|лет))|(?:до\s*7\s*(?:лет|года)?|[1-6]\s*(?:год(?:а)?|лет))\s*(?:реб[её]нк(?:у|а)?|дет(?:ям|ей|и)|сыну|дочер(?:и|ь)|дочк(?:е|а|у))|маленьк(?:ие|их)\s*дет(?:и|ей)|малыш|(?:есть\s+)?(?:реб[её]нок|дети)\s+до\s*7\s*(?:лет|года)?)/iu
   );
   // Generic children mentioned (without verified age)
-  const childGenericMatch = !noChildUnder7Match && !noChildrenMatch && !childUnder7Match && lower.match(
+  const childGenericMatch = !hypotheticalChildReference && !noChildUnder7Match && !noChildrenMatch && childAge == null && !childUnder7Match && lower.match(
     /(?:есть\s+(?:реб[её]нок|дети)|реб[её]нок|реб[её]нка|реб[её]нку|дет(?:и|ей)|сыну|дочери|сын|дочь)/iu
   );
 
@@ -423,6 +432,17 @@ export function extractDeterministicFacts(
       'Детей нет (семейная ипотека не применима)',
       noChildrenMatch[0],
       0.95,
+      { status: 'confirmed', needsClarification: false }
+    );
+  } else if (childAge != null && childAgeMatch) {
+    addFact(
+      'familyMortgage',
+      'familyMortgage',
+      childAge < 7
+        ? 'Есть ребёнок подходящего возраста (до 7 лет, подходит под условия семейной ипотеки)'
+        : `Есть ребёнок ${childAge} лет (семейная ипотека по возрасту ребёнка не применима)`,
+      childAgeMatch[0],
+      0.98,
       { status: 'confirmed', needsClarification: false }
     );
   } else if (adultChildren) {

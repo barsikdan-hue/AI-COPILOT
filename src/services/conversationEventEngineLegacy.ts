@@ -209,7 +209,7 @@ function extractCorrection(text: string): string | null {
   if (paymentRevision?.[1] || paymentRevision?.[2]) {
     return (paymentRevision[1] || paymentRevision[2]).trim().replace(/[.!?]+$/u, '');
   }
-  const clarification = text.match(/(?:вы\s+ошиблись|поправлю|точнее)\s*[:,-]?\s*(.{2,100})/iu);
+  const clarification = text.match(/(?:вы\s+ошиблись|поправлю|точнее|я\s+оговорил(?:ся|ась))\s*[:,-]?\s*(.{2,100})/iu);
   return clarification?.[1]?.trim().replace(/[.!?]+$/u, '') || null;
 }
 

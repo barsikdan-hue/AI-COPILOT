@@ -1026,7 +1026,8 @@ export function evaluateFirstCallScript(
       )
     );
 
-  const genericChildrenMarkers = Boolean(
+  const hypotheticalChildReference = /(?:возможн\p{L}*|может\s+быть)[^.!?]{0,70}(?:покуп\p{L}*|оформ\p{L}*)[^.!?]{0,35}на\s+(?:дочь|сына|реб[её]нка)|(?:покуп\p{L}*|оформ\p{L}*)[^.!?]{0,35}на\s+(?:дочь|сына|реб[её]нка)[^.!?]{0,55}пока\s+не\s+решил\p{L}*/iu.test(allClientText);
+  const genericChildrenMarkers = !hypotheticalChildReference && Boolean(
     allClientText.match(/(?:есть\s+(?:реб[её]нок|дети)|реб[её]нок|реб[её]нка|реб[её]нку|дет(?:и|ей)|сыну|дочери|сын|дочь)/iu)
   );
 
