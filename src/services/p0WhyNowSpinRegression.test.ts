@@ -50,6 +50,12 @@ describe('P0 why-now must not become SPIN Need-Payoff', () => {
     expect(spin.updatedSpin.needPayoff).toHaveLength(0);
   });
 
+  it('keeps a real outcome question classified as Need-Payoff', () => {
+    expect(
+      classifyAgentAction('Если удалось полностью решить этот вопрос, что для вас изменится в первую очередь?')
+    ).toBe('asked_need_payoff_question');
+  });
+
   it('does not show the premature 2-3 options comparison card on the live-call path', () => {
     const turns = [
       turn('a1', 'agent', 'Очень приятно. А на каком вы сейчас этапе? Присматриваетесь или уже ездите, смотрите конкретные объекты?', 1),
