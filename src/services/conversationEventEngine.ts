@@ -44,6 +44,24 @@ function isAffirmativeAcknowledgement(text: string): boolean {
   return hasAffirmative && hasCommitment;
 }
 
+function isQualificationAnswerMisreadAsDirectQuestion(
+  result: ConversationEventDetection | null,
+  turn: TranscriptTurn,
+  recentTurns: TranscriptTurn[],
+): boolean {
+  if (result?.type !== 'DIRECT_QUESTION' || turn.speaker !== 'client' || turn.text.includes('?')) return false;
+  const previousAgent = lastAgentBefore(turn, recentTurns);
+  const agentText = normalize(previousAgent?.text || '');
+  const clientText = normalize(turn.text);
+
+  const askedMotiveOrGoal =
+    /(?:какую\s+задачу|для\s+чего|цель\s+покупк|что\s+должно\s+измениться|почему[^.!?]{0,45}(?:сейчас|покуп)|что[^.!?]{0,45}(?:подтолкнул|актуаль))/iu.test(agentText);
+  const affordabilityAnswer =
+    /(?:хочу|хотел\p{L}*|нужно|надо)[^.!?]{0,30}(?:понять|разобраться|узнать)[^.!?]{0,55}(?:(?:что|сколько)[^.!?]{0,35}(?:могу|можем)[^.!?]{0,20}(?:себе\s+)?позволить|(?:какой\s+)?бюджет[^.!?]{0,25}(?:доступен|реален|потяну))/iu.test(clientText);
+
+  return askedMotiveOrGoal && affordabilityAnswer;
+}
+
 function hasClientMaterialsContext(text: string): boolean {
   const lower = normalize(text);
   return /(?:пришл\p{L}*|скин\p{L}*|отправ\p{L}*|присыл\p{L}*|материал\p{L}*|подборк\p{L}*)/iu.test(lower) ||
@@ -97,6 +115,7 @@ function contextualizeLegacyResult(
   state: ConversationState,
 ): ConversationEventDetection | null {
   if (!result) return null;
+  if (isQualificationAnswerMisreadAsDirectQuestion(result, turn, recentTurns)) return null;
   if (isFalseMaterialsResistance(result, turn, recentTurns, state)) return null;
   if (isLateResearchMode(result, turn, state)) return null;
   return result;
