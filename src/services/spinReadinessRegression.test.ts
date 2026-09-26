@@ -16,7 +16,7 @@ const situationItem = (id: string, text: string) => ({
   text,
   evidenceQuote: text,
   evidenceTurnId: id,
-  source: 'client',
+  source: 'client' as const,
   confidence: 0.95,
 });
 
