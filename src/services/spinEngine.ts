@@ -50,6 +50,27 @@ function keepSituationOnly(currentSpinState: any, updatedSpin: any): any {
   };
 }
 
+function conciseHpbSuggestion(clientText: string): string {
+  switch (legacy.detectRealEstatePainCategory(clientText)) {
+    case 'yield_rental':
+      return 'Давайте сравним варианты по чистому доходу, расходам и управлению. Такой формат вам подходит?';
+    case 'security_risks':
+      return 'Давайте сначала проверим документы и ключевые риски, а потом сравним варианты. Такой подход вам подходит?';
+    case 'comparison_overload':
+      return 'Давайте оставим 2–3 варианта и сравним их по вашим критериям в одной логике. Так будет удобнее?';
+    case 'market_uncertainty':
+      return 'Давайте сравним сценарии «купить сейчас» и «подождать» на одинаковых цифрах. Это поможет принять решение?';
+    case 'noise_sleep':
+      return 'Давайте отбирать варианты через тишину и качество отдыха, без лишних компромиссов. Такой фильтр подходит?';
+    case 'traffic_logistics':
+      return 'Давайте сравним варианты по реальной логистике и времени в пути. Это для вас ключевой критерий?';
+    case 'space_crowded':
+      return 'Давайте сравним варианты по планировке и личному пространству для каждого. Такой критерий подходит?';
+    default:
+      return 'Давайте сравним варианты именно по вашему главному критерию. Такой подход вам подходит?';
+  }
+}
+
 export function classifyAgentAction(text: string): AgentActionType {
   if (isWhyNowQuestion(text)) return 'none';
   return legacy.classifyAgentAction(text);
@@ -73,6 +94,14 @@ export function evaluateSpinAndHpb(
   const currentSpinState: any = args[1];
   const lastAgentAction = args[2] as AgentActionType;
   const context: any = args[4];
+
+  if (result?.suggestionMode === 'HPB_PRESENTATION' && result?.suggestedText) {
+    return {
+      ...result,
+      suggestedText: conciseHpbSuggestion(clientTurn?.text || ''),
+      shortReason: 'ХПВ подтверждён, но суфлёр показывает только одну короткую произносимую фразу без пересказа реплики клиента.',
+    } as ReturnType<typeof legacy.evaluateSpinAndHpb>;
+  }
 
   const noActiveProblemChain =
     (currentSpinState?.problem?.length || 0) === 0 &&
