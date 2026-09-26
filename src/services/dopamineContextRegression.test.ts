@@ -58,6 +58,24 @@ describe('dopamine Sochi context regression', () => {
     expect(getContextualDopamineQuestion(state, turns, turns[2].text)).toBeNull();
   });
 
+  it('does not inject a personal work question after trust is already confirmed in script metrics', () => {
+    const client = turn(
+      'c1',
+      'client',
+      'Я работаю в IT, но по покупке уже понятно: ищу место для отдыха у моря без постоянного управления.',
+      1,
+    );
+    const state: any = createInitialState();
+    state.scriptProgress = {
+      metrics: {
+        trust: { status: 'confirmed' },
+      },
+    };
+    state.trustEvaluation = { status: 'not_confirmed' };
+
+    expect(getContextualDopamineQuestion(state, [client], client.text)).toBeNull();
+  });
+
   it('keeps the early live call on buying-task discovery instead of asking about old Sochi memories', () => {
     const turns = [
       turn('a1', 'agent', 'Добрый день. Как я могу к вам обращаться?', 1),
