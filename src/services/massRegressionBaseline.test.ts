@@ -4,9 +4,9 @@ import { runMassRegressionBaseline } from './test-support/massRegressionHarness'
 describe('AI Copilot mass offline regression baseline', () => {
   const report = runMassRegressionBaseline();
 
-  it('uses 50-100 golden cases and at least 2000 deterministic scenarios', () => {
+  it('uses 50-101 golden cases and at least 2000 deterministic scenarios', () => {
     expect(report.baseGoldenCases).toBeGreaterThanOrEqual(50);
-    expect(report.baseGoldenCases).toBeLessThanOrEqual(100);
+    expect(report.baseGoldenCases).toBeLessThanOrEqual(101);
     expect(report.generatedScenarios).toBeGreaterThanOrEqual(2000);
     expect(report.assertions).toBeGreaterThan(report.generatedScenarios);
   });
@@ -24,8 +24,8 @@ describe('AI Copilot mass offline regression baseline', () => {
       fingerprint: report.fingerprint,
     }).toMatchInlineSnapshot(`
       {
-        "assertions": 12032,
-        "baseGoldenCases": 100,
+        "assertions": 12128,
+        "baseGoldenCases": 101,
         "clusters": [
           {
             "count": 64,
@@ -64,10 +64,10 @@ describe('AI Copilot mass offline regression baseline', () => {
           },
         ],
         "fail": 188,
-        "fingerprint": "1086485165af58bf907664780a7f1b822c359f0fa97c417651d92a7c621365eb",
-        "generatedScenarios": 3200,
-        "pass": 11844,
-        "passRate": 98.44,
+        "fingerprint": "cc18e9c24b02a47c16953d2f6201b71fa4206d78f9411bd44978a27283b58eb0",
+        "generatedScenarios": 3232,
+        "pass": 11940,
+        "passRate": 98.45,
         "seed": 99537922,
       }
     `);

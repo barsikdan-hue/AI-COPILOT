@@ -13,6 +13,7 @@ import {
   validateEvidenceQuote,
 } from './textUtils';
 import {
+  classifyInvestmentIntent,
   detectAdultChildren,
   detectFundsAvailability,
   detectSearchExperience,
@@ -292,9 +293,10 @@ export function extractDeterministicFacts(
   // “переезжать на ПМЖ я не планирую”. Prefer explicit investment intent when
   // the client says the purchase is primarily an investment with occasional use.
   const explicitNoPermanentLiving = /(?:(?:не|точно\s+не)\s*(?:планиру\p{L}*|собира\p{L}*|хоч\p{L}*|буд\p{L}*)[^.!?]{0,35}(?:переезжа\p{L}*|жить\s+постоянно|пмж)|(?:переезжа\p{L}*|пмж|жить\s+постоянно)[^.!?]{0,45}(?:не\s*(?:планиру\p{L}*|собира\p{L}*|хоч\p{L}*|буд\p{L}*)))/iu.test(lower);
-  const investmentMatch = lower.match(
-    /(?:смотр\p{L}*\s+как\s+вложени\p{L}*|скорее[^.!?]{0,20}вложени\p{L}*|как\s+(?:вложени\p{L}*|инвестици\p{L}*)|это\s+инвестици\p{L}*|хоч\p{L}*\s+сдава\p{L}*[^.!?]{0,30}(?:посуточно|в\s+аренду)|куда\s+(?:разумно\s+)?вложить|вложить\s+(?:часть\s+)?(?:денег|капитал)|чисто\s*под\s*инвестици\p{L}*|для\s*перепродажи|инвестиционн\p{L}*|сохранить\s+капитал)/iu
-  );
+  const investmentIntent = classifyInvestmentIntent(lower);
+  const investmentMatch = ['positive', 'mixed'].includes(investmentIntent) ? lower.match(
+    /(?:смотр\p{L}*\s+как\s+вложени\p{L}*|скорее[^.!?]{0,20}вложени\p{L}*|(?:как|для)\s+(?:вложени\p{L}*|инвестици\p{L}*)|это\s+инвестици\p{L}*|хоч\p{L}*\s+сдава\p{L}*[^.!?]{0,30}(?:посуточно|в\s+аренду)|куда\s+(?:разумно\s+)?вложить|вложить\s+(?:часть\s+)?(?:денег|капитал)|чисто\s*под\s*инвестици\p{L}*|для\s*перепродажи|инвестиционн\p{L}*|сохранить\s+капитал)/iu
+  ) : null;
   const personalVisitMatch = lower.match(
     /(?:(?:сам(?:ому)?|сами|мы)\s+(?:иногда|периодически)?\s*приезжа\p{L}*|(?:иногда|периодически)\s+сам(?:ому)?\s+приезжа\p{L}*|хотелось\s+бы\s+(?:и\s+)?сам(?:ому)?\s+(?:иногда\s+)?приезжа\p{L}*|приезжа\p{L}*\s+на\s+(?:пару|несколько|1-3|одну-две)\s+недел)/iu
   );
@@ -328,7 +330,7 @@ export function extractDeterministicFacts(
   };
 
   if (investmentMatch) {
-    const mixedPersonal = Boolean(personalVisitMatch || leisureMatch);
+    const mixedPersonal = Boolean(personalVisitMatch || leisureMatch || selfUseLivingMatch);
     addFact('goal_primary', 'primaryGoal', 'Инвестиции', investmentMatch[0].trim());
     addFact(
       'goal',
@@ -342,7 +344,7 @@ export function extractDeterministicFacts(
         'goal_secondary',
         'secondaryUse',
         'Периодические личные приезды / отдых',
-        (personalVisitMatch || leisureMatch)![0].trim(),
+        (personalVisitMatch || leisureMatch || selfUseLivingMatch)![0].trim(),
         0.94
       );
     }

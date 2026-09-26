@@ -16,6 +16,7 @@ export { isMetricClosed };
 import { isSubstantiveClientTurn } from './objectionEngine';
 import { getContextualDopamineQuestion } from './dopamineQuestionEngine';
 import {
+  classifyInvestmentIntent,
   classifyTrustQuestion,
   detectSearchExperience,
   extractSemanticCriteria,
@@ -675,8 +676,8 @@ export function evaluateFirstCallScript(
   ).toLowerCase();
 
   const explicitNoPermanentLiving = /(?:(?:не|точно\s+не)\s*(?:планиру\p{L}*|собира\p{L}*|хоч\p{L}*|буд\p{L}*)[^.!?]{0,35}(?:переезжа\p{L}*|жить\s+постоянно|пмж)|(?:переезжа\p{L}*|пмж|жить\s+постоянно)[^.!?]{0,45}не\s*(?:планиру\p{L}*|собира\p{L}*|хоч\p{L}*|буд\p{L}*))/iu.test(goalCheckText);
-  const explicitInvestmentGoal =
-    /(?:инвестиц|вложени|вложить|сохранить\s+капитал|арендн\p{L}*\s+доход|под\s+сдачу)/iu.test(goalCheckText);
+  const investmentIntent = classifyInvestmentIntent(goalCheckText);
+  const explicitInvestmentGoal = investmentIntent === 'positive' || investmentIntent === 'mixed';
 
   if (
     explicitInvestmentGoal &&
@@ -691,6 +692,11 @@ export function evaluateFirstCallScript(
     goalValue = 'Инвестиции / арендный доход / сохранение капитала';
     goalReason = 'Клиент озвучил инвестиционную цель или получение арендного дохода.';
     goalNeedsClarification = false;
+  } else if (investmentIntent === 'uncertain') {
+    goalStatus = 'needs_clarification';
+    goalValue = 'Не определена: личное использование или инвестиции';
+    goalReason = 'Клиент прямо обозначил альтернативы и пока не выбрал основной сценарий использования.';
+    goalNeedsClarification = true;
   } else if (
     goalCheckText.includes('лето') &&
     (goalCheckText.includes('сдавать') || goalCheckText.includes('аренд'))

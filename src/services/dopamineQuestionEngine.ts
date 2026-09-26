@@ -1,5 +1,6 @@
 import salesKnowledge from '../data/salesKnowledge.json';
 import { ConversationState, TranscriptTurn } from '../types';
+import { classifyInvestmentIntent } from './semanticEvidence';
 import { checkSemanticAntiRepeat } from './semanticAntiRepeat';
 
 export interface DopamineSuggestion {
@@ -62,6 +63,16 @@ export function getContextualDopamineQuestion(
   const clientTurns = turns.filter(t => t.speaker === 'client');
   const allClient = clientTurns.map(t => t.text).join(' ');
   const latest = normalizeRu(lastClientText);
+  const investmentIntent = classifyInvestmentIntent(latest);
+  const canonicalInvestment = /инвестиц|вложени|арендн\p{L}*\s+доход|сохранени\p{L}*\s+капитал/iu.test([
+    state.goal?.value,
+    state.primaryGoal?.value,
+    state.scriptProgress?.metrics?.goal?.value,
+  ].filter(Boolean).join(' '));
+  const positiveInvestmentContext =
+    investmentIntent === 'positive' ||
+    investmentIntent === 'mixed' ||
+    (investmentIntent === 'none' && canonicalInvestment);
   const clientOpenedUsefulSochiExperience = clientTurns.some(t => hasUsefulSochiExperienceContext(t.text));
   const candidates: DopamineSuggestion[] = [];
   const pools = salesKnowledge.dopamineQuestions;
@@ -72,7 +83,7 @@ export function getContextualDopamineQuestion(
   // Personal rapport is allowed only when the CLIENT actually opened that topic.
   // A bare location mention is qualification evidence, not permission to switch
   // from the buying task into tourism nostalgia.
-  if (hasAny(latest, ['инвест', 'доход', 'арендный доход', 'сдавать', 'сдачи', 'капитал', 'окупаем'])) add('investor', 'Вопрос адаптирован под инвестиционный мотив клиента.');
+  if (positiveInvestmentContext) add('investor', 'Вопрос адаптирован под подтверждённый инвестиционный мотив клиента.');
   if (hasFamilyContext(latest)) add('family', 'Личный вопрос продолжает реально озвученный семейный контекст клиента.');
   if (hasAny(latest, ['работ', 'професс', 'бизнес', 'предприним'])) add('work', 'Личный вопрос естественно продолжает тему работы клиента.');
   if (hasUsefulSochiExperienceContext(latest)) add('sochi', 'Клиент сам раскрыл реальный опыт Сочи; личный вопрос продолжает эту тему.');

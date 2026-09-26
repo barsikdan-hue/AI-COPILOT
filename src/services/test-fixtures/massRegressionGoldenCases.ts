@@ -121,6 +121,7 @@ const factCases: FactGoldenCase[] = [
 ];
 
 const analysisCases: AnalysisGoldenCase[] = [
+  { kind: 'analysis', id: 'analysis.investment.negated-intent', invariant: 'INV_NEGATED_INTENT_NO_RECOMMENDATION', priority: 'P0', text: 'Не для инвестиций, хочу жить сам.', forbiddenHint: /какой\s+результат\s+от\s+инвестиц|доход,\s*рост\s+капитала\s+или\s+ликвидност|если\s+смотреть\s+как\s+на\s+инвест/iu },
   { kind: 'analysis', id: 'analysis.low-urgency.study', invariant: 'INV_NO_ARTIFICIAL_URGENCY', priority: 'P0', text: 'Я пока просто изучаю рынок и не спешу.', forbiddenHint: /сроч|сегодня.{0,20}(?:реш|покуп)|последн(?:ий|яя).{0,20}(?:шанс|предлож)/iu },
   { kind: 'analysis', id: 'analysis.low-urgency.future', invariant: 'INV_NO_ARTIFICIAL_URGENCY', priority: 'P0', text: 'Смотрю на будущее, конкретных сроков нет.', forbiddenHint: /сроч|успет|нужно.{0,15}решить.{0,15}сейчас/iu },
   { kind: 'analysis', id: 'analysis.low-urgency.economics', invariant: 'INV_NO_ARTIFICIAL_URGENCY', priority: 'P0', text: 'Сначала хочу понять экономику, к покупке не тороплюсь.', forbiddenHint: /сроч|дефицит|последн(?:ий|яя)|цены.{0,15}выраст/iu },

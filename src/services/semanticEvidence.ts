@@ -24,6 +24,43 @@ export interface SemanticSearchExperience {
 
 export type TrustQuestionKind = 'technical' | 'personal' | null;
 
+export type InvestmentIntentKind = 'positive' | 'negative' | 'uncertain' | 'mixed' | 'none';
+
+/**
+ * Classify investment intent before keyword-driven projections or suggestions.
+ * Order matters: mixed and uncertain phrases contain the same words as positive
+ * intent, while explicit rejection may still mention yield as a comparison.
+ */
+export function classifyInvestmentIntent(text: string): InvestmentIntentKind {
+  const lower = (text || '').toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').replace(/\s+/gu, ' ').trim();
+  if (!lower.trim()) return 'none';
+
+  if (
+    /не\s+только[^.!?]{0,30}(?:инвестиц\p{L}*|вложени\p{L}*|сдава\p{L}*)/iu.test(lower) ||
+    /(?:инвестиц\p{L}*|вложени\p{L}*)[^.!?]{0,70}(?:и|плюс|также)[^.!?]{0,70}(?:для\s+себя|сам\p{L}*\s+жить|отдых)/iu.test(lower)
+  ) return 'mixed';
+
+  if (
+    /(?:пока\s+)?не\s+(?:решил\p{L}*|определил\p{L}*|знаю)[^.!?]{0,100}(?:инвестиц\p{L}*|вложени\p{L}*|сдава\p{L}*)/iu.test(lower) ||
+    /(?:для\s+себя|сам\p{L}*\s+жить)[^.!?]{0,55}\s+или\s+[^.!?]{0,55}(?:инвестиц\p{L}*|вложени\p{L}*|сдава\p{L}*)/iu.test(lower) ||
+    /(?:инвестиц\p{L}*|вложени\p{L}*|сдава\p{L}*)[^.!?]{0,55}\s+или\s+[^.!?]{0,55}(?:для\s+себя|сам\p{L}*\s+жить)/iu.test(lower)
+  ) return 'uncertain';
+
+  if (
+    /не\s+для\s+инвестиц\p{L}*/iu.test(lower) ||
+    /(?:для\s+)?инвестиц\p{L}*\s*(?:мне\s+)?(?:(?:больше|уже|вообще|совсем|точно)\s+)?не\s+(?:хоч\p{L}*|рассматрива\p{L}*|интерес\p{L}*|нужн\p{L}*)/iu.test(lower) ||
+    /не\s+(?:хоч\p{L}*|рассматрива\p{L}*|интерес\p{L}*|нужн\p{L}*)\s+(?:для\s+)?инвестиц\p{L}*/iu.test(lower) ||
+    /не\s+(?:хоч\p{L}*|планиру\p{L}*|буд\p{L}*|собира\p{L}*|рассматрива\p{L}*)[^.!?]{0,30}сдава\p{L}*/iu.test(lower) ||
+    /сдава\p{L}*[^.!?]{0,30}не\s+(?:хоч\p{L}*|планиру\p{L}*|буд\p{L}*|собира\p{L}*|рассматрива\p{L}*)/iu.test(lower)
+  ) return 'negative';
+
+  if (
+    /(?:инвестиц\p{L}*|вложени\p{L}*|вложить|сохранить\s+капитал|арендн\p{L}*\s+доход|пассивн\p{L}*\s+доход|доходност\p{L}*|окупаемост\p{L}*|под\s+сдач\p{L}*|сдава\p{L}*)/iu.test(lower)
+  ) return 'positive';
+
+  return 'none';
+}
+
 const firstMatch = (text: string, regex: RegExp): string | null => {
   const match = text.match(regex);
   return match?.[0]?.trim() || null;
