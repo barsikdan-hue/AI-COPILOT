@@ -302,14 +302,21 @@ export function extractDeterministicFacts(
     /(?:для\s*отдыха|сезонн(?:ое|ого|ом)?\s*проживан(?:ие|ия|ии)|приезжать\s+(?:на\s*)?(?:отдых|каникул)|на\s*каникулы|для\s*каникул|периодически\s*приезжать)/iu
   );
 
-  const livingMatches = explicitNoPermanentLiving ? [] : Array.from(
-    lower.matchAll(/(?:для\s*(?:постоянной\s*)?жизни|для\s*постоянного\s*проживания|постоянно\s*жить|буд(?:у|ем)\s*жить\s+постоянно|переезжа(?:ем|ть)|переезд|пмж)/giu)
-  );
+  const personalLivingMatches = Array.from(lower.matchAll(
+    /(?:хоч\p{L}*\s+(?:(?:сам(?:ому)?|сама)\s+)?(?:там\s+)?жить(?:\s+(?:сам(?:ому)?|сама))?|(?:сам(?:ому)?|сама)\s+(?:там\s+)?буд\p{L}*\s+жить|для\s+себя[^.!?]{0,45}буд\p{L}*\s+(?:там\s+)?жить|буд\p{L}*\s+(?:там\s+)?жить[^.!?]{0,45}для\s+себя)/giu
+  ));
+  const livingMatches = explicitNoPermanentLiving ? [] : [
+    ...Array.from(
+      lower.matchAll(/(?:для\s*(?:постоянной\s*)?жизни|для\s*постоянного\s*проживания|постоянно\s*жить|буд(?:у|ем)\s*жить\s+постоянно|переезжа(?:ем|ть)|переезд|пмж)/giu)
+    ),
+    ...personalLivingMatches,
+  ].sort((left, right) => (left.index || 0) - (right.index || 0));
   const livingMatch = livingMatches.find((match) => {
     const startIndex = match.index || 0;
     const before = lower.slice(Math.max(0, startIndex - 55), startIndex);
     const after = lower.slice(startIndex + match[0].length, startIndex + match[0].length + 65);
     return !(
+      /(?:^|[^\p{L}\p{N}])не\s*$/iu.test(before) ||
       /не\s+(?:хоч\p{L}*|планиру\p{L}*|собира\p{L}*|буд\p{L}*|рассматрива\p{L}*)[^.!?]{0,15}$/iu.test(before) ||
       /^\s*[^.!?]{0,35}не\s+(?:хоч\p{L}*|планиру\p{L}*|собира\p{L}*|буд\p{L}*|рассматрива\p{L}*)/iu.test(after)
     );
