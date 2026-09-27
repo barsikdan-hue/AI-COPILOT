@@ -51,7 +51,6 @@ export function extractDeterministicFacts(
     /(?:первоначальн|первый\s*взнос|сколько\s*(?:готовы|можете)?\s*внести|какую\s*сумму\s*(?:готовы|можете)?\s*внести|сумм\w*\s*сразу|на\s*руках)/iu.test(previousAgentLower);
 
   const sourceContext = agentAskedDownPayment || /источник|откуда.*средств|средства.*(?:руках|продаж)|после продажи/iu.test(previousAgentLower);
-  const explicitPaymentSwitch = /(?:всю|полностью|целиком|100%).*(?:покуп|оплат|средств)|(?:вместо|без) ипотеки|способ оплаты/iu.test(lower);
 
   const addFact = (
     category: string,
@@ -412,11 +411,21 @@ export function extractDeterministicFacts(
   }
 
   // 4. Payment Method & Financing
-  const cashMatch = lower.match(/(?:наличн(?:ые|ыми|ых)|расчет\s*наличными|расчёт\s*наличными|100%\s*оплата|свои\s*средства|собственн(?:ые|ыми)\s*средств(?:а|ами)|(?:куп\p{L}*|покуп\p{L}*|оплат\p{L}*|бер\p{L}*)[^.!?]{0,24}за\s+свои(?:\s+средств\p{L}*)?)/iu);
-  
-  // Explicit current negative intent towards mortgage (e.g. "не хочу ипотеку", "не нужна ипотека", "без ипотеки")
-  const explicitMortgageNegative = lower.match(
-    /(?:(?:^|[^\p{L}\p{N}])(?:(?:не\s*(?:нужн(?:а|о)|планиру(?:ю|ем)|хоч(?:у|ешь)|хот(?:им|ел|ела|ели|елось|елось\s*бы)|буд(?:ем|у)|рассматрива(?:ем|ю)|собира(?:юсь|емся)|подходит|интересует|люблю)|без)\s*ипотек(?:и|у)?)|(?:^|[^\p{L}\p{N}])ипотек(?:а|у|ой)?[^.!?]{0,35}не\s*(?:нужн(?:а|о)|интересн(?:а|о)|подходит|хоч(?:у|ется)|рассматрива(?:ю|ем)|собира(?:юсь|емся))|(?:^|[^\p{L}\p{N}])ипотек(?:а|у|ой)?[^.!?]{0,35}рассматрива(?:ть|ю|ем)[^.!?]{0,18}не\s*собира(?:юсь|емся))/iu
+  const mortgageMention = lower.match(/(?:ипотек\p{L}*|ипотечн\p{L}*\s+кредит\p{L}*)/iu);
+  const installmentMatch = lower.match(/(?:рассрочк\p{L}*|в\s*рассрочку)/iu);
+  const downPaymentOwnFundsContext = /(?:первоначальн\p{L}*|перв\p{L}*)\s+(?:взнос\p{L}*|плат[её]ж\p{L}*)/iu.test(lower);
+  const paymentUndecided = /(?:способ\s+оплаты|схем\p{L}*|вариант\p{L}*)[^.!?]{0,45}(?:ещ[её]\s+|пока\s+)?не\s+(?:решил\p{L}*|выбрал\p{L}*|определил\p{L}*)|(?:возможн\p{L}*|может\s+быть)[^.!?]{0,25}ипотек\p{L}*|ипотек\p{L}*[^.!?]{0,35}(?:пока\s+)?не\s+решил\p{L}*/iu.test(lower);
+  const cashMatch = lower.match(
+    /(?:наличн\p{L}*|расч[её]т\s*наличными|100%\s*оплат\p{L}*|сво(?:и|их|ими)\s+(?:средств\p{L}*|деньг\p{L}*)|собственн\p{L}*\s+средств\p{L}*|со\s+своего\s+сч[её]та|банковск\p{L}*\s+перевод\p{L}*|деньг\p{L}*\s+на\s+покупк\p{L}*\s+есть|заплач\p{L}*\s+сразу|без\s+кредит\p{L}*|(?:куп\p{L}*|покуп\p{L}*|оплат\p{L}*|бер\p{L}*)[^.!?]{0,32}за\s+свои(?:\s+(?:средств\p{L}*|деньг\p{L}*))?)/iu
+  );
+
+  // "Не только ипотека" keeps mortgage in a mixed scheme; it is not a rejection.
+  const mortgageStillIncluded = /не\s+только\s+ипотек\p{L}*/iu.test(lower);
+  const explicitMortgageNegative = !mortgageStillIncluded && lower.match(
+    /(?:(?:^|[^\p{L}\p{N}])(?:(?:не\s*(?:нужн\p{L}*|планиру\p{L}*|хоч\p{L}*|буд\p{L}*|рассматрива\p{L}*|собира\p{L}*|подходит|интересует|люблю)|без)\s*ипотек\p{L}*)|(?:^|[^\p{L}\p{N}])ипотечн\p{L}*\s+вариант\p{L}*[^.!?]{0,35}не\s+рассматрива\p{L}*|(?:^|[^\p{L}\p{N}])ипотек\p{L}*[^.!?]{0,35}(?:не\s*(?:нужн\p{L}*|интересн\p{L}*|подходит|хоч\p{L}*|рассматрива\p{L}*|собира\p{L}*)|отпал\p{L}*)|(?:^|[^\p{L}\p{N}])не\s+ипотек\p{L}*(?:\s*,?\s*а|(?=$|[^\p{L}\p{N}]))|(?:кредит\p{L}*[^.!?]{0,25})?ипотек\p{L}*[^.!?]{0,25}не\s+подход\p{L}*)/iu
+  );
+  const installmentNegative = Boolean(
+    installmentMatch && /(?:рассрочк\p{L}*\s+(?:мне\s+)?(?:не\s+(?:нужн\p{L}*|подход\p{L}*|рассматрива\p{L}*)|неинтересн\p{L}*)|не\s+(?:нужн\p{L}*|интересн\p{L}*|рассматрива\p{L}*)\s+(?:мне\s+)?рассрочк\p{L}*)/iu.test(lower)
   );
 
   // Stating they didn't use mortgage in the past (e.g. "ипотекой раньше не пользовался")
@@ -426,26 +435,45 @@ export function extractDeterministicFacts(
 
   // Positive intent (e.g. "хочу купить в ипотеку", "в ипотеку", "рассматриваю вариант ипотека")
   const mortgageIntentMatch = !explicitMortgageNegative && lower.match(
-    /(?:в\s*ипотеку|под\s*ипотеку|(?:^|[^\wа-яё])хочу\s*(?:купить\s*)?(?:в\s*)?ипотеку|буду\s*(?:в\s*)?ипотеку|купим\s*(?:в\s*)?ипотеку|планируем\s*(?:в\s*)?ипотеку|через\s*ипотеку|с\s*помощью\s*ипотеки|оформ(?:ить|ляем|им)\s*ипотеку|ипотек(?:а|у|ой)\s*(?:рассматрива(?:ем|ю)|подходит|нужна)|(?:рассматрива(?:ем|ю)\s*(?:вариант\s*)?)ипотек(?:а|у|ой)|ипотечное\s*кредитование)/iu
+    /(?:в\s*ипотеку|под\s*ипотеку|(?:^|[^\wа-яё])хочу\s*(?:купить\s*)?(?:в\s*)?ипотеку|буду\s+(?:брать\s+)?(?:в\s*)?ипотеку|купим\s*(?:в\s*)?ипотеку|планиру\p{L}*[^.!?]{0,18}(?:оформить\s+)?ипотечн\p{L}*\s+кредит\p{L}*|планируем\s*(?:в\s*)?ипотеку|через\s*ипотеку|с\s*помощью\s*ипотеки|оформ(?:ить|ляем|им|ляю)\s*ипотеку|рассчитыва\p{L}*\s+на\s+(?:семейн\p{L}*\s+)?ипотек\p{L}*|ипотек\p{L}*\s*(?:рассматрива\p{L}*|подходит|нужна|одобрен\p{L}*)|(?:рассматрива\p{L}*\s*(?:вариант\s*)?)ипотек\p{L}*|ипотечн\p{L}*\s+(?:кредит\p{L}*|кредитование))/iu
   );
 
   const mortgageNegationMatch = explicitMortgageNegative || (pastExperienceNegation && !mortgageIntentMatch);
-  const genericMortgageMatch = !mortgageNegationMatch && lower.match(/(?:ипотек(?:а|у|ой)|в\s*ипотеку)/iu);
-  const installmentMatch = lower.match(/(?:рассрочк(?:а|у|ой)|в\s*рассрочку)/iu);
+  const genericMortgageMatch = !mortgageNegationMatch && !paymentUndecided && mortgageMention;
+  const mixedOwnMortgage = Boolean(
+    mortgageMention && !downPaymentOwnFundsContext && (
+      /(?:часть[^.!?]{0,35}(?:сво\p{L}*|средств\p{L}*)[^.!?]{0,45}(?:остальн\p{L}*|ипотек\p{L}*)|(?:остальн\p{L}*|часть\s+прид[её]тся)[^.!?]{0,35}ипотек\p{L}*|не\s+только\s+ипотек\p{L}*[^.!?]{0,55}часть[^.!?]{0,25}(?:сво\p{L}*|средств\p{L}*))/iu.test(lower)
+    )
+  );
+  const financingAlternatives = Boolean(
+    mortgageMention && installmentMatch && !installmentNegative &&
+    /(?:сравнива\p{L}*|выбира\p{L}*|решени\p{L}*[^.!?]{0,25}не\s+приня\p{L}*|пока\s+не\s+решил\p{L}*)/iu.test(lower)
+  );
+  const explicitFullCash = Boolean(
+    cashMatch && !sourceContext && !downPaymentOwnFundsContext && !paymentUndecided && (
+      /(?:всю|полностью|целиком|100%)[^.!?]{0,40}(?:сумм\p{L}*|оплат\p{L}*|за\s+свои|собственн\p{L}*\s+средств\p{L}*)|(?:куп\p{L}*|покуп\p{L}*|оплат\p{L}*)[^.!?]{0,35}(?:за\s+свои|собственн\p{L}*\s+средств\p{L}*|со\s+своего\s+сч[её]та)|(?:без\s+кредит\p{L}*|кредит\p{L}*\s+не\s+понадоб\p{L}*)|банковск\p{L}*\s+перевод\p{L}*|заплач\p{L}*\s+сразу|не\s+ипотек\p{L}*[^.!?]{0,25}а[^.!?]{0,30}(?:сво\p{L}*|наличн\p{L}*)|ипотек\p{L}*\s+отпал\p{L}*[^.!?]{0,45}(?:сво\p{L}*|собственн\p{L}*)|наличн\p{L}*|100%\s*оплат\p{L}*/iu.test(lower)
+    )
+  );
 
-  // If client specifically intends mortgage (even if stating they haven't used it in the past), give precedence to explicit intent
-  if (mortgageIntentMatch && installmentMatch) {
-    addFact('paymentMethod', 'paymentMethod', 'Ипотека / Рассрочка (допустимы оба варианта)', `${mortgageIntentMatch[0]}, ${installmentMatch[0]}`);
-  } else if (cashMatch && (!sourceContext || explicitPaymentSwitch) && (!genericMortgageMatch || mortgageNegationMatch)) {
+  if (financingAlternatives) {
+    addFact('paymentMethod', 'paymentMethod', 'Ипотека / рассрочка (схема не выбрана)', trimmed, 0.94, { needsClarification: true });
+  } else if (mixedOwnMortgage) {
+    addFact('paymentMethod', 'paymentMethod', 'Смешанная схема: собственные средства + ипотека', trimmed, 0.97);
+  } else if (downPaymentOwnFundsContext && mortgageMention && !mortgageNegationMatch) {
+    addFact('paymentMethod', 'paymentMethod', 'Ипотека', mortgageMention[0]);
+  } else if (cashMatch && explicitFullCash && (!mortgageMention || mortgageNegationMatch)) {
     addFact('paymentMethod', 'paymentMethod', /сво|собствен/iu.test(cashMatch[0]) ? 'Собственные средства (100% оплата)' : 'наличные', cashMatch[0]);
-  } else if (mortgageNegationMatch && !mortgageIntentMatch) {
-    // Negative preference regarding mortgage - do NOT choose mortgage as payment method
-    // Do NOT invent cash or installment unless client explicitly stated it
+  } else if (installmentMatch && !installmentNegative && (mortgageNegationMatch || !mortgageMention)) {
+    addFact('paymentMethod', 'paymentMethod', 'Рассрочка', installmentMatch[0]);
+  } else if (paymentUndecided && mortgageMention) {
+    addFact('paymentMethod', 'paymentMethod', 'Ипотека рассматривается; решение не принято', trimmed, 0.9, { needsClarification: true });
+  } else if (mortgageIntentMatch && installmentMatch && !installmentNegative) {
+    addFact('paymentMethod', 'paymentMethod', 'Ипотека / рассрочка (допустимы оба варианта)', trimmed, 0.94, { needsClarification: true });
   } else if (mortgageIntentMatch) {
     addFact('paymentMethod', 'paymentMethod', 'Ипотека', mortgageIntentMatch[0]);
   } else if (genericMortgageMatch && !mortgageNegationMatch) {
     addFact('paymentMethod', 'paymentMethod', 'Ипотека', genericMortgageMatch[0]);
-  } else if (installmentMatch) {
+  } else if (installmentMatch && !installmentNegative) {
     addFact('paymentMethod', 'paymentMethod', 'Рассрочка', installmentMatch[0]);
   }
 
@@ -472,7 +500,7 @@ export function extractDeterministicFacts(
   }
 
   const savingsSourceMatch = lower.match(
-    /(?:из\s*(?:личных\s*)?(?:накоплений|сбережений)|накоплени(?:я|й)|сбережени(?:я|й)|свои\s*средства|собственн(?:ые|ыми)\s*средств(?:а|ами)|деньги\s*на\s*руках)/iu
+    /(?:из\s*(?:личных\s*)?(?:накоплений|сбережений)|накоплени(?:я|й)|сбережени(?:я|й)|сво(?:и|их|ими)\s+(?:средств\p{L}*|деньг\p{L}*)|собственн\p{L}*\s*средств\p{L}*|деньги\s*на\s*руках)/iu
   );
   const assetSaleSourceMatch = lower.match(
     /(?:из\s*продажи\s*(?:актива|активов|квартиры|недвижимости)|продам\s*(?:актив|активы|квартиру|недвижимость)|после\s*продажи\s*(?:актива|активов|квартиры|недвижимости))/iu

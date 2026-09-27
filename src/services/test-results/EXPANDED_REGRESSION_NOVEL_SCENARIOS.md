@@ -6,13 +6,13 @@
 - Execution profiles per scenario: 32
 - Generated executions: 8192
 - Assertions: 32704
-- PASS: 25112
-- FAIL: 7592
-- Pass rate: 76.79%
-- Unique failure clusters: 44
-- Production failure clusters: 42
+- PASS: 25748
+- FAIL: 6956
+- Pass rate: 78.73%
+- Unique failure clusters: 39
+- Production failure clusters: 37
 - Test-oracle limitation clusters: 2
-- Deterministic fingerprint: `4893dc0f4c4f16eaf1570bebb6b55b5bcc4eee68c002a2edcdd9d7451b4268d5`
+- Deterministic fingerprint: `6a18cd00eedaaf25a04f840d60fdbe4b37894895eae5b1cbdb29b7adeb830028`
 - Runtime: local deterministic only; no Gemini or external LLM calls
 
 Coverage by base scenario: goal 20; criteria 20; finance 28; timeline 20; decision maker 16; experience 16; material requests 16; objections 16; corrections 24; negation 16; transcript transport 12; session isolation 8; next action 20; recommendation quality 24.
@@ -37,13 +37,11 @@ Every fingerprint is listed below. Fingerprints with the same demonstrated root 
 | `4b2495e4c59d` (448), `adf7d794b2d1` (85), `061dc840e0c4` (64), `4dcabe583576` (28) | `INV_EXPERIENCE_STATE`; no viewings, online/live views, several objects | Canonical experience and metric close; no repeat question | `searchExperience=null`, metric open, or experience question remains selectable | Search-stage parser is phrase-list based and context handling only recognizes a subset of short “none” answers. `semanticEvidence.ts::detectSearchExperience`; `localAnalysisEngine.ts::isNoExperienceAnswer`, `::sanitizeLiveState`; `dialoguePolicyEngine.ts::chooseDialoguePolicyTarget` | next action, metric | HIGH |
 | `a636f5db6038` (256), `bebf9fb7f70d` (28), `a380869ea85c` (128), `d0460e176b9c` (60) | `INV_VOLUNTARY_EXPERIENCE_REOPEN`, `INV_CLOSED_EXPERIENCE_BRANCH`; “nothing viewed” then a later concrete view | Empty branch closes; later voluntary fact reopens state without repeating the question | Empty status remains open, or later experience is not recorded | Both the negative short-answer recognizer and positive later-fact recognizer have lexical gaps. `semanticEvidence.ts::detectSearchExperience`; `localAnalysisEngine.ts::isNoExperienceAnswer`, `::sanitizeLiveState` | next action, state, metric | HIGH |
 | `f058d65d45cc` (448), `277936e36d62` (96) | `INV_DOWN_PAYMENT_READINESS`, `INV_FINANCE_AMOUNT_SEPARATION`; «На первый взнос выделено три миллиона», budget plus first payment | Down payment amount/readiness distinct from budget | `downPayment=null`; budget may be extracted while first payment is lost | Explicit down-payment amount accepts digits, not spoken numerals or several label/order variants. `deterministicFacts.ts::extractDeterministicFacts` (`explicitDownPaymentAmount`); `semanticEvidence.ts::detectFundsAvailability` | state, metric | HIGH |
-| `c57f609c08b8` (256), `b775f443babd` (64), `47e4566c9eac` (32) | `INV_PAYMENT_METHOD`, `INV_NEGATION_NOT_POSITIVE`, `INV_FIRST_CONTRAST_NOT_CORRECTION`; «ипотечный кредит», «ипотека мне не подходит», «не ипотека, а полная оплата своими» | Positive method only when asserted; cash wins explicit contrast | Missing payment method or false positive mortgage | Mortgage positive/negative regexes do not cover `не подходит`, `ипотечный кредит`, or leading contrast scope consistently. `deterministicFacts.ts::extractDeterministicFacts` payment section; `localAnalysisEngineLegacy.ts::advanceLocalConversation` mortgage sanitization | state, metric | HIGH |
-| `9ee22ceb6ab0` (160), `b0c38b79e21c` (124) | `INV_TRUE_CORRECTION_SUPERSEDE` payment; mortgage→cash, cash→mortgage, installment switches | Current method active, old method superseded, correction event | Old method remains and/or event absent | `ипотека отпала` is not a mortgage negation; its token can be re-read as positive mortgage and blocks the cash branch. `deterministicFacts.ts::extractDeterministicFacts`; `conversationStore.ts::mergeFactsDelta`; `conversationEventEngineLegacy.ts::hasConfirmedFactReplacement` | state, metric | HIGH |
 | `fa1de6c36a87` (128), `00b31ad090a8` (64) | `INV_TRUE_CORRECTION_SUPERSEDE` budget; twenty→twenty-five, thirty→twenty-two | New numeric limit active, old superseded, correction event | Budget absent and event missing | Spoken compound numerals are not composed by `parseBudgetNumber`; only one token is recognized. `deterministicFacts.ts::parseBudgetNumber`, `::extractDeterministicFacts`; `conversationStore.ts::mergeFactsDelta` | state, metric | HIGH |
 | `ed2d233076f3` (112), `1a630930cf2e` (108), `501a80c3f955` (25) | `INV_TRUE_CORRECTION_SUPERSEDE` children; «двое детей» → «детей у меня нет, речь о племянниках» | No-children fact active, old child fact superseded, correction event linked | Positive child fact survives; some variants emit correction event against wrong canonical value | General no-children regex accepts `у нас`, not `у меня`; generic child-token detection then wins on the same sentence. `deterministicFacts.ts::extractDeterministicFacts` (`noChildrenMatch`, `childGenericMatch`); `conversationStore.ts::mergeFactsDelta`; `conversationEventEngineLegacy.ts::hasConfirmedFactReplacement` | state, metric | HIGH |
 | `d0a78a72c69e` (54) | `INV_TRUE_CORRECTION_SUPERSEDE` property type; apartment↔flat corrections under discourse wrappers | Linked supersede and correction event for every profile | Base transition works, but 54 surface profiles lose one part of the correction contract | Correction/event lexicon does not treat `передумал/юридически нужна` consistently, even though canonical property extraction can succeed. `deterministicFacts.ts::extractDeterministicFacts`; `conversationStore.ts::mergeFactsDelta`; `conversationEventEngineLegacy.ts::extractCorrection`, `::hasConfirmedFactReplacement` | state, metric | HIGH |
 
-The dominant pattern is not a broken generic supersede algorithm. In most correction clusters the new fact is never extracted, so `mergeFactsDelta` has nothing to supersede. Children and payment also show wrong-positive extraction before lifecycle resolution.
+The dominant pattern is not a broken generic supersede algorithm. In most remaining correction clusters the new fact is never extracted, so `mergeFactsDelta` has nothing to supersede. Children also show wrong-positive extraction before lifecycle resolution.
 
 # COVERAGE GAPS
 
@@ -60,7 +58,7 @@ The dominant pattern is not a broken generic supersede algorithm. In most correc
 
 ## A. Production bugs requiring fix
 
-1. Make negation scope safe for payment and criteria before expanding positive lexicons. User effect: no mortgage/quiet recommendation from explicit rejection. Scope: payment negation in `extractDeterministicFacts` and negative-scope guards in `extractSemanticCriteria`.
+1. Make negation scope safe for criteria before expanding its positive lexicon. User effect: no quiet/view recommendation from explicit rejection. Scope: negative-scope guards in `extractSemanticCriteria`.
 2. Expand canonical extraction by semantic category (goal, decision maker, timeline, experience) in separate iterations. User effect: correct active conversation state and fewer repeated qualification questions. Scope: one category/function per fix, no architecture rewrite.
 3. Fix child correction precedence (`у меня детей нет` before generic child tokens). User effect: family-mortgage guidance no longer uses a contradicted child fact. Scope: family section of `extractDeterministicFacts` plus lifecycle assertions.
 4. Complete standalone material-request vocabulary separately from the now-fixed boundary combinations. User effect: direct requests for a price list or catalogue receive the requested material instead of a generic question. Scope: material intent classification only.
@@ -90,3 +88,12 @@ The dominant pattern is not a broken generic supersede algorithm. In most correc
 - All 224 failures from the five target clusters were removed: `422c7c830dbc`, `4e9a2b7fbaad`, `b79acf39876a`, `07dbc99be13a`, `8b5006e65004`.
 - An additional 64 boundary-overlap failures disappeared: `04f8e3a4703e` was removed and `dcccc2f90db0` decreased from 66 to 34.
 - New fingerprints: 0. Remaining clusters: 42 production and 2 test-oracle limitations.
+
+# FIX ITERATION 16 RESULT
+
+- Root cause: the category-specific payment extractor evaluated positive mortgage tokens without sufficient negation/contrast precedence, lacked several explicit own-funds and mortgage forms, and collapsed mixed financing; the live mortgage-uncertainty sanitizer then removed explicit mixed facts. Payment correction cues also omitted valid scheme-change phrases, while mortgage rejection could clear a positive installment fact from the same turn.
+- Scope: payment extraction in `deterministicFacts.ts`, payment-only uncertainty classification in `localAnalysisEngine.ts`, and payment-specific rejection/correction handling in `conversationEventEngineLegacy.ts`; the generic supersede engine was not changed.
+- Original regression: unchanged at 101 golden cases, 3232 scenarios and 12288 / 12288 PASS.
+- Expanded regression: 25112 → 25748 PASS; 7592 → 6956 FAIL; 76.79% → 78.73%; 44 → 39 fingerprints.
+- Exactly 636 target failures were removed. All five target clusters disappeared: `c57f609c08b8`, `b775f443babd`, `47e4566c9eac`, `9ee22ceb6ab0`, `b0c38b79e21c`.
+- New fingerprints: 0. Remaining clusters: 37 production and 2 test-oracle limitations.
