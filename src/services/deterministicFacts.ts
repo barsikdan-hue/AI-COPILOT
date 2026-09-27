@@ -34,6 +34,120 @@ export interface ExtractedFactItem {
   needsClarification?: boolean;
 }
 
+interface PurchaseTimelineEvidence {
+  value: string;
+  evidenceQuote: string;
+  isFlexible: boolean;
+  comment?: string;
+}
+
+const TIMELINE_NUMBER_PATTERN = String.raw`(?:\d+|один|одного|одну|два|две|двух|три|тр[её]х|четыре|четыр[её]х|пять|пяти|шесть|шести|семь|семи|восемь|восьми|девять|девяти|десять|десяти)`;
+const TIMELINE_RANGE_PATTERN = String.raw`${TIMELINE_NUMBER_PATTERN}(?:\s*[-–—]\s*${TIMELINE_NUMBER_PATTERN})?`;
+const TIMELINE_DURATION_PATTERN = String.raw`(?:полгода|год(?:а)?|месяц(?:а|ев)?|пара\s+месяцев|пару\s+месяцев|${TIMELINE_RANGE_PATTERN}\s*(?:дн(?:я|ей)?|недел(?:ю|и|ь)?|месяц(?:а|ев)?|год(?:а|лет)?))`;
+
+const firstTimelineMatch = (text: string, patterns: RegExp[]): string | null => {
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match?.[0]) return match[0].trim();
+  }
+  return null;
+};
+
+const normalizeTimelineNumberWords = (value: string): string => {
+  const replacements: Array<[RegExp, string]> = [
+    [/(^|[^\p{L}])(?:один|одного|одну)(?=$|[^\p{L}])/giu, '1'],
+    [/(^|[^\p{L}])(?:два|две|двух)(?=$|[^\p{L}])/giu, '2'],
+    [/(^|[^\p{L}])(?:три|тр[её]х)(?=$|[^\p{L}])/giu, '3'],
+    [/(^|[^\p{L}])(?:четыре|четыр[её]х)(?=$|[^\p{L}])/giu, '4'],
+    [/(^|[^\p{L}])(?:пять|пяти)(?=$|[^\p{L}])/giu, '5'],
+    [/(^|[^\p{L}])(?:шесть|шести)(?=$|[^\p{L}])/giu, '6'],
+    [/(^|[^\p{L}])(?:семь|семи)(?=$|[^\p{L}])/giu, '7'],
+    [/(^|[^\p{L}])(?:восемь|восьми)(?=$|[^\p{L}])/giu, '8'],
+    [/(^|[^\p{L}])(?:девять|девяти)(?=$|[^\p{L}])/giu, '9'],
+    [/(^|[^\p{L}])(?:десять|десяти)(?=$|[^\p{L}])/giu, '10'],
+  ];
+  return replacements.reduce(
+    (current, [pattern, replacement]) => current.replace(pattern, (_match, prefix: string) => `${prefix}${replacement}`),
+    value,
+  );
+};
+
+function extractPurchaseTimelineEvidence(text: string, previousAgentTurnText?: string | null): PurchaseTimelineEvidence | null {
+  const lower = (text || '').toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').replace(/\s+/gu, ' ').trim();
+  if (!lower) return null;
+
+  const lowUrgency = /(?:не\s+торопл\p{L}*|не\s+горит|не\s+срочн\p{L}*|спешк\p{L}*\s+нет|не\s+к\s+спеху)/iu.test(lower);
+  const unknownOrRejected =
+    /(?:не\s+(?:понима\p{L}*|знаю|решил\p{L}*|определил\p{L}*))[^.!?]{0,45}(?:когда|срок\p{L}*)[^.!?]{0,45}(?:покуп\p{L}*|сделк\p{L}*)/iu.test(lower) ||
+    /(?:срок\p{L}*|дат\p{L}*)[^.!?]{0,35}(?:пока\s+)?не\s+(?:решил\p{L}*|определил\p{L}*|знаю)/iu.test(lower) ||
+    /(?:сроков|дат)\s+(?:пока\s+)?нет/iu.test(lower) ||
+    /если\s+когда-нибудь[^.!?]{0,80}(?:подума\p{L}*|реш\p{L}*)\s+о\s+покупк\p{L}*/iu.test(lower) ||
+    /покупа\p{L}*[^.!?]{0,25}(?:в\s+этом\s+году\s+)?не\s+планиру\p{L}*/iu.test(lower);
+  if (unknownOrRejected && !lowUrgency) return null;
+
+  const contrast = lower.match(/(?:^|[^\p{L}\p{N}])не\s+[^.!?]{1,60}?(?:,\s*|\s+)а\s+([^.!?]{2,100})/iu);
+  const scoped = contrast?.[1]?.trim() || lower;
+  const purchaseContext = /(?:покуп\p{L}*|куп\p{L}*|сделк\p{L}*|срок\p{L}*|ориентир\p{L}*|закры\p{L}*|оформ\p{L}*|решени\p{L}*\s+прим\p{L}*|план\p{L}*\s+(?:ускор\p{L}*|измен\p{L}*)|перенес\p{L}*|спешк\p{L}*|срочн\p{L}*|торопл\p{L}*|не\s+горит|уточню\s+точнее)/iu.test(lower);
+  const timelineQuestionContext = /(?:когда|как\s+скоро|срок\p{L}*)[^.!?]{0,45}(?:покуп\p{L}*|куп\p{L}*|сделк\p{L}*|выйти|планир\p{L}*)/iu.test(
+    (previousAgentTurnText || '').toLocaleLowerCase('ru-RU').replace(/ё/g, 'е'),
+  );
+  const unrelatedOnly =
+    /(?:ремонт\p{L}*|отпуск\p{L}*|каникул\p{L}*)/iu.test(lower) && !purchaseContext;
+  const moveOnly =
+    /(?:переезжа\p{L}*|перееха\p{L}*|заселен\p{L}*)/iu.test(lower) && !purchaseContext;
+  if (unrelatedOnly || moveOnly) return null;
+
+  const durationMatch = firstTimelineMatch(scoped, [
+    new RegExp(String.raw`(?:не\s+раньше\s+чем|максимум)\s+(?:через|за)\s+${TIMELINE_DURATION_PATTERN}`, 'iu'),
+    new RegExp(String.raw`(?:(?:где-то|примерно|ориентировочно|приблизительно)\s+)?(?:в\s+течение|через|за|в\s+ближайшие)\s+${TIMELINE_DURATION_PATTERN}`, 'iu'),
+    /(?:ориентир\p{L}*\s*[-–—:]?\s*)?полгода/iu,
+    /(?:на\s+этой|в\s+течение\s+этой)\s+недел\p{L}*/iu,
+    ...((purchaseContext || timelineQuestionContext)
+      ? [
+          new RegExp(String.raw`(?:месяц(?:а|ев)?|недел(?:ю|и|ь)?|год(?:а|лет)?)\s+${TIMELINE_RANGE_PATTERN}`, 'iu'),
+          new RegExp(String.raw`(?:ориентир\p{L}*\s*[-–—:]?\s*)?(?:на\s+)?${TIMELINE_DURATION_PATTERN}`, 'iu'),
+        ]
+      : []),
+  ]);
+
+  const absoluteDeadlineMatch = firstTimelineMatch(scoped, [
+    /до\s+\d{1,2}\s+(?:января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)/iu,
+    /(?:до|к)\s*(?:началу\s+|конц(?:у|а)\s*)?(?:января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря|весны|лета|осени|зимы)/iu,
+    /до\s+(?:конца\s+года|нового\s+года)/iu,
+    /(?:в|на)\s*(?:январе|феврале|марте|апреле|мае|июне|июле|августе|сентябре|октябре|ноябре|декабре)/iu,
+  ]);
+
+  const quarterMatch = purchaseContext
+    ? firstTimelineMatch(scoped, [/(?:в\s+)?следующ\p{L}*\s+квартал\p{L}*/iu, /ориентир\p{L}*\s*[-–—:]?\s*квартал\p{L}*/iu])
+    : null;
+  const seasonMatch = purchaseContext
+    ? firstTimelineMatch(scoped, [/(?:к\s+началу\s+|на\s+)?(?:весн\p{L}*|лет\p{L}*|осен\p{L}*|зим\p{L}*)/iu])
+    : null;
+  const urgencyMatch = firstTimelineMatch(scoped, [
+    /(?:покупк\p{L}*|сделк\p{L}*)[^.!?]{0,30}(?:не\s+горит|не\s+срочн\p{L}*)[^.!?]{0,40}(?:дат\p{L}*\s+нет)?/iu,
+    /(?:не\s+торопл\p{L}*|спешк\p{L}*\s+нет|не\s+к\s+спеху)/iu,
+    /(?:вопрос\s+)?срочн\p{L}*[^.!?]{0,45}(?:сразу|немедленно)?/iu,
+  ]);
+
+  const evidenceQuote = absoluteDeadlineMatch || durationMatch || quarterMatch || seasonMatch || urgencyMatch;
+  if (!evidenceQuote) return null;
+
+  const normalizedValue = normalizeTimelineNumberWords(evidenceQuote);
+  const isFlexible = /(?:где-то|примерно|ориентировочно|приблизительно)/iu.test(evidenceQuote) ||
+    /\d+\s*[-–—]\s*\d+\s*(?:недел|месяц|год)/iu.test(normalizedValue);
+  const comment = /не\s+раньше\s+чем/iu.test(evidenceQuote)
+    ? 'Нижняя граница срока; не трактовать как точную дату.'
+    : /максимум/iu.test(evidenceQuote)
+      ? 'Верхняя граница срока; не трактовать как точную дату.'
+      : lowUrgency
+        ? 'Клиент обозначил отсутствие срочности; не трактовать как отсутствие ответа.'
+        : isFlexible
+          ? 'Ориентировочный срок; неопределённость сохранена.'
+          : undefined;
+
+  return { value: normalizedValue, evidenceQuote, isFlexible, comment };
+}
+
 export function extractDeterministicFacts(
   text: string,
   turnId: string,
@@ -635,28 +749,13 @@ export function extractDeterministicFacts(
     addFact('property_type', 'propertyType', flatMatch[0].toLowerCase().startsWith('апарт') ? 'Апартаменты' : 'Квартира', flatMatch[0]);
   }
 
-  // 9. Timeline. Preserve relative direction/range in the scalar value instead
-  // of reducing "не раньше", "максимум" or "где-то" to an exact duration.
-  const timelineMatch = lower.match(
-    /(?:(?:не\s+раньше\s+чем|максимум)\s+через\s+(?:полгода|(?:\d+|один|одного|два|две|двух|три|тр[её]х|четыре|четыр[её]х)(?:\s*[-–—]\s*(?:\d+|два|две|двух|три|тр[её]х|четыре|четыр[её]х))?\s*месяц(?:а|ев)?)|(?:(?:где-то|примерно|ориентировочно|приблизительно)\s+)?(?:в\s+течение|через)\s+(?:полгода|(?:\d+|один|одного|два|две|двух|три|тр[её]х|четыре|четыр[её]х)(?:\s*[-–—]\s*(?:\d+|два|две|двух|три|тр[её]х|четыре|четыр[её]х))?\s*месяц(?:а|ев)?)|пара\s*месяцев|пару\s*месяцев|в\s*течение\s*пары\s*месяцев|(?:2|два)[-–—\s]*(?:3|три)\s*месяц(?:а|ев)?|к\s*лету|в\s*течение\s*месяца|до\s+(?:конца\s+года|нового\s+года)|(?:^|[^\p{L}\p{N}])срочно(?:[^\p{L}\p{N}]|$)|не\s*к\s*спеху|(?:до|к)\s*(?:концу\s*)?(?:января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)|(?:в|на)\s*(?:январе|феврале|марте|апреле|мае|июне|июле|августе|сентябре|октябре|ноябре|декабре))/iu
-  );
-  if (timelineMatch) {
-    const timelineQuote = timelineMatch[0].trim().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
-    const timelineValue = timelineQuote
-      .replace(/(^|[^\p{L}])(?:двух|два|две)(?=$|[^\p{L}])/giu, (_match, prefix: string) => `${prefix}2`)
-      .replace(/(^|[^\p{L}])(?:тр[её]х|три)(?=$|[^\p{L}])/giu, (_match, prefix: string) => `${prefix}3`)
-      .replace(/(^|[^\p{L}])(?:четыр[её]х|четыре)(?=$|[^\p{L}])/giu, (_match, prefix: string) => `${prefix}4`);
-    const isFlexibleTimeline = /(?:где-то|примерно|ориентировочно|приблизительно)/iu.test(timelineQuote);
-    const boundaryComment = /не\s+раньше\s+чем/iu.test(timelineQuote)
-      ? 'Нижняя граница срока; не трактовать как точную дату.'
-      : /максимум/iu.test(timelineQuote)
-        ? 'Верхняя граница срока; не трактовать как точную дату.'
-        : isFlexibleTimeline
-          ? 'Ориентировочный срок; неопределённость сохранена.'
-          : undefined;
-    addFact('timeline', 'purchaseTimeline', timelineValue, timelineQuote, 0.95, {
-      isFlexible: isFlexibleTimeline,
-      comment: boundaryComment,
+  // 9. Purchase timeline: classify polarity and purchase scope before creating
+  // a scalar fact. This keeps move-in, repair and hypothetical dates separate.
+  const purchaseTimeline = extractPurchaseTimelineEvidence(trimmed, previousAgentTurnText);
+  if (purchaseTimeline) {
+    addFact('timeline', 'purchaseTimeline', purchaseTimeline.value, purchaseTimeline.evidenceQuote, 0.95, {
+      isFlexible: purchaseTimeline.isFlexible,
+      comment: purchaseTimeline.comment,
     });
   }
 

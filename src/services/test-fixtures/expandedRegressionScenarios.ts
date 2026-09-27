@@ -211,7 +211,7 @@ add('goal', 'negated.self', 'INV_GOAL_NEGATION', client('Для себя не б
   ['correct.year-months', 'Планировал покупать через год.', 'Планы ускорились, хочу закрыть сделку за три месяца.', /3|три.*месяц/iu],
   ['correct.month-quarter', 'Хотел оформить всё за месяц.', 'Нет, реальный ориентир — следующий квартал.', /квартал/iu],
   ['specificity.keep', 'Покупка не срочная.', 'Точный срок — до конца ноября.', /ноябр/iu],
-].forEach(([id, first, second, expected]) => add('timeline', String(id), 'INV_TIMELINE_SUPERSEDE', [{ speaker: 'client', text: String(first) }, { speaker: 'client', text: String(second) }], [field('purchaseTimeline', expected as RegExp), { kind: 'supersede', category: 'purchaseTimeline', oldTurn: 0, newTurn: 1 }], { factCategory: 'purchaseTimeline' }));
+].forEach(([id, first, second, expected]) => add('timeline', String(id), 'INV_TIMELINE_SUPERSEDE', [{ speaker: 'client', text: String(first) }, { speaker: 'client', text: String(second) }], [field('purchaseTimeline', expected as RegExp), { kind: 'supersede', category: 'timeline', oldTurn: 0, newTurn: 1 }], { factCategory: 'purchaseTimeline' }));
 
 // 5. Decision maker: 16 cases.
 [
@@ -318,7 +318,7 @@ add('goal', 'negated.self', 'INV_GOAL_NEGATION', client('Для себя не б
 ].forEach(([id, text]) => add('objection', String(id), 'INV_NO_FALSE_OBJECTION', client(String(text)), [{ kind: 'hint', notMatch: /возражени|преодол|убедить/iu }], { semanticAction: 'classify_without_false_objection', factCategory: 'objection', productionLayer: 'intent classification', likelyFunctions: ['src/services/localAnalysisEngine.ts', 'src/services/semanticEvidence.ts'], impact: ['next_action', 'recommendation'], severity: 'HIGH' }));
 
 // 9. Genuine corrections: 24 cases.
-const correctionSpecs: Array<[string, string, string, string, RegExp, string]> = [
+const correctionSpecs: Array<[string, string, string, string, RegExp, string, string?]> = [
   ['goal.live-invest', 'Для постоянной жизни.', 'Нет, решил брать под аренду.', 'goal', /инвест|аренд/iu, 'goal'],
   ['goal.invest-self', 'Ищу инвестиционный объект.', 'Передумал: квартира нужна мне самому.', 'goal', /для себя|личн/iu, 'goal'],
   ['goal.season-permanent', 'Буду приезжать только летом.', 'Нет, переезжаю насовсем и живу постоянно.', 'goal', /постоян|переезд/iu, 'goal'],
@@ -335,16 +335,16 @@ const correctionSpecs: Array<[string, string, string, string, RegExp, string]> =
   ['children.none-one', 'Детей нет.', 'Исправлюсь: есть ребёнок двух лет.', 'familyMortgage', /ребен|ребён|семейн/iu, 'familyMortgage'],
   ['children.age', 'Ребёнку восемь лет.', 'Я ошибся, сыну четыре года.', 'familyMortgage', /4|четыр/iu, 'familyMortgage'],
   ['children.third-party', 'У нас один ребёнок.', 'Нет, это у брата ребёнок, у меня детей нет.', 'familyMortgage', /детей нет|не примен/iu, 'familyMortgage'],
-  ['timeline.year-month', 'Покупка примерно через год.', 'Срок изменился: нужно купить за месяц.', 'purchaseTimeline', /месяц/iu, 'purchaseTimeline'],
-  ['timeline.spring-autumn', 'Сделка будет весной.', 'Нет, перенесли на осень.', 'purchaseTimeline', /осен/iu, 'purchaseTimeline'],
-  ['timeline.urgent-calm', 'Хочу купить срочно.', 'Теперь спешки нет, ориентир полгода.', 'purchaseTimeline', /полгода|6.*месяц/iu, 'purchaseTimeline'],
-  ['timeline.quarter-date', 'Ориентир следующий квартал.', 'Уточню точнее: до 15 ноября.', 'purchaseTimeline', /ноябр|15/iu, 'purchaseTimeline'],
+  ['timeline.year-month', 'Покупка примерно через год.', 'Срок изменился: нужно купить за месяц.', 'purchaseTimeline', /месяц/iu, 'purchaseTimeline', 'timeline'],
+  ['timeline.spring-autumn', 'Сделка будет весной.', 'Нет, перенесли на осень.', 'purchaseTimeline', /осен/iu, 'purchaseTimeline', 'timeline'],
+  ['timeline.urgent-calm', 'Хочу купить срочно.', 'Теперь спешки нет, ориентир полгода.', 'purchaseTimeline', /полгода|6.*месяц/iu, 'purchaseTimeline', 'timeline'],
+  ['timeline.quarter-date', 'Ориентир следующий квартал.', 'Уточню точнее: до 15 ноября.', 'purchaseTimeline', /ноябр|15/iu, 'purchaseTimeline', 'timeline'],
   ['budget.20-25', 'Бюджет до двадцати миллионов.', 'Поднял лимит до двадцати пяти миллионов.', 'budget', /25|двадцат.*пят/iu, 'budget'],
   ['budget.30-22', 'Могу потратить тридцать миллионов.', 'Нет, жёсткий потолок теперь двадцать два.', 'budget', /22|двадцат.*два/iu, 'budget'],
   ['property.flat-apt', 'Нужна квартира.', 'Передумал, рассматриваю апартаменты.', 'propertyType', /апартамент/iu, 'property_type'],
   ['property.apt-flat', 'Ищу апартаменты.', 'Нет, юридически нужна именно квартира.', 'propertyType', /квартир/iu, 'property_type'],
 ];
-correctionSpecs.forEach(([id, first, second, canonical, expected, category]) => add('correction', id, 'INV_TRUE_CORRECTION_SUPERSEDE', [{ speaker: 'client', text: first }, { speaker: 'client', text: second }], [field(canonical, expected), { kind: 'supersede', category, oldTurn: 0, newTurn: 1 }, { kind: 'event', expected: 'FACT_CORRECTION' }], { factCategory: category, semanticAction: 'supersede_fact', productionLayer: 'canonical fact resolution and supersede', likelyFunctions: ['src/services/deterministicFacts.ts', 'src/services/conversationStore.ts', 'src/services/localAnalysisEngine.ts'], impact: ['conversation_state', 'qualification_metric'], severity: 'HIGH' }));
+correctionSpecs.forEach(([id, first, second, canonical, expected, category, ledgerCategory]) => add('correction', id, 'INV_TRUE_CORRECTION_SUPERSEDE', [{ speaker: 'client', text: first }, { speaker: 'client', text: second }], [field(canonical, expected), { kind: 'supersede', category: ledgerCategory || category, oldTurn: 0, newTurn: 1 }, { kind: 'event', expected: 'FACT_CORRECTION' }], { factCategory: category, semanticAction: 'supersede_fact', productionLayer: 'canonical fact resolution and supersede', likelyFunctions: ['src/services/deterministicFacts.ts', 'src/services/conversationStore.ts', 'src/services/localAnalysisEngine.ts'], impact: ['conversation_state', 'qualification_metric'], severity: 'HIGH' }));
 
 // 10. Negation controls: 16 cases.
 const negationSpecs: Array<[string, string, string, RegExp]> = [

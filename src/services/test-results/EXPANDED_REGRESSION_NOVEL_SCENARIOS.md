@@ -6,13 +6,13 @@
 - Execution profiles per scenario: 32
 - Generated executions: 8192
 - Assertions: 32704
-- PASS: 27916
-- FAIL: 4788
-- Pass rate: 85.36%
-- Unique failure clusters: 29
-- Production failure clusters: 27
+- PASS: 29047
+- FAIL: 3657
+- Pass rate: 88.82%
+- Unique failure clusters: 27
+- Production failure clusters: 25
 - Test-oracle limitation clusters: 2
-- Deterministic fingerprint: `1bc27f0ea651983ba79d1d29dcb3150f2620bd61a3e9c7301aa805f0a8fe3479`
+- Deterministic fingerprint: `0242d56dc7bf0eaee01fdcde57524e35d1ae681f603680aae88142a5b2d71aa3`
 - Runtime: local deterministic only; no Gemini or external LLM calls
 
 Coverage by base scenario: goal 20; criteria 20; finance 28; timeline 20; decision maker 16; experience 16; material requests 16; objections 16; corrections 24; negation 16; transcript transport 12; session isolation 8; next action 20; recommendation quality 24.
@@ -26,8 +26,8 @@ Every fingerprint is listed below. Fingerprints with the same demonstrated root 
 | `b75a3a6c2beb` (128), `dcccc2f90db0` (34) | `INV_MATERIAL_REQUEST_ROUTING`, `INV_MATERIAL_RESISTANCE_BOUNDARY`; «Отправьте актуальный прайс», unseen material nouns/orderings without an explicit boundary | Material request/resistance routes to one short material follow-up and does not propose a meeting | `event=none` for remaining unseen nouns/orderings | Material intent still misses standalone `прайс`, `каталог`, `презентация`, `фото`, `подборка` variants. Boundary combinations are now routed correctly; the remaining defect is the out-of-scope material lexicon. `conversationEventEngineLegacy.ts::hasDirectQuestion`, `::classifyDirectQuestionIntent`, `::detectConversationEvent` | recommendation, next action | CRITICAL |
 | `1ca2cd48ea60` (30) | `INV_MATERIAL_RESISTANCE_BOUNDARY`; «Каталог можно, видеопоказ пока не предлагайте» | Test expected `SOFT_RESISTANCE` | Runtime returns `NEXT_STEP_RESISTANCE` with target `ppv` | Event type expectation is over-specific: both routes preserve the refusal and select `CLARIFY`. This is a test/model limitation, not proven bad guidance. `conversationEventEngineLegacy.ts::detectConversationEvent`; `conversationEventEngine.ts::detectNextStepQuestion` | next action, recommendation | CRITICAL label; production bug not proven |
 | `e37e71c0c73c` (32) | `INV_SESSION_ISOLATION`; session A «Только начал смотреть рынок…», session B «Уже сравнил три конкретных комплекса» | Two distinct isolated `searchExperience` values | Session B stays `null`; no cross-session equality/leak was observed | The fixture conflates extraction coverage with isolation. Failure belongs to `detectSearchExperience`, not session storage. `semanticEvidence.ts::detectSearchExperience`; `localAnalysisEngine.ts::advanceLocalConversation` | state, recommendation | CRITICAL label; test/model limitation |
-| `8f20cb3e6368` (576), `b65ab4bb1a79` (256), `66ddcfa470f7` (32) | `INV_PURCHASE_TIMELINE`, `INV_TIMELINE_SUPERSEDE`, `INV_FIRST_CONTRAST_NOT_CORRECTION`; «за три-четыре месяца», spring→autumn correction, «не через год, а в ближайшие два месяца» | Current purchase deadline extracted and projected | `purchaseTimeline=null` or old/unspecific value remains | Timeline regexes are narrow around digits and a few cues; word ranges, seasons, contrast and changed-plan syntax are not normalized. `deterministicFacts.ts::extractDeterministicFacts` timeline section; `conversationStore.ts::shouldReplaceTimeline`, `::mergeFactsDelta` | state, metric | HIGH |
-| `8a0a2a33a394` (256), `f2c2a970a83e` (128) | `INV_TRUE_CORRECTION_SUPERSEDE` timeline; year→month, spring→autumn, urgent→six months | New deadline active, old deadline superseded, correction event emitted | New timeline absent; no supersede/event | The incoming timeline is not extracted, so the generic supersede mechanism is not reached. Same files/functions as the timeline row plus `conversationEventEngineLegacy.ts::hasConfirmedFactReplacement` | state, metric | HIGH |
+| `b65ab4bb1a79` (27), `12138ebfbfda` (5) | `INV_TIMELINE_SUPERSEDE`; month→quarter correction | Explicit new quarter replaces the old month horizon | Old month value remains; five surface variants still emit `FACT_CORRECTION` before canonical replacement | Separate remaining merge-precedence defect: `timelineSpecificity` ranks a quarter below a month and blocks a genuine correction. `conversationStore.ts::timelineSpecificity`, `::shouldReplaceTimeline`, `::mergeFactsDelta` | state, metric | HIGH |
+| `f2c2a970a83e` (85) | `INV_TRUE_CORRECTION_SUPERSEDE` timeline; recognized year→month, spring→autumn and urgent→six-month replacements | `FACT_CORRECTION` emitted after linked supersede | Canonical fact and supersede lineage are correct, but event remains `none` for 85 discourse variations | Separate correction-event cue gap after successful extraction/supersede. `conversationEventEngineLegacy.ts::hasConfirmedFactReplacement`, `::extractCorrection` | state, metric | HIGH |
 | `7418e2144f34` (576), `e27f9ca9c8d6` (224) | `INV_DECISION_AUTHORITY`, `INV_DECISION_MAKER_SUPERSEDE`; «Окончательное решение… только я», sole↔joint corrections | Sole/joint/third-party authority canonicalized and current | `decisionMakers=null` or old authority remains | `detectDecisionMaker` covers a limited set of verbs (`решаю/принимаем`) and misses `утверждаем`, `последнее слово`, delegated authority and several pronoun constructions. `semanticEvidence.ts::detectDecisionMaker`; `deterministicFacts.ts::extractDeterministicFacts`; `conversationStore.ts::mergeFactsDelta` | state, metric | HIGH |
 | `1d14311297fb` (256), `646bab95452d` (128) | `INV_TRUE_CORRECTION_SUPERSEDE` decision maker; sole→joint, spouse→self | Replacement linked and `FACT_CORRECTION` emitted | Canonical authority and lifecycle link fail; event absent | Incoming authority phrase is missed before supersede resolution. `semanticEvidence.ts::detectDecisionMaker`; `conversationStore.ts::mergeFactsDelta`; `conversationEventEngineLegacy.ts::hasConfirmedFactReplacement` | state, metric | HIGH |
 | `4b2495e4c59d` (448), `adf7d794b2d1` (85), `061dc840e0c4` (64), `4dcabe583576` (28) | `INV_EXPERIENCE_STATE`; no viewings, online/live views, several objects | Canonical experience and metric close; no repeat question | `searchExperience=null`, metric open, or experience question remains selectable | Search-stage parser is phrase-list based and context handling only recognizes a subset of short “none” answers. `semanticEvidence.ts::detectSearchExperience`; `localAnalysisEngine.ts::isNoExperienceAnswer`, `::sanitizeLiveState`; `dialoguePolicyEngine.ts::chooseDialoguePolicyTarget` | next action, metric | HIGH |
@@ -111,3 +111,14 @@ The dominant pattern is not a broken generic supersede algorithm. In most remain
 - Exactly 1344 target failures were removed. All six target clusters disappeared: `f0017b51d9f7`, `7ed5e5aaabfa`, `d87b2defb69a`, `b1aa54f812b6`, `3201e4027681`, `fbafaab34c1d`.
 - New fingerprints: 0. Remaining clusters: 27 production and 2 test-oracle limitations.
 - The explicit rejected-investment fixture was corrected to assert no goal; the earlier positive expectation contradicted the negation invariant and would have rewarded a false investment fact.
+
+# FIX ITERATION 19 RESULT
+
+- Root cause: purchase-timeline extraction was a narrow regex path that missed spoken ranges, quarter/season forms, explicit urgency or no-rush wording, calendar boundaries, purchase-vs-move scope and first-turn contrast. Missing incoming facts prevented otherwise-correct canonical projection and supersede logic from running.
+- Scope: timeline-only classification/extraction and normalization in `deterministicFacts.ts`; no generic supersede, dialogue policy, Sales Logic, recommendation lifecycle or UI changes.
+- Oracle correction: expanded supersede checks used canonical field name `purchaseTimeline` as a fact-ledger category, while production and existing regression tests consistently use semantic category `timeline`. The checks now inspect `timeline` without weakening the lifecycle contract or changing scenarios/assertion count.
+- Original regression: unchanged at 101 golden cases, 3232 scenarios and 12288 / 12288 PASS.
+- Expanded regression: 27916 → 29047 PASS; 4788 → 3657 FAIL; 85.36% → 88.82%; 29 → 27 fingerprints.
+- Exactly 1131 failures were removed. Target clusters `8f20cb3e6368` (576), `8a0a2a33a394` (256) and `66ddcfa470f7` (32) disappeared; `b65ab4bb1a79` shrank 256 → 27 and `f2c2a970a83e` shrank 128 → 85.
+- `12138ebfbfda` (5) is not a new failing assertion or regression: it is the `FACT_CORRECTION` event-key split of five pre-existing `b65ab4bb1a79` month→quarter failures. The remaining 32 merge-precedence and 85 event-cue failures are separate mechanisms and were intentionally left for later iterations.
+- Semantic new failures: 0. Remaining fingerprints: 25 production and 2 test-oracle limitations.
