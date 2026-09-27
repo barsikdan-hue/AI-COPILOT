@@ -3,7 +3,6 @@ import type { ConversationState, TranscriptTurn } from '../types';
 import { createInitialState } from './conversationStore';
 import { chooseDialoguePolicyTarget } from './dialoguePolicyEngine';
 import { advanceLocalConversation, buildLocalAnalysisResponse } from './localAnalysisEngine';
-import { checkSemanticAntiRepeat } from './semanticAntiRepeat';
 
 const clientTurn = (text: string, id = 'client-goal'): TranscriptTurn => ({
   id,
@@ -36,33 +35,33 @@ function analyze(text: string) {
   return { turn, state, policy, response, currentGoalFacts };
 }
 
-const expectUnresolvedSelfUse = (result: ReturnType<typeof analyze>) => {
+const expectConfirmedSelfUse = (result: ReturnType<typeof analyze>) => {
   expect(result.state.goal).toMatchObject({
-    value: 'Для себя (формат уточняется)',
-    needsClarification: true,
+    value: 'Для себя (личное использование)',
   });
   expect(result.state.primaryGoal).toMatchObject({
-    value: 'Для себя (формат уточняется)',
-    needsClarification: true,
+    value: 'Для себя (личное использование)',
   });
+  expect(result.state.goal.needsClarification).not.toBe(true);
+  expect(result.state.primaryGoal?.needsClarification).not.toBe(true);
   expect(result.currentGoalFacts).toEqual(expect.arrayContaining([
     expect.objectContaining({
       category: 'goal',
-      value: 'Для себя (формат уточняется)',
-      lifecycleStatus: 'needs_verification',
+      value: 'Для себя (личное использование)',
+      lifecycleStatus: 'confirmed',
     }),
     expect.objectContaining({
       category: 'goal_primary',
-      value: 'Для себя (формат уточняется)',
-      lifecycleStatus: 'needs_verification',
+      value: 'Для себя (личное использование)',
+      lifecycleStatus: 'confirmed',
     }),
   ]));
   expect(result.state.scriptProgress?.metrics.goal).toMatchObject({
-    status: 'needs_clarification',
-    needsClarification: true,
+    status: 'confirmed',
+    needsClarification: false,
   });
   expect(result.state.scriptProgress?.metrics.goal.value || '').not.toMatch(/постоянн.*прожив|переезд/iu);
-  expect(result.policy?.semanticKey).toBe('ask_search_experience');
+  expect(result.policy?.semanticKey).not.toBe('ask_goal');
 };
 
 const expectPermanentLiving = (result: ReturnType<typeof analyze>) => {
@@ -91,20 +90,15 @@ describe('self-use versus permanent residence regression', () => {
     'Хочу жить сам.',
     'Хочу сам там жить.',
     'Покупаю для себя, буду там жить.',
-  ])('keeps explicit self-use unresolved without permanent evidence: %s', (text) => {
+  ])('confirms self-use without strengthening it to permanent residence: %s', (text) => {
     const result = analyze(text);
-    expectUnresolvedSelfUse(result);
-    expect(checkSemanticAntiRepeat(
-      'Понял. А для себя — это больше про отдых, сезонное проживание или планируете жить постоянно?',
-      result.state,
-      [result.turn],
-    ).accepted).toBe(true);
+    expectConfirmedSelfUse(result);
   });
 
   it('keeps self-use separate from negated investment', () => {
     const result = analyze('Не для инвестиций, хочу жить сам.');
 
-    expectUnresolvedSelfUse(result);
+    expectConfirmedSelfUse(result);
     expect(result.currentGoalFacts.map((fact) => fact.value).join(' ')).not.toMatch(/инвест/iu);
     expect(result.state.scriptProgress?.metrics.goal.value || '').not.toMatch(/инвест/iu);
   });

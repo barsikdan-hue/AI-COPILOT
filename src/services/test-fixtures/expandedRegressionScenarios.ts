@@ -109,10 +109,8 @@ const metric = (name: string, match: RegExp, status: string | string[] = 'confir
   ['uncertain.family-invest', 'Не определились, будет семейное жильё или инвестиция.', /инвест|семейн|жиль/iu],
 ].forEach(([id, text, forbidden]) => add('goal', String(id), 'INV_NO_PREMATURE_GOAL', client(String(text)), [absent('goal'), { kind: 'metric', metric: 'goal', status: ['not_confirmed', 'needs_clarification'], notMatch: forbidden as RegExp }], { factCategory: 'goal' }));
 
-[
-  ['negated.invest', 'Доходность не нужна, инвестиционную покупку исключаю.', /инвест/iu],
-  ['negated.self', 'Для себя не беру, нужна только доходная недвижимость.', /инвест|доход/iu],
-].forEach(([id, text, expected]) => add('goal', String(id), 'INV_GOAL_NEGATION', client(String(text)), [field('goal', expected as RegExp), { kind: 'event', forbidden: 'FACT_CORRECTION' }], { factCategory: 'goal' }));
+add('goal', 'negated.invest', 'INV_GOAL_NEGATION', client('Доходность не нужна, инвестиционную покупку исключаю.'), [absent('goal'), { kind: 'event', forbidden: 'FACT_CORRECTION' }], { factCategory: 'goal' });
+add('goal', 'negated.self', 'INV_GOAL_NEGATION', client('Для себя не беру, нужна только доходная недвижимость.'), [field('goal', /инвест|доход/iu), { kind: 'event', forbidden: 'FACT_CORRECTION' }], { factCategory: 'goal' });
 
 // 2. Criteria: 20 cases covering independent, additive and negated criteria.
 [

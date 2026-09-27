@@ -27,8 +27,8 @@ describe('FIX ITERATION 2 fact-state consistency', () => {
   it('GOAL: supersedes living with investment across canonical and derived state', () => {
     const living = clientTurn('goal-1', 'Покупаю для жизни.', 1);
     const first = advance(createInitialState(), [], living);
-    expect(first.result.state.goal.value).toMatch(/жизн|прожив/iu);
-    expect(first.result.state.primaryGoal?.value).toMatch(/жизн|прожив/iu);
+    expect(first.result.state.goal.value).toMatch(/личн|для себя|жизн|прожив/iu);
+    expect(first.result.state.primaryGoal?.value).toMatch(/личн|для себя|жизн|прожив/iu);
 
     const investment = clientTurn('goal-2', 'Нет, планы поменялись, теперь рассматриваю как инвестицию.', 2);
     const second = advance(first.result.state, first.history, investment);

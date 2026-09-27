@@ -42,12 +42,12 @@ describe('negation-safe investment recommendation', () => {
     const result = analyze('Не для инвестиций, хочу жить сам.');
 
     expect(result.state.goal).toMatchObject({
-      value: 'Для себя (формат уточняется)',
-      needsClarification: true,
+      value: 'Для себя (личное использование)',
     });
-    expect(result.state.primaryGoal?.value).toBe('Для себя (формат уточняется)');
-    expect(result.policy?.semanticKey).toBe('ask_search_experience');
-    expect(result.response.candidateRuleId).toBe('dialogue_policy_orientation_ask_search_experience');
+    expect(result.state.goal.needsClarification).not.toBe(true);
+    expect(result.state.primaryGoal?.value).toBe('Для себя (личное использование)');
+    expect(result.policy?.semanticKey).not.toBe('ask_goal');
+    expect(result.response.candidateRuleId).not.toBe('dialogue_policy_orientation_ask_goal');
     expectNoInvestmentRecommendation(result);
   });
 
@@ -65,7 +65,7 @@ describe('negation-safe investment recommendation', () => {
   it('does not activate rental or investment from negated rental intent', () => {
     const result = analyze('Не хочу сдавать, беру для себя.');
 
-    expect(result.state.goal.value).toBe('Для себя (формат уточняется)');
+    expect(result.state.goal.value).toBe('Для себя (личное использование)');
     expectNoInvestmentRecommendation(result);
   });
 

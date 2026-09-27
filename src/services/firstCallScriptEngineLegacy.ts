@@ -662,9 +662,11 @@ export function evaluateFirstCallScript(
     goalValue = goalFact.value;
     goalQuote = goalFact.evidenceQuote || null;
     goalTurnId = goalFact.turnId || null;
+    goalNeedsClarification = Boolean(goalFact.needsClarification || goalFact.lifecycleStatus === 'needs_verification');
   } else if (state.goal?.value) {
     goalValue = state.goal.value;
     goalTurnId = state.goal.evidenceTurnIds?.[0] || null;
+    goalNeedsClarification = Boolean(state.goal.needsClarification);
   }
 
   // Semantic checks on goal text
@@ -681,7 +683,10 @@ export function evaluateFirstCallScript(
   const investmentIntent = classifyInvestmentIntent(goalCheckText);
   const explicitInvestmentGoal = investmentIntent === 'positive' || investmentIntent === 'mixed';
 
-  if (
+  if (goalValue && goalNeedsClarification) {
+    goalStatus = 'partially_confirmed';
+    goalReason = 'Личное использование подтверждено, но конкретный формат клиент пока не выбрал.';
+  } else if (
     explicitInvestmentGoal &&
     /(?:отдых|приезжа|личн\p{L}*\s+использ|сезон)/iu.test(goalCheckText)
   ) {
@@ -696,7 +701,7 @@ export function evaluateFirstCallScript(
     goalNeedsClarification = false;
   } else if (investmentIntent === 'uncertain') {
     goalStatus = 'needs_clarification';
-    goalValue = 'Не определена: личное использование или инвестиции';
+    goalValue = 'Цель требует уточнения';
     goalReason = 'Клиент прямо обозначил альтернативы и пока не выбрал основной сценарий использования.';
     goalNeedsClarification = true;
   } else if (
@@ -708,6 +713,7 @@ export function evaluateFirstCallScript(
     goalReason = 'Клиент раскрыл смешанный сценарий: личный сезонный отдых и коммерческая аренда в остальное время.';
     goalNeedsClarification = false;
   } else if (
+    !goalValue &&
     goalCheckText.includes('для себя') &&
     !goalCheckText.includes('переезд') &&
     !goalCheckText.includes('пмж') &&

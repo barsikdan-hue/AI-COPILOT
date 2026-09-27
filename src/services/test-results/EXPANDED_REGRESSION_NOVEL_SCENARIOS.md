@@ -6,13 +6,13 @@
 - Execution profiles per scenario: 32
 - Generated executions: 8192
 - Assertions: 32704
-- PASS: 26572
-- FAIL: 6132
-- Pass rate: 81.25%
-- Unique failure clusters: 35
-- Production failure clusters: 33
+- PASS: 27916
+- FAIL: 4788
+- Pass rate: 85.36%
+- Unique failure clusters: 29
+- Production failure clusters: 27
 - Test-oracle limitation clusters: 2
-- Deterministic fingerprint: `4df149428c4b6f2d1014e53015a7487037313ba14e65ef75deb07be1e2ef71cf`
+- Deterministic fingerprint: `1bc27f0ea651983ba79d1d29dcb3150f2620bd61a3e9c7301aa805f0a8fe3479`
 - Runtime: local deterministic only; no Gemini or external LLM calls
 
 Coverage by base scenario: goal 20; criteria 20; finance 28; timeline 20; decision maker 16; experience 16; material requests 16; objections 16; corrections 24; negation 16; transcript transport 12; session isolation 8; next action 20; recommendation quality 24.
@@ -26,8 +26,6 @@ Every fingerprint is listed below. Fingerprints with the same demonstrated root 
 | `b75a3a6c2beb` (128), `dcccc2f90db0` (34) | `INV_MATERIAL_REQUEST_ROUTING`, `INV_MATERIAL_RESISTANCE_BOUNDARY`; «Отправьте актуальный прайс», unseen material nouns/orderings without an explicit boundary | Material request/resistance routes to one short material follow-up and does not propose a meeting | `event=none` for remaining unseen nouns/orderings | Material intent still misses standalone `прайс`, `каталог`, `презентация`, `фото`, `подборка` variants. Boundary combinations are now routed correctly; the remaining defect is the out-of-scope material lexicon. `conversationEventEngineLegacy.ts::hasDirectQuestion`, `::classifyDirectQuestionIntent`, `::detectConversationEvent` | recommendation, next action | CRITICAL |
 | `1ca2cd48ea60` (30) | `INV_MATERIAL_RESISTANCE_BOUNDARY`; «Каталог можно, видеопоказ пока не предлагайте» | Test expected `SOFT_RESISTANCE` | Runtime returns `NEXT_STEP_RESISTANCE` with target `ppv` | Event type expectation is over-specific: both routes preserve the refusal and select `CLARIFY`. This is a test/model limitation, not proven bad guidance. `conversationEventEngineLegacy.ts::detectConversationEvent`; `conversationEventEngine.ts::detectNextStepQuestion` | next action, recommendation | CRITICAL label; production bug not proven |
 | `e37e71c0c73c` (32) | `INV_SESSION_ISOLATION`; session A «Только начал смотреть рынок…», session B «Уже сравнил три конкретных комплекса» | Two distinct isolated `searchExperience` values | Session B stays `null`; no cross-session equality/leak was observed | The fixture conflates extraction coverage with isolation. Failure belongs to `detectSearchExperience`, not session storage. `semanticEvidence.ts::detectSearchExperience`; `localAnalysisEngine.ts::advanceLocalConversation` | state, recommendation | CRITICAL label; test/model limitation |
-| `f0017b51d9f7` (832), `b1aa54f812b6` (64), `3201e4027681` (32), `fbafaab34c1d` (32) | `INV_GOAL_SEMANTICS`, `INV_NO_PREMATURE_GOAL`, `INV_GOAL_NEGATION`, `INV_FIRST_CONTRAST_NOT_CORRECTION`; «Квартиру беру себе, жить буду сам», «Пока выбираю: оставить для себя или сдавать», «Для себя не беру, нужна только доходная недвижимость», «Не под аренду, а для личных поездок» | Correct self-use/investment/mixed/uncertain canonical goal without strengthening | Missing goal, premature self-use, or wrong self-use instead of investment | Goal extraction is a set of narrow phrase regexes; it misses beneficiary/use constructions and does not model alternatives as unresolved. `deterministicFacts.ts::extractDeterministicFacts` goal section; `semanticEvidence.ts::classifyInvestmentIntent`; `conversationStore.ts::mergeFactsDelta` | state, metric | HIGH |
-| `7ed5e5aaabfa` (256), `d87b2defb69a` (128) | `INV_TRUE_CORRECTION_SUPERSEDE` goal; «Для постоянной жизни» → «Нет, решил брать под аренду» | New investment goal active, old goal superseded, `FACT_CORRECTION` | Old living goal remains; correction event absent | Incoming rental wording is not extracted, so `mergeFactsDelta` never receives a replacement and `hasConfirmedFactReplacement` has no linked fact. `deterministicFacts.ts::extractDeterministicFacts`; `conversationStore.ts::mergeFactsDelta`; `conversationEventEngineLegacy.ts::hasConfirmedFactReplacement` | state, metric | HIGH |
 | `8f20cb3e6368` (576), `b65ab4bb1a79` (256), `66ddcfa470f7` (32) | `INV_PURCHASE_TIMELINE`, `INV_TIMELINE_SUPERSEDE`, `INV_FIRST_CONTRAST_NOT_CORRECTION`; «за три-четыре месяца», spring→autumn correction, «не через год, а в ближайшие два месяца» | Current purchase deadline extracted and projected | `purchaseTimeline=null` or old/unspecific value remains | Timeline regexes are narrow around digits and a few cues; word ranges, seasons, contrast and changed-plan syntax are not normalized. `deterministicFacts.ts::extractDeterministicFacts` timeline section; `conversationStore.ts::shouldReplaceTimeline`, `::mergeFactsDelta` | state, metric | HIGH |
 | `8a0a2a33a394` (256), `f2c2a970a83e` (128) | `INV_TRUE_CORRECTION_SUPERSEDE` timeline; year→month, spring→autumn, urgent→six months | New deadline active, old deadline superseded, correction event emitted | New timeline absent; no supersede/event | The incoming timeline is not extracted, so the generic supersede mechanism is not reached. Same files/functions as the timeline row plus `conversationEventEngineLegacy.ts::hasConfirmedFactReplacement` | state, metric | HIGH |
 | `7418e2144f34` (576), `e27f9ca9c8d6` (224) | `INV_DECISION_AUTHORITY`, `INV_DECISION_MAKER_SUPERSEDE`; «Окончательное решение… только я», sole↔joint corrections | Sole/joint/third-party authority canonicalized and current | `decisionMakers=null` or old authority remains | `detectDecisionMaker` covers a limited set of verbs (`решаю/принимаем`) and misses `утверждаем`, `последнее слово`, delegated authority and several pronoun constructions. `semanticEvidence.ts::detectDecisionMaker`; `deterministicFacts.ts::extractDeterministicFacts`; `conversationStore.ts::mergeFactsDelta` | state, metric | HIGH |
@@ -56,7 +54,7 @@ The dominant pattern is not a broken generic supersede algorithm. In most remain
 
 ## A. Production bugs requiring fix
 
-1. Expand canonical extraction by semantic category (goal, decision maker, timeline, experience) in separate iterations. User effect: correct active conversation state and fewer repeated qualification questions. Scope: one category/function per fix, no architecture rewrite.
+1. Expand canonical extraction by semantic category (decision maker, timeline, experience) in separate iterations. User effect: correct active conversation state and fewer repeated qualification questions. Scope: one category/function per fix, no architecture rewrite.
 2. Fix child correction precedence (`у меня детей нет` before generic child tokens). User effect: family-mortgage guidance no longer uses a contradicted child fact. Scope: family section of `extractDeterministicFacts` plus lifecycle assertions.
 3. Complete standalone material-request vocabulary separately from the now-fixed boundary combinations. User effect: direct requests for a price list or catalogue receive the requested material instead of a generic question. Scope: material intent classification only.
 4. Add spoken compound-number normalization for down payment and budget. User effect: financial qualification reflects what the client actually said. Scope: category-specific numeric parsing with strict context guards.
@@ -103,3 +101,13 @@ The dominant pattern is not a broken generic supersede algorithm. In most remain
 - Exactly 824 target failures were removed. All four target clusters disappeared: `ce1f7ebb91cb`, `142c4a649bd3`, `a0d3bd920741`, `63b34e88473f`.
 - New fingerprints: 0. Remaining clusters: 33 production and 2 test-oracle limitations.
 - Known limitation retained by scope: criteria are an additive collection, so a later explicit rejection does not supersede an earlier positive criterion. Case L adds infrastructure but leaves the earlier quiet criterion active; fixing that requires a separate criteria-lifecycle contract.
+
+# FIX ITERATION 18 RESULT
+
+- Root cause: goal extraction lacked a single category-specific precedence decision before fact creation. Narrow phrase regexes missed self-use, seasonal, rental and income wording; unresolved alternatives could become positive self-use; profitability context could outrank explicit personal use; and missing incoming goal facts prevented the existing supersede lineage from running. Goal correction cues also omitted valid `решил`, `передумал`, `планы поменялись`, `уточню` and move-to-permanent wrappers.
+- Scope: `semanticEvidence.ts::classifyInvestmentIntent` plus the new goal-only `classifyGoalIntent`, the goal section of `deterministicFacts.ts`, goal metric projection in `firstCallScriptEngineLegacy.ts`, and goal-specific correction cues in `conversationEventEngineLegacy.ts`. Generic supersede, Sales Logic, dialogue policy, recommendation lifecycle and UI were not changed.
+- Original regression: unchanged at 101 golden cases, 3232 scenarios and 12288 / 12288 PASS.
+- Expanded regression: 26572 → 27916 PASS; 6132 → 4788 FAIL; 81.25% → 85.36%; 35 → 29 fingerprints.
+- Exactly 1344 target failures were removed. All six target clusters disappeared: `f0017b51d9f7`, `7ed5e5aaabfa`, `d87b2defb69a`, `b1aa54f812b6`, `3201e4027681`, `fbafaab34c1d`.
+- New fingerprints: 0. Remaining clusters: 27 production and 2 test-oracle limitations.
+- The explicit rejected-investment fixture was corrected to assert no goal; the earlier positive expectation contradicted the negation invariant and would have rewarded a false investment fact.

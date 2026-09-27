@@ -26,6 +26,29 @@ export type TrustQuestionKind = 'technical' | 'personal' | null;
 
 export type InvestmentIntentKind = 'positive' | 'negative' | 'uncertain' | 'mixed' | 'none';
 
+export type GoalIntentKind = 'personal' | 'permanent' | 'seasonal' | 'investment' | 'mixed' | 'uncertain' | 'none';
+
+export interface SemanticGoalIntent {
+  kind: GoalIntentKind;
+  evidenceQuote: string | null;
+  personalEvidenceQuote: string | null;
+  investmentEvidenceQuote: string | null;
+}
+
+const firstSemanticMatch = (text: string, patterns: RegExp[]): string | null => {
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match?.[0]) return match[0].trim();
+  }
+  return null;
+};
+
+const investmentMention = (text: string): boolean =>
+  /(?:инвестиц\p{L}*|вложени\p{L}*|сдава\p{L}*|сдач\p{L}*|аренд\p{L}*|доходн\p{L}*\s+недвижимост\p{L}*|пассивн\p{L}*\s+доход|сохран\p{L}*\s+капитал|перепродаж\p{L}*)/iu.test(text);
+
+const personalUseMention = (text: string): boolean =>
+  /(?:для\s+себя|бер\p{L}*\s+себе|остав\p{L}*\s+себе|жить\s+(?:буд\p{L}*\s+)?сам\p{L}*|буд\p{L}*\s+жить\s+сам\p{L}*|семейн\p{L}*\s+жиль\p{L}*|личн\p{L}*\s+(?:использован\p{L}*|поезд\p{L}*)|для\s+отдыха|приезжа\p{L}*)/iu.test(text);
+
 /**
  * Classify investment intent before keyword-driven projections or suggestions.
  * Order matters: mixed and uncertain phrases contain the same words as positive
@@ -35,30 +58,135 @@ export function classifyInvestmentIntent(text: string): InvestmentIntentKind {
   const lower = (text || '').toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').replace(/\s+/gu, ' ').trim();
   if (!lower.trim()) return 'none';
 
-  if (
-    /не\s+только[^.!?]{0,30}(?:инвестиц\p{L}*|вложени\p{L}*|сдава\p{L}*)/iu.test(lower) ||
-    /(?:инвестиц\p{L}*|вложени\p{L}*)[^.!?]{0,70}(?:и|плюс|также)[^.!?]{0,70}(?:для\s+себя|сам\p{L}*\s+жить|отдых)/iu.test(lower)
-  ) return 'mixed';
+  const unresolvedAlternatives =
+    /(?:пока\s+)?(?:выбира\p{L}*|не\s+(?:решил\p{L}*|определил\p{L}*|знаю)|реш\p{L}*\s+позже)[^.!?]{0,120}\sили\s/iu.test(lower) &&
+    personalUseMention(lower) &&
+    investmentMention(lower);
+  if (unresolvedAlternatives) return 'uncertain';
 
-  if (
-    /(?:пока\s+)?не\s+(?:решил\p{L}*|определил\p{L}*|знаю)[^.!?]{0,100}(?:инвестиц\p{L}*|вложени\p{L}*|сдава\p{L}*)/iu.test(lower) ||
-    /(?:для\s+себя|сам\p{L}*\s+жить)[^.!?]{0,55}\s+или\s+[^.!?]{0,55}(?:инвестиц\p{L}*|вложени\p{L}*|сдава\p{L}*)/iu.test(lower) ||
-    /(?:инвестиц\p{L}*|вложени\p{L}*|сдава\p{L}*)[^.!?]{0,55}\s+или\s+[^.!?]{0,55}(?:для\s+себя|сам\p{L}*\s+жить)/iu.test(lower)
-  ) return 'uncertain';
+  const contextualMixedRental = /часть\s+года[^.!?]{0,80}(?:еще\s+и\s+)?сдава\p{L}*/iu.test(lower);
+  const explicitMixedUse = contextualMixedRental || (personalUseMention(lower) && investmentMention(lower) && (
+    /не\s+только[^.!?]{0,120}(?:инвестиц\p{L}*|сдава\p{L}*)/iu.test(lower) ||
+    /часть\s+года[^.!?]{0,100}(?:остальн\p{L}*\s+врем\p{L}*|сдава\p{L}*)/iu.test(lower) ||
+    /(?:для\s+отдыха|жить\s+сам\p{L}*|приезжа\p{L}*)[^.!?]{0,80}(?:и\s+иногда|остальн\p{L}*\s+врем\p{L}*|еще\s+и)\s*(?:под\s+аренд\p{L}*|сдава\p{L}*)/iu.test(lower) ||
+    /(?:сохран\p{L}*\s+капитал|инвестиц\p{L}*|вложени\p{L}*)[^.!?]{0,100}[,;:-]?\s*(?:но\s+)?(?:летом|иногда|периодически)[^.!?]{0,45}(?:приезжа\p{L}*|жить\s+сам\p{L}*)/iu.test(lower)
+  ));
+  if (explicitMixedUse) return 'mixed';
 
   if (
     /не\s+для\s+инвестиц\p{L}*/iu.test(lower) ||
+    /не\s+под\s+аренд\p{L}*/iu.test(lower) ||
     /(?:для\s+)?инвестиц\p{L}*\s*(?:мне\s+)?(?:(?:больше|уже|вообще|совсем|точно)\s+)?не\s+(?:хоч\p{L}*|рассматрива\p{L}*|интерес\p{L}*|нужн\p{L}*)/iu.test(lower) ||
     /не\s+(?:хоч\p{L}*|рассматрива\p{L}*|интерес\p{L}*|нужн\p{L}*)\s+(?:для\s+)?инвестиц\p{L}*/iu.test(lower) ||
+    /инвестиционн\p{L}*\s+покупк\p{L}*[^.!?]{0,25}исключа\p{L}*/iu.test(lower) ||
     /не\s+(?:хоч\p{L}*|планиру\p{L}*|буд\p{L}*|собира\p{L}*|рассматрива\p{L}*)[^.!?]{0,30}сдава\p{L}*/iu.test(lower) ||
     /сдава\p{L}*[^.!?]{0,30}не\s+(?:хоч\p{L}*|планиру\p{L}*|буд\p{L}*|собира\p{L}*|рассматрива\p{L}*)/iu.test(lower)
   ) return 'negative';
 
   if (
-    /(?:инвестиц\p{L}*|вложени\p{L}*|вложить|сохранить\s+капитал|арендн\p{L}*\s+доход|пассивн\p{L}*\s+доход|доходност\p{L}*|окупаемост\p{L}*|под\s+сдач\p{L}*|сдава\p{L}*)/iu.test(lower)
+    /(?:как|для|под)\s+(?:инвестиц\p{L}*|вложени\p{L}*)/iu.test(lower) ||
+    /инвестиционн\p{L}*\s+(?:объект\p{L}*|покупк\p{L}*|недвижимост\p{L}*)/iu.test(lower) ||
+    /(?:бер\p{L}*|покупа\p{L}*|ищ\p{L}*|смотр\p{L}*|рассматрива\p{L}*|решил\p{L}*|нужн\p{L}*|хоч\p{L}*)[^.!?]{0,55}(?:под\s+(?:долгосрочн\p{L}*\s+|краткосрочн\p{L}*\s+|посуточн\p{L}*\s+)?аренд\p{L}*|для\s+сдач\p{L}*|сдава\p{L}*)/iu.test(lower) ||
+    /(?:под\s+(?:долгосрочн\p{L}*\s+|краткосрочн\p{L}*\s+|посуточн\p{L}*\s+)?аренд\p{L}*|для\s+сдач\p{L}*)/iu.test(lower) ||
+    /доходн\p{L}*\s+недвижимост\p{L}*/iu.test(lower) ||
+    /(?:хоч\p{L}*\s+получа\p{L}*|принос\p{L}*)[^.!?]{0,30}(?:пассивн\p{L}*\s+)?доход/iu.test(lower) ||
+    /(?:арендн\p{L}*|пассивн\p{L}*)\s+доход/iu.test(lower) ||
+    /сохран\p{L}*\s+капитал(?:а)?(?:\s+в\s+недвижимост\p{L}*)?/iu.test(lower) ||
+    /(?:рост\p{L}*\s+цен\p{L}*|роста\s+цены)[^.!?]{0,55}(?:перепродаж\p{L}*|перепродать)/iu.test(lower)
   ) return 'positive';
 
   return 'none';
+}
+
+/**
+ * Resolve the purchase-use category before deterministic facts are created.
+ * A personal-use mention is filtered for local negation, while mixed intent
+ * requires explicit co-use rather than mere interest in yield or price growth.
+ */
+export function classifyGoalIntent(text: string): SemanticGoalIntent {
+  const lower = (text || '').toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').replace(/\s+/gu, ' ').trim();
+  const none: SemanticGoalIntent = {
+    kind: 'none',
+    evidenceQuote: null,
+    personalEvidenceQuote: null,
+    investmentEvidenceQuote: null,
+  };
+  if (!lower) return none;
+
+  const investmentIntent = classifyInvestmentIntent(lower);
+  const investmentEvidenceQuote = firstSemanticMatch(lower, [
+    /(?:как|для|под)\s+(?:инвестиц\p{L}*|вложени\p{L}*)/iu,
+    /инвестиционн\p{L}*\s+(?:объект\p{L}*|покупк\p{L}*|недвижимост\p{L}*)/iu,
+    /(?:под\s+(?:долгосрочн\p{L}*\s+|краткосрочн\p{L}*\s+|посуточн\p{L}*\s+)?аренд\p{L}*|для\s+сдач\p{L}*|смотр\p{L}*\s+для\s+сдач\p{L}*)/iu,
+    /доходн\p{L}*\s+недвижимост\p{L}*/iu,
+    /(?:хоч\p{L}*\s+получа\p{L}*|принос\p{L}*)[^.!?]{0,30}(?:пассивн\p{L}*\s+)?доход/iu,
+    /сохран\p{L}*\s+капитал(?:а)?(?:\s+в\s+недвижимост\p{L}*)?/iu,
+    /(?:рост\p{L}*\s+цен\p{L}*|роста\s+цены)[^.!?]{0,55}(?:перепродаж\p{L}*|перепродать)/iu,
+  ]);
+
+  const permanentEvidenceQuote = firstSemanticMatch(lower, [
+    /для\s+постоянн\p{L}*\s+(?:жизн\p{L}*|проживан\p{L}*)/iu,
+    /(?:постоянно\s+(?:там\s+)?жить|жить(?:\s+сам\p{L}*)?\s+постоянно|переезжа\p{L}*|переезд\p{L}*|пмж)/iu,
+    /(?:основн\p{L}*\s+жиль\p{L}*|жиль\p{L}*\s+кругл\p{L}*\s+год)/iu,
+  ]);
+
+  const seasonalEvidenceQuote = firstSemanticMatch(lower, [
+    /для\s+личн\p{L}*\s+поезд\p{L}*/iu,
+    /приезжа\p{L}*[^.!?]{0,30}(?:отдыха\p{L}*|на\s+отдых|сам\p{L}*)/iu,
+    /приезжа\p{L}*[^.!?]{0,30}(?:только\s+)?лет\p{L}*/iu,
+    /для\s+себя[^.!?]{0,30}(?:на\s+)?лет\p{L}*/iu,
+    /(?:жить\s+сам\p{L}*|сам\p{L}*\s+жить)[^.!?]{0,30}(?:месяц\p{L}*|недел\p{L}*)\s+в\s+году/iu,
+    /(?:для\s+отпуск\p{L}*|для\s+отдыха|на\s+каникул\p{L}*|длинн\p{L}*\s+выходн\p{L}*|сезонн\p{L}*\s+проживан\p{L}*)/iu,
+  ]);
+
+  const personalCandidates = [
+    /(?:покупа\p{L}*|бер\p{L}*|ищ\p{L}*|нужн\p{L}*|рассматрива\p{L}*)[^.!?]{0,40}для\s+себя/iu,
+    /(?:квартир\p{L}*|жиль\p{L}*|объект\p{L}*)[^.!?]{0,35}(?:для\s+меня|нуж\p{L}*\s+мне\s+лично|нуж\p{L}*\s+мне\s+сам\p{L}*)/iu,
+    /(?:бер\p{L}*|остав\p{L}*)\s+себе/iu,
+    /(?:буд\p{L}*\s+(?:там\s+)?жить\s+сам\p{L}*|жить\s+буд\p{L}*\s+сам\p{L}*|хоч\p{L}*\s+(?:сам\p{L}*\s+)?(?:там\s+)?жить(?:\s+сам\p{L}*)?|сам\p{L}*\s+(?:там\s+)?буд\p{L}*\s+жить)/iu,
+    /для\s+жизн\p{L}*/iu,
+  ];
+  let personalEvidenceQuote = firstSemanticMatch(lower, personalCandidates);
+  if (personalEvidenceQuote) {
+    const escaped = personalEvidenceQuote.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const negatedSelfUse = new RegExp(
+      `(?:не\\s+для\\s+себя|для\\s+себя\\s+не\\s+(?:бер\\p{L}*|покупа\\p{L}*|рассматрива\\p{L}*)|${escaped}[^.!?]{0,25}не\\s+(?:буд\\p{L}*|хоч\\p{L}*|планиру\\p{L}*))`,
+      'iu',
+    ).test(lower);
+    if (negatedSelfUse) personalEvidenceQuote = null;
+  }
+
+  if (investmentIntent === 'uncertain') return { ...none, kind: 'uncertain' };
+  if (investmentIntent === 'mixed') {
+    const personalQuote = seasonalEvidenceQuote || personalEvidenceQuote;
+    return {
+      kind: 'mixed',
+      evidenceQuote: lower,
+      personalEvidenceQuote: personalQuote,
+      investmentEvidenceQuote,
+    };
+  }
+  if (investmentIntent === 'positive') {
+    return {
+      kind: 'investment',
+      evidenceQuote: investmentEvidenceQuote || lower,
+      personalEvidenceQuote,
+      investmentEvidenceQuote: investmentEvidenceQuote || lower,
+    };
+  }
+  const permanentRejected =
+    /не\s+(?:планиру\p{L}*|собира\p{L}*|хоч\p{L}*|буд\p{L}*)[^.!?]{0,35}(?:переезжа\p{L}*|жить\s+постоянно|пмж)/iu.test(lower) ||
+    /(?:переезжа\p{L}*|пмж|постоянно\s+жить|жить\s+постоянно)[^.!?]{0,45}не\s+(?:планиру\p{L}*|собира\p{L}*|хоч\p{L}*|буд\p{L}*)/iu.test(lower);
+  if (permanentEvidenceQuote && !permanentRejected) {
+    return { kind: 'permanent', evidenceQuote: permanentEvidenceQuote, personalEvidenceQuote: permanentEvidenceQuote, investmentEvidenceQuote };
+  }
+  if (seasonalEvidenceQuote) {
+    return { kind: 'seasonal', evidenceQuote: seasonalEvidenceQuote, personalEvidenceQuote: seasonalEvidenceQuote, investmentEvidenceQuote };
+  }
+  if (personalEvidenceQuote) {
+    return { kind: 'personal', evidenceQuote: personalEvidenceQuote, personalEvidenceQuote, investmentEvidenceQuote };
+  }
+  return none;
 }
 
 export interface SemanticDecisionMaker {

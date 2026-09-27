@@ -280,7 +280,11 @@ function extractCorrection(text: string): string | null {
   if (revisedPayment) {
     return revisedPayment.trim().replace(/[.!?]+$/u, '');
   }
-  const clarification = text.match(/(?:вы\s+ошиблись|поправлю|точнее|я\s+оговорил(?:ся|ась))\s*[:,-]?\s*(.{2,100})/iu);
+  const goalRevision = text.match(
+    /(?:^|[.!?]\s*)\s*(?:(?:итак|смотрите|если\s+точнее|вообще|по\s+сути|на\s+данный\s+момент|скажу\s+прямо)\s*[:,]?\s*)?(?:(?:нет|уточню)\s*[,;:-]?\s*)?(?:(?:сдава\p{L}*|аренд\p{L}*)[^.!?]{0,35}не\s+(?:буд\p{L}*|хоч\p{L}*|планиру\p{L}*)\s*[,;:-]?\s*)?((?:планы\s+поменял\p{L}*|решил\p{L}*|передумал\p{L}*|переезжа\p{L}*)[^.!?]{0,100}(?:под\s+аренд\p{L}*|для\s+сдач\p{L}*|сдава\p{L}*|инвестиц\p{L}*|остав\p{L}*\s+себе|для\s+себя|жить\s+сам\p{L}*|жив\p{L}*\s+постоянно|мне\s+сам\p{L}*))/iu
+  );
+  if (goalRevision?.[1]) return goalRevision[1].trim().replace(/[.!?]+$/u, '');
+  const clarification = text.match(/(?:вы\s+ошиблись|поправлю|уточню|точнее|я\s+оговорил(?:ся|ась))\s*[:,-]?\s*(.{2,100})/iu);
   return clarification?.[1]?.trim().replace(/[.!?]+$/u, '') || null;
 }
 

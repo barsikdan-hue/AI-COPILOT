@@ -13,7 +13,7 @@ import {
   validateEvidenceQuote,
 } from './textUtils';
 import {
-  classifyInvestmentIntent,
+  classifyGoalIntent,
   detectAdultChildren,
   detectDecisionMaker,
   detectFundsAvailability,
@@ -304,82 +304,37 @@ export function extractDeterministicFacts(
   }
 
   // 3. Goal & Secondary Use Model
-  // Positive residence must never be inferred from a negated mention such as
-  // “переезжать на ПМЖ я не планирую”. Prefer explicit investment intent when
-  // the client says the purchase is primarily an investment with occasional use.
-  const explicitNoPermanentLiving = /(?:(?:не|точно\s+не)\s*(?:планиру\p{L}*|собира\p{L}*|хоч\p{L}*|буд\p{L}*)[^.!?]{0,35}(?:переезжа\p{L}*|жить\s+постоянно|пмж)|(?:переезжа\p{L}*|пмж|жить\s+постоянно)[^.!?]{0,45}(?:не\s*(?:планиру\p{L}*|собира\p{L}*|хоч\p{L}*|буд\p{L}*)))/iu.test(lower);
-  const investmentIntent = classifyInvestmentIntent(lower);
-  const investmentMatch = ['positive', 'mixed'].includes(investmentIntent) ? lower.match(
-    /(?:смотр\p{L}*\s+как\s+вложени\p{L}*|скорее[^.!?]{0,20}вложени\p{L}*|(?:как|для)\s+(?:вложени\p{L}*|инвестици\p{L}*)|это\s+инвестици\p{L}*|хоч\p{L}*\s+сдава\p{L}*[^.!?]{0,30}(?:посуточно|в\s+аренду)|куда\s+(?:разумно\s+)?вложить|вложить\s+(?:часть\s+)?(?:денег|капитал)|чисто\s*под\s*инвестици\p{L}*|для\s*перепродажи|инвестиционн\p{L}*|сохранить\s+капитал)/iu
-  ) : null;
-  const personalVisitMatch = lower.match(
-    /(?:(?:сам(?:ому)?|сами|мы)\s+(?:иногда|периодически)?\s*приезжа\p{L}*|(?:иногда|периодически)\s+сам(?:ому)?\s+приезжа\p{L}*|хотелось\s+бы\s+(?:и\s+)?сам(?:ому)?\s+(?:иногда\s+)?приезжа\p{L}*|приезжа\p{L}*\s+на\s+(?:пару|несколько|1-3|одну-две)\s+недел)/iu
-  );
-  const leisureMatch = lower.match(
-    /(?:для\s*отдыха|сезонн(?:ое|ого|ом)?\s*проживан(?:ие|ия|ии)|приезжать\s+(?:на\s*)?(?:отдых|каникул)|на\s*каникулы|для\s*каникул|периодически\s*приезжать)/iu
-  );
+  // Semantic classification happens before canonical facts are created, so
+  // negated mentions and unresolved alternatives cannot leak into state.
+  const goalIntent = classifyGoalIntent(trimmed);
+  const goalQuote = goalIntent.evidenceQuote || trimmed;
+  const personalFormatUnresolved =
+    goalIntent.kind === 'personal' &&
+    /(?:формат|как\s+именно|режим)[^.!?]{0,45}(?:пока\s+)?(?:реш\p{L}*\s+позже|не\s+решил\p{L}*|не\s+определил\p{L}*)/iu.test(lower);
 
-  const selfUseLivingMatches = Array.from(lower.matchAll(
-    /(?:хоч\p{L}*\s+(?:(?:сам(?:ому)?|сама)\s+)?(?:там\s+)?жить(?:\s+(?:сам(?:ому)?|сама))?|(?:сам(?:ому)?|сама)\s+(?:там\s+)?буд\p{L}*\s+жить|для\s+себя[^.!?]{0,45}буд\p{L}*\s+(?:там\s+)?жить|буд\p{L}*\s+(?:там\s+)?жить[^.!?]{0,45}для\s+себя)/giu
-  ));
-  const permanentLivingMatches = explicitNoPermanentLiving ? [] : Array.from(
-    lower.matchAll(/(?:для\s*(?:постоянной\s*)?жизни|для\s*постоянного\s*проживания|постоянно\s*жить|жить\s+постоянно|буд(?:у|ем)\s+жить(?:\s+(?:сам(?:ому)?|сама))?\s+постоянно|переезжа(?:ем|ть)|переезд|пмж)/giu)
-  );
-  const positiveLivingMatch = (matches: RegExpMatchArray[]) => matches.find((match) => {
-    const startIndex = match.index || 0;
-    const before = lower.slice(Math.max(0, startIndex - 55), startIndex);
-    const after = lower.slice(startIndex + match[0].length, startIndex + match[0].length + 65);
-    return !(
-      /(?:^|[^\p{L}\p{N}])не\s*$/iu.test(before) ||
-      /не\s+(?:хоч\p{L}*|планиру\p{L}*|собира\p{L}*|буд\p{L}*|рассматрива\p{L}*)[^.!?]{0,15}$/iu.test(before) ||
-      /^\s*[^.!?]{0,35}не\s+(?:хоч\p{L}*|планиру\p{L}*|собира\p{L}*|буд\p{L}*|рассматрива\p{L}*)/iu.test(after)
-    );
-  }) || null;
-  const permanentLivingMatch = positiveLivingMatch(permanentLivingMatches);
-  const selfUseLivingMatch = positiveLivingMatch(selfUseLivingMatches);
-
-  const addUnresolvedSelfUse = (quote: string, confidence = 0.95) => {
-    const extra = { needsClarification: true };
-    addFact('goal_primary', 'primaryGoal', 'Для себя (формат уточняется)', quote, confidence, extra);
-    addFact('goal', 'goal', 'Для себя (формат уточняется)', quote, confidence, extra);
-  };
-
-  if (investmentMatch) {
-    const mixedPersonal = Boolean(personalVisitMatch || leisureMatch || selfUseLivingMatch);
-    addFact('goal_primary', 'primaryGoal', 'Инвестиции', investmentMatch[0].trim());
+  if (goalIntent.kind === 'investment') {
+    addFact('goal_primary', 'primaryGoal', 'Инвестиции', goalQuote, 0.97);
+    addFact('goal', 'goal', 'Инвестиции', goalQuote, 0.97);
+  } else if (goalIntent.kind === 'mixed') {
+    addFact('goal_primary', 'primaryGoal', 'Инвестиции', goalIntent.investmentEvidenceQuote || goalQuote, 0.97);
+    addFact('goal', 'goal', 'Инвестиции + периодическое личное использование', goalQuote, 0.97);
     addFact(
-      'goal',
-      'goal',
-      mixedPersonal ? 'Инвестиции + периодическое личное использование' : 'Инвестиции',
-      investmentMatch[0].trim(),
-      0.97
+      'goal_secondary',
+      'secondaryUse',
+      'Периодические личные приезды / отдых',
+      goalIntent.personalEvidenceQuote || goalQuote,
+      0.94,
     );
-    if (mixedPersonal) {
-      addFact(
-        'goal_secondary',
-        'secondaryUse',
-        'Периодические личные приезды / отдых',
-        (personalVisitMatch || leisureMatch || selfUseLivingMatch)![0].trim(),
-        0.94
-      );
-    }
-  } else if (permanentLivingMatch) {
-    addFact('goal_primary', 'primaryGoal', 'Постоянное личное проживание', permanentLivingMatch[0].trim());
-    addFact('goal', 'goal', 'Постоянное личное проживание', permanentLivingMatch[0].trim());
-  } else if (selfUseLivingMatch) {
-    addUnresolvedSelfUse(selfUseLivingMatch[0].trim());
-  } else if (leisureMatch || personalVisitMatch) {
-    const leisureQuote = (leisureMatch || personalVisitMatch)![0].trim();
-    addFact('goal_primary', 'primaryGoal', 'Отдых и сезонное проживание', leisureQuote);
-    addFact('goal', 'goal', 'Отдых и сезонное проживание', leisureQuote);
-  } else {
-    const forMyselfUsageMatch = lower.match(
-      /(?:(?:ищу|покупа\p{L}*|беру|рассматрива\p{L}*|выбира\p{L}*|нужн\p{L}*)[^.!?]{0,35}для\s+себя|для\s+себя[^.!?]{0,35}(?:ищу|покупа\p{L}*|беру|рассматрива\p{L}*|выбира\p{L}*|недвижимост\p{L}*|объект\p{L}*))/iu
-    );
-    const agentAskedUsage = /(?:для\s+себя|для\s+кого|как\s+планиру\p{L}*\s+использ|цель\s+покупк|для\s+чего)/iu.test(previousAgentLower);
-    if (hasPhrase(lower, 'для себя') && !explicitNoPermanentLiving && (forMyselfUsageMatch || agentAskedUsage)) {
-      addUnresolvedSelfUse('для себя', 0.9);
-    }
+  } else if (goalIntent.kind === 'permanent') {
+    addFact('goal_primary', 'primaryGoal', 'Постоянное личное проживание', goalQuote);
+    addFact('goal', 'goal', 'Постоянное личное проживание', goalQuote);
+  } else if (goalIntent.kind === 'seasonal') {
+    addFact('goal_primary', 'primaryGoal', 'Отдых и сезонное проживание', goalQuote);
+    addFact('goal', 'goal', 'Отдых и сезонное проживание', goalQuote);
+  } else if (goalIntent.kind === 'personal') {
+    const extra = personalFormatUnresolved ? { needsClarification: true } : undefined;
+    addFact('goal_primary', 'primaryGoal', 'Для себя (личное использование)', goalQuote, personalFormatUnresolved ? 0.9 : 0.95, extra);
+    addFact('goal', 'goal', 'Для себя (личное использование)', goalQuote, personalFormatUnresolved ? 0.9 : 0.95, extra);
   }
 
   // Secondary use: rental during absence.
