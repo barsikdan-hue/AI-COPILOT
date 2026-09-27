@@ -75,10 +75,6 @@ function hasAvailableDownPaymentWithoutAmount(text: string): boolean {
   return /(?:часть\s+средств|средств\p{L}*|деньг\p{L}*)[^.!?]{0,55}(?:уже\s+)?(?:есть|доступн\p{L}*|на\s+руках)[^.!?]{0,55}перв\p{L}*\s+взнос\p{L}*|перв\p{L}*\s+взнос\p{L}*[^.!?]{0,55}(?:средств\p{L}*|деньг\p{L}*)[^.!?]{0,35}(?:есть|доступн\p{L}*|на\s+руках)/iu.test(lower);
 }
 
-function isJointDecisionAnswer(text: string): boolean {
-  return detectDecisionMaker(text)?.kind === 'joint';
-}
-
 function isDistancePreferenceNotObjection(text: string): boolean {
   const lower = normalize(text);
   if (/не\s+слишком\s+далеко/iu.test(lower)) return true;
@@ -312,12 +308,12 @@ function sanitizeLiveState(
     }
   }
 
-  const jointDecision = isJointDecisionAnswer(turn.text);
-  if (jointDecision) {
+  const jointDecision = detectDecisionMaker(turn.text);
+  if (jointDecision?.kind === 'joint') {
     state = {
       ...state,
       decisionMakers: {
-        value: 'Совместно с супругом / семьёй',
+        value: jointDecision.value,
         evidenceTurnIds: Array.from(new Set([...(state.decisionMakers?.evidenceTurnIds || []), turn.id])),
         needsClarification: false,
       },
@@ -332,8 +328,8 @@ function sanitizeLiveState(
             decisionMaker: {
               ...state.scriptProgress.metrics.decisionMaker,
               status: 'confirmed',
-              value: 'Совместно с супругом / семьёй',
-              evidenceQuote: turn.text,
+              value: jointDecision.value,
+              evidenceQuote: jointDecision.evidenceQuote,
               evidenceTurnId: turn.id,
               semanticReason: 'Клиент прямо сообщил, что финальное решение принимается совместно.',
               confidence: 0.98,

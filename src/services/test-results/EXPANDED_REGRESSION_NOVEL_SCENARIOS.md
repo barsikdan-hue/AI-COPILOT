@@ -6,13 +6,13 @@
 - Execution profiles per scenario: 32
 - Generated executions: 8192
 - Assertions: 32704
-- PASS: 29047
-- FAIL: 3657
-- Pass rate: 88.82%
-- Unique failure clusters: 27
-- Production failure clusters: 25
+- PASS: 30148
+- FAIL: 2556
+- Pass rate: 92.18%
+- Unique failure clusters: 24
+- Production failure clusters: 22
 - Test-oracle limitation clusters: 2
-- Deterministic fingerprint: `0242d56dc7bf0eaee01fdcde57524e35d1ae681f603680aae88142a5b2d71aa3`
+- Deterministic fingerprint: `74b5da04e82d1e7b15d0a64c59ad84e73acf734dadeb22c6c6d9310908275b3a`
 - Runtime: local deterministic only; no Gemini or external LLM calls
 
 Coverage by base scenario: goal 20; criteria 20; finance 28; timeline 20; decision maker 16; experience 16; material requests 16; objections 16; corrections 24; negation 16; transcript transport 12; session isolation 8; next action 20; recommendation quality 24.
@@ -28,8 +28,7 @@ Every fingerprint is listed below. Fingerprints with the same demonstrated root 
 | `e37e71c0c73c` (32) | `INV_SESSION_ISOLATION`; session A «Только начал смотреть рынок…», session B «Уже сравнил три конкретных комплекса» | Two distinct isolated `searchExperience` values | Session B stays `null`; no cross-session equality/leak was observed | The fixture conflates extraction coverage with isolation. Failure belongs to `detectSearchExperience`, not session storage. `semanticEvidence.ts::detectSearchExperience`; `localAnalysisEngine.ts::advanceLocalConversation` | state, recommendation | CRITICAL label; test/model limitation |
 | `b65ab4bb1a79` (27), `12138ebfbfda` (5) | `INV_TIMELINE_SUPERSEDE`; month→quarter correction | Explicit new quarter replaces the old month horizon | Old month value remains; five surface variants still emit `FACT_CORRECTION` before canonical replacement | Separate remaining merge-precedence defect: `timelineSpecificity` ranks a quarter below a month and blocks a genuine correction. `conversationStore.ts::timelineSpecificity`, `::shouldReplaceTimeline`, `::mergeFactsDelta` | state, metric | HIGH |
 | `f2c2a970a83e` (85) | `INV_TRUE_CORRECTION_SUPERSEDE` timeline; recognized year→month, spring→autumn and urgent→six-month replacements | `FACT_CORRECTION` emitted after linked supersede | Canonical fact and supersede lineage are correct, but event remains `none` for 85 discourse variations | Separate correction-event cue gap after successful extraction/supersede. `conversationEventEngineLegacy.ts::hasConfirmedFactReplacement`, `::extractCorrection` | state, metric | HIGH |
-| `7418e2144f34` (576), `e27f9ca9c8d6` (224) | `INV_DECISION_AUTHORITY`, `INV_DECISION_MAKER_SUPERSEDE`; «Окончательное решение… только я», sole↔joint corrections | Sole/joint/third-party authority canonicalized and current | `decisionMakers=null` or old authority remains | `detectDecisionMaker` covers a limited set of verbs (`решаю/принимаем`) and misses `утверждаем`, `последнее слово`, delegated authority and several pronoun constructions. `semanticEvidence.ts::detectDecisionMaker`; `deterministicFacts.ts::extractDeterministicFacts`; `conversationStore.ts::mergeFactsDelta` | state, metric | HIGH |
-| `1d14311297fb` (256), `646bab95452d` (128) | `INV_TRUE_CORRECTION_SUPERSEDE` decision maker; sole→joint, spouse→self | Replacement linked and `FACT_CORRECTION` emitted | Canonical authority and lifecycle link fail; event absent | Incoming authority phrase is missed before supersede resolution. `semanticEvidence.ts::detectDecisionMaker`; `conversationStore.ts::mergeFactsDelta`; `conversationEventEngineLegacy.ts::hasConfirmedFactReplacement` | state, metric | HIGH |
+| `646bab95452d` (83) | `INV_TRUE_CORRECTION_SUPERSEDE` decision maker; recognized sole↔joint/third-party replacements | `FACT_CORRECTION` emitted after linked replacement | Canonical value and supersede lineage are correct, but event remains `none` for 83 discourse variations | Separate correction-event vocabulary gap after successful authority classification. `conversationEventEngineLegacy.ts::extractCorrection`, `::hasConfirmedFactReplacement` | state, metric | HIGH |
 | `4b2495e4c59d` (448), `adf7d794b2d1` (85), `061dc840e0c4` (64), `4dcabe583576` (28) | `INV_EXPERIENCE_STATE`; no viewings, online/live views, several objects | Canonical experience and metric close; no repeat question | `searchExperience=null`, metric open, or experience question remains selectable | Search-stage parser is phrase-list based and context handling only recognizes a subset of short “none” answers. `semanticEvidence.ts::detectSearchExperience`; `localAnalysisEngine.ts::isNoExperienceAnswer`, `::sanitizeLiveState`; `dialoguePolicyEngine.ts::chooseDialoguePolicyTarget` | next action, metric | HIGH |
 | `a636f5db6038` (256), `bebf9fb7f70d` (28), `a380869ea85c` (128), `d0460e176b9c` (60) | `INV_VOLUNTARY_EXPERIENCE_REOPEN`, `INV_CLOSED_EXPERIENCE_BRANCH`; “nothing viewed” then a later concrete view | Empty branch closes; later voluntary fact reopens state without repeating the question | Empty status remains open, or later experience is not recorded | Both the negative short-answer recognizer and positive later-fact recognizer have lexical gaps. `semanticEvidence.ts::detectSearchExperience`; `localAnalysisEngine.ts::isNoExperienceAnswer`, `::sanitizeLiveState` | next action, state, metric | HIGH |
 | `f058d65d45cc` (448), `277936e36d62` (96) | `INV_DOWN_PAYMENT_READINESS`, `INV_FINANCE_AMOUNT_SEPARATION`; «На первый взнос выделено три миллиона», budget plus first payment | Down payment amount/readiness distinct from budget | `downPayment=null`; budget may be extracted while first payment is lost | Explicit down-payment amount accepts digits, not spoken numerals or several label/order variants. `deterministicFacts.ts::extractDeterministicFacts` (`explicitDownPaymentAmount`); `semanticEvidence.ts::detectFundsAvailability` | state, metric | HIGH |
@@ -122,3 +121,12 @@ The dominant pattern is not a broken generic supersede algorithm. In most remain
 - Exactly 1131 failures were removed. Target clusters `8f20cb3e6368` (576), `8a0a2a33a394` (256) and `66ddcfa470f7` (32) disappeared; `b65ab4bb1a79` shrank 256 → 27 and `f2c2a970a83e` shrank 128 → 85.
 - `12138ebfbfda` (5) is not a new failing assertion or regression: it is the `FACT_CORRECTION` event-key split of five pre-existing `b65ab4bb1a79` month→quarter failures. The remaining 32 merge-precedence and 85 event-cue failures are separate mechanisms and were intentionally left for later iterations.
 - Semantic new failures: 0. Remaining fingerprints: 25 production and 2 test-oracle limitations.
+
+# FIX ITERATION 20 RESULT
+
+- Root cause: `detectDecisionMaker` recognized only a narrow set of decision verbs and collapsed different joint participants into one generic value. Explicit sole, joint and third-party authority therefore produced no incoming fact or an indistinguishable replacement; downstream canonical projection, metric closure and the already-correct generic supersede path were never reached.
+- Scope: decision-authority classification in `semanticEvidence.ts` and preservation of its participant-specific joint value in the existing `localAnalysisEngine.ts` sanitizer. No generic supersede, dialogue policy, Sales Logic, UI, prompt or Gemini changes.
+- Original regression: unchanged at 101 golden cases, 3232 scenarios and 12288 / 12288 PASS.
+- Expanded regression: 29047 → 30148 PASS; 3657 → 2556 FAIL; 88.82% → 92.18%; 27 → 24 fingerprints.
+- Exactly 1101 failures were removed. All three extraction/state target clusters disappeared: `7418e2144f34` (576), `1d14311297fb` (256), `e27f9ca9c8d6` (224). The separate event-only cluster `646bab95452d` decreased 128 → 83 as an incidental result of more incoming facts but was not otherwise fixed.
+- New failing assertions: 0. New fingerprints: 0. Remaining fingerprints: 22 production and 2 test-oracle limitations.
