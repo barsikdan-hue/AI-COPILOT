@@ -129,7 +129,7 @@ export function extractSemanticCriteria(text: string): SemanticCriterion[] {
     out,
     'sea',
     'Близость к морю / пляжу',
-    firstMatch(lower, /(?:близост\p{L}*\s+к\s+морю|рядом\s+с\s+морем|недалеко\s+от\s+моря|у\s+моря|до\s+моря|пляж\p{L}*)/iu),
+    firstMatch(lower, /(?:близост\p{L}*\s+к\s+морю|рядом\s+с\s+морем|море\s+рядом|недалеко\s+от\s+моря|у\s+моря|до\s+моря|пляж\p{L}*)/iu),
   );
   const rejectsQuietAsHousingCriterion =
     /тишин\p{L}*[^.!?]{0,32}не\s+(?:важн\p{L}*|нужн\p{L}*|обязательн\p{L}*|принципиальн\p{L}*)/iu.test(lower) ||
@@ -156,11 +156,48 @@ export function extractSemanticCriteria(text: string): SemanticCriterion[] {
     'Уровень / класс проекта',
     firstMatch(lower, /(?:уровень\s+проект\p{L}*|проект\p{L}*\s+(?:нормальн|хорош|высок)\p{L}*\s+уровн\p{L}*|класс\s+проект\p{L}*)/iu),
   );
+  const rejectsViewCriterion =
+    /вид(?:\s+на\s+(?:море|горы))?[^.!?]{0,32}не\s+(?:важ\p{L}*|нуж\p{L}*|обязател\p{L}*|принципиал\p{L}*)/iu.test(lower) ||
+    /(?:^|[^\p{L}])не\s+(?:важ\p{L}*|нуж\p{L}*|обязател\p{L}*|принципиал\p{L}*)[^.!?]{0,32}вид(?:\s+на\s+(?:море|горы))?/iu.test(lower);
+  const seaViewEvidence = rejectsViewCriterion
+    ? null
+    : firstMatch(lower, /(?:(?:хотя\s+бы\s+)?частичн\p{L}*\s+вид\s+на\s+море|прям\p{L}*\s+вид\s+на\s+море|вид\s+на\s+море|видеть\s+море\s+из\s+окна)/iu);
+  const mountainViewEvidence = rejectsViewCriterion
+    ? null
+    : firstMatch(lower, /(?:вид\s+на\s+горы|видеть\s+горы\s+из\s+окна)/iu);
+  const alternativeViewEvidence = rejectsViewCriterion || seaViewEvidence || mountainViewEvidence
+    ? null
+    : firstMatch(lower, /(?:либо\s+море\s*,?\s*либо\s+горы|море\s+или\s+горы)(?:[^.!?]{0,24}из\s+окна)?/iu);
+
+  addUniqueCriterion(
+    out,
+    'sea_view',
+    seaViewEvidence && /частичн/iu.test(seaViewEvidence)
+      ? 'Частичный вид на море'
+      : seaViewEvidence && /прям/iu.test(seaViewEvidence)
+        ? 'Прямой вид на море'
+        : 'Вид на море',
+    seaViewEvidence,
+  );
+  addUniqueCriterion(
+    out,
+    'mountain_view',
+    'Вид на горы',
+    mountainViewEvidence,
+  );
+  addUniqueCriterion(
+    out,
+    'view',
+    'Вид на море или горы',
+    alternativeViewEvidence,
+  );
   addUniqueCriterion(
     out,
     'view',
     'Видовые характеристики',
-    firstMatch(lower, /(?:вид\s+на\s+(?:море|горы)|панорам\p{L}+\s+вид\p{L}*|красив\p{L}+\s+вид\p{L}*)/iu),
+    rejectsViewCriterion || seaViewEvidence || mountainViewEvidence || alternativeViewEvidence
+      ? null
+      : firstMatch(lower, /(?:панорам\p{L}+\s+вид\p{L}*|красив\p{L}+\s+вид\p{L}*)/iu),
   );
   addUniqueCriterion(
     out,

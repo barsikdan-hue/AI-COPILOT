@@ -860,17 +860,6 @@ export function evaluateFirstCallScript(
   if (allClientText.includes('дети могли комфортно') || allClientText.includes('для семьи') || allClientText.includes('вместимост')) {
     identifiedCriteria.push('Семейная вместимость и планировка');
   }
-  if (allClientText.includes('вид на море') || allClientText.includes('красивый вид')) {
-    identifiedCriteria.push('Видовые характеристики (море/горы)');
-  }
-  if (
-    allClientText.includes('близость к морю') ||
-    allClientText.includes('недалеко от моря') ||
-    allClientText.includes('рядом с морем') ||
-    (allClientText.includes('море') && (allClientText.includes('бонус') || allClientText.includes('желатель') || allClientText.includes('важно')))
-  ) {
-    identifiedCriteria.push('Близость к морю (желательно)');
-  }
   if (allClientText.includes('парковк') || allClientText.includes('машиноместо')) {
     identifiedCriteria.push('Наличие паркинга');
   }
@@ -917,7 +906,10 @@ export function evaluateFirstCallScript(
   if (allClientText.includes('бассейн') || allClientText.includes('спа')) {
     identifiedInfra.push('Бассейн / СПА');
   }
-  if (allClientText.includes('пляж') || allClientText.includes('море')) {
+  const hasSeaProximityCriterion = clientTurns.some((turn) =>
+    extractSemanticCriteria(turn.text).some((criterion) => criterion.key === 'sea')
+  );
+  if (hasSeaProximityCriterion) {
     identifiedInfra.push('Близость к морю и пляжам');
   }
   if (allClientText.includes('ресторан') || allClientText.includes('магазин') || allClientText.includes('кафе')) {
