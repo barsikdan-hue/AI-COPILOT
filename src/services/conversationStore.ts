@@ -1,4 +1,5 @@
 import { CallStage, ConfirmedFact, ConversationState, CriterionItem, SpinState, TranscriptTurn, UnconfirmedHypothesis } from '../types';
+import { detectDecisionMaker } from './semanticEvidence';
 import { validateEvidenceQuote, hasAnyPhrase } from './textUtils';
 
 
@@ -291,10 +292,7 @@ export function mergeFactsDelta(
 
     // Specific hallucination guard for decision makers (e.g. "важен" / "предложений" matching "жен")
     if ((field === 'decisionMakers' || field === 'decision_makers') && turnText) {
-      const mentionsSharedDecision = /(?:реша\p{L}*|принима\p{L}*\s+решен\p{L}*|обсужда\p{L}*|совет\p{L}*|согласовыва\p{L}*).{0,45}(?:жен\p{L}*|муж\p{L}*|супруг\p{L}*|семь\p{L}*|партнер\p{L}*|партнёр\p{L}*)|(?:жен\p{L}*|муж\p{L}*|супруг\p{L}*|семь\p{L}*|партнер\p{L}*|партнёр\p{L}*).{0,45}(?:реша\p{L}*|участв\p{L}*|обсужда\p{L}*|совет\p{L}*|согласовыва\p{L}*)/iu.test(turnText);
-      const mentionsSolo =
-        /(?:сам|сама|самостоятельно|один|одна).{0,24}(?:реша\p{L}*|принима\p{L}*\s+решен\p{L}*|выбира\p{L}*)|(?:реша\p{L}*|принима\p{L}*\s+решен\p{L}*|выбира\p{L}*).{0,24}(?:сам|сама|самостоятельно)|финальн\p{L}*\s+решен\p{L}*\s+(?:мо[её]|за\s+мной)|решен\p{L}*\s+(?:мо[её]|за\s+мной)/iu.test(turnText);
-      if (!mentionsSharedDecision && !mentionsSolo) {
+      if (!detectDecisionMaker(turnText)) {
         console.warn(
           `[DecisionMaker Invariant] Rejected decision maker "${sanitizedVal}" without explicit client evidence in turn: "${turnText}"`
         );

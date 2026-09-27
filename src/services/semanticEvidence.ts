@@ -61,6 +61,12 @@ export function classifyInvestmentIntent(text: string): InvestmentIntentKind {
   return 'none';
 }
 
+export interface SemanticDecisionMaker {
+  kind: 'sole' | 'joint' | 'third_party';
+  value: string;
+  evidenceQuote: string;
+}
+
 const firstMatch = (text: string, regex: RegExp): string | null => {
   const match = text.match(regex);
   return match?.[0]?.trim() || null;
@@ -328,6 +334,58 @@ export function detectFundsAvailability(
     evidenceQuote: quote,
     needsClarification: !sourceQuote,
     comment: 'Готовность средств подтверждена, но точный размер первоначального взноса не назван.',
+  };
+}
+
+/**
+ * Resolve explicit decision authority without treating an unrelated "сам" as
+ * sole-decision evidence. Shared/joint authority wins over a nearby solo
+ * viewing phrase because it describes who actually approves the purchase.
+ */
+export function detectDecisionMaker(text: string): SemanticDecisionMaker | null {
+  const raw = (text || '').trim();
+  if (!raw) return null;
+  const lower = raw.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
+  const participant = '(?:жен\\p{L}*|муж\\p{L}*|супруг\\p{L}*|семь\\p{L}*|партнер\\p{L}*|партнёр\\p{L}*)';
+
+  if (
+    /(?:пока\s+)?не\s+знаю[^.!?]{0,55}кто[^.!?]{0,45}(?:принима\p{L}*|будет\s+принима\p{L}*|реша\p{L}*)[^.!?]{0,30}решен\p{L}*/iu.test(lower) ||
+    /(?:решен\p{L}*|кто\s+реша\p{L}*)[^.!?]{0,45}(?:пока\s+)?не\s+(?:ясн\p{L}*|определен\p{L}*|решен\p{L}*)/iu.test(lower)
+  ) return null;
+
+  const thirdParty = firstMatch(
+    lower,
+    new RegExp(`(?:финальн\\p{L}*\\s+)?решен\\p{L}*\\s+(?:будет\\s+)?за\\s+${participant}|${participant}[^.!?]{0,28}(?:принима\\p{L}*\\s+(?:финальн\\p{L}*\\s+)?решен\\p{L}*|реша\\p{L}*\\s+окончательно)`, 'iu'),
+  );
+  if (thirdParty) {
+    return {
+      kind: 'third_party',
+      value: 'Финальное решение принимает супруг / другой участник',
+      evidenceQuote: thirdParty,
+    };
+  }
+
+  const joint = firstMatch(
+    lower,
+    new RegExp(`(?:решен\\p{L}*(?:\\s+о\\s+покупк\\p{L}*)?\\s+принима\\p{L}*|принима\\p{L}*\\s+решен\\p{L}*)[^.!?]{0,28}(?:вместе(?:\\s+с\\s+${participant})?|с\\s+${participant})|реша\\p{L}*\\s+вместе(?:\\s+с\\s+${participant})?|(?:обс(?:уд|ужд)\\p{L}*|совет\\p{L}*|соглас\\p{L}*)[^.!?]{0,28}(?:с\\s+)?${participant}|${participant}[^.!?]{0,35}(?:тоже\\s+)?(?:реша\\p{L}*|участву\\p{L}*\\s+в\\s+решен\\p{L}*)`, 'iu'),
+  );
+  if (joint) {
+    return {
+      kind: 'joint',
+      value: 'Совместно с супругом / семьёй',
+      evidenceQuote: joint,
+    };
+  }
+
+  const sole = firstMatch(
+    lower,
+    /(?:сам|сама)\s+принима\p{L}*\s+(?:финальн\p{L}*\s+)?решен\p{L}*|(?:решен\p{L}*(?:\s+о\s+покупк\p{L}*)?|покупк\p{L}*)\s+(?:принима\p{L}*|реша\p{L}*)\s+(?:я\s+)?(?:самостоятельно|сам|сама)|решен\p{L}*\s+принима\p{L}*\s+самостоятельно|реша\p{L}*\s+буду\s+я\s+(?:сам|сама)|решаю\s+(?:я\s+)?(?:самостоятельно|сам|сама)|финальн\p{L}*\s+решен\p{L}*\s+(?:мо[её]|за\s+мной)|решен\p{L}*\s+(?:мо[её]|за\s+мной)|(?:один|одна)\s+выбира\p{L}*/iu,
+  );
+  if (!sole) return null;
+  return {
+    kind: 'sole',
+    value: 'Принимает решение самостоятельно',
+    evidenceQuote: sole,
   };
 }
 

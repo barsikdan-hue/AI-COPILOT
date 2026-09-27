@@ -15,6 +15,7 @@ import {
 import {
   classifyInvestmentIntent,
   detectAdultChildren,
+  detectDecisionMaker,
   detectFundsAvailability,
   detectSearchExperience,
   extractSemanticCriteria,
@@ -583,12 +584,9 @@ export function extractDeterministicFacts(
   }
 
   // 7. Decision Makers (Requirement 5 & 6: Never fabricate "с женой" from "важен" or "предложений")
-  const spouseMatch = lower.match(/(?:реша(?:ем|ть)\s*вместе|обсуд(?:им|ить|у)\s*с\s*(?:женой|мужем|супруг(?:ой|ом)|семь[её]й|партн[её]ром)|совет(?:уюсь|оваться)\s*с\s*(?:женой|мужем|супруг(?:ой|ом)|семь[её]й|партн[её]ром)|соглас(?:ую|овать)\s*с\s*(?:женой|мужем|супруг(?:ой|ом)|семь[её]й|партн[её]ром)|(?:жена|муж|супруг(?:а)?)\s+(?:тоже\s+)?(?:решает|участвует\s+в\s+решении))/iu);
-  const soloMatch = lower.match(/(?:сам\s*решаю|сама\s*решаю|сам\s*принимаю\s*(?:финальн\p{L}*\s*)?решение|сама\s*принимаю\s*(?:финальн\p{L}*\s*)?решение|финальн\p{L}*\s+решение\s+(?:мо[её]|за\s+мной)|решение\s+(?:мо[её]|принимаю\s+сам(?:остоятельно)?|принимаю\s+сама(?:остоятельно)?)|один\s*выбираю|одна\s*выбираю|решаю\s*самостоятельно)/iu);
-  if (spouseMatch) {
-    addFact('decision_makers', 'decisionMakers', 'Совместно с супругом / семьёй', spouseMatch[0]);
-  } else if (soloMatch) {
-    addFact('decision_makers', 'decisionMakers', 'Принимает решение самостоятельно', soloMatch[0]);
+  const decisionMaker = detectDecisionMaker(trimmed);
+  if (decisionMaker) {
+    addFact('decision_makers', 'decisionMakers', decisionMaker.value, decisionMaker.evidenceQuote, 0.97);
   }
 
   // 8. Property Type (Whole-word / phrase matching, "рядом" != "дом")

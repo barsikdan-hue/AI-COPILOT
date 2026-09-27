@@ -1486,7 +1486,10 @@ export function evaluateFirstCallScript(
   let dmValue = state.decisionMakers?.value || null;
   let dmReason: string | null = null;
 
-  if (hasAnyPhrase(allClientText, ['деньги у мужа', 'деньги у супруга']) && (hasAnyPhrase(allClientText, ['выбирать буду я', 'выбираю я', 'решаю я']))) {
+  if (dmValue) {
+    dmStatus = 'confirmed';
+    dmReason = `ЛПР зафиксирован в каноническом состоянии: ${dmValue}`;
+  } else if (hasAnyPhrase(allClientText, ['деньги у мужа', 'деньги у супруга']) && (hasAnyPhrase(allClientText, ['выбирать буду я', 'выбираю я', 'решаю я']))) {
     dmStatus = 'confirmed';
     dmValue = 'Разделение ролей: выбор за клиентом, финансирование за супругом';
     dmReason = 'Роли в сделке чётко распределены: пользователь и плательщик определены.';
@@ -1504,9 +1507,6 @@ export function evaluateFirstCallScript(
     dmStatus = 'confirmed';
     dmValue = 'Принимает решение единолично (самостоятельный ЛПР)';
     dmReason = 'Клиент подтвердил единоличное принятие инвестиционного решения.';
-  } else if (dmValue) {
-    dmStatus = 'confirmed';
-    dmReason = `ЛПР зафиксирован: ${dmValue}`;
   }
 
   metrics['decisionMaker'] = {

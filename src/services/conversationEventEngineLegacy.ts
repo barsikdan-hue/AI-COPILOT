@@ -226,7 +226,7 @@ function extractCorrection(text: string): string | null {
     /(?:^|[^\p{L}\p{N}])не\s+(.{1,60}?)(?:,\s*|\s+)а\s+(.{1,80})(?:[.!?]|$)/iu
   );
   if (direct?.[2]) return direct[2].trim().replace(/[.!?]+$/u, '');
-  const explicitRevision = text.match(/(?:^|[.!?]\s*)нет\s*,?\s*вс[её]-?таки\s+(.{2,100})/iu);
+  const explicitRevision = text.match(/(?:^|[.!?]\s*)нет\s*,?\s*(?:вс[её]-?таки|в\s+итоге)\s+(.{2,100})/iu);
   if (explicitRevision?.[1]) return explicitRevision[1].trim().replace(/[.!?]+$/u, '');
   const changedPlans = text.match(/(?:^|[.!?]\s*)нет\s*,?\s*(планы\s+(?:изменил\p{L}*|поменял\p{L}*|ускорил\p{L}*|сдвинул\p{L}*)[^.!?]{0,100}(?:в\s+течение|через|до\s+конца|месяц\p{L}*|полгода|год\p{L}*))/iu);
   if (changedPlans?.[1]) return changedPlans[1].trim().replace(/[.!?]+$/u, '');

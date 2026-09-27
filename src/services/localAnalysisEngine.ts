@@ -2,6 +2,7 @@ import * as legacy from './localAnalysisEngineLegacy';
 import type { AnalysisResponse, ConversationState, TranscriptTurn } from '../types';
 import { chooseDialoguePolicyTarget } from './dialoguePolicyEngine';
 import { evaluateFirstCallScript } from './firstCallScriptEngine';
+import { detectDecisionMaker } from './semanticEvidence';
 
 export * from './localAnalysisEngineLegacy';
 
@@ -75,10 +76,7 @@ function hasAvailableDownPaymentWithoutAmount(text: string): boolean {
 }
 
 function isJointDecisionAnswer(text: string): boolean {
-  const lower = normalize(text);
-  const mentionsOtherDecisionMaker = /(?:супруг\p{L}*|жен\p{L}*|муж\p{L}*|семь\p{L}*|партнер\p{L}*|партнёр\p{L}*)/iu.test(lower);
-  if (!mentionsOtherDecisionMaker) return false;
-  return /(?:буд\p{L}*\s+обсужда\p{L}*|обсужда\p{L}*)[^.!?]{0,35}(?:вместе|с\s+(?:супруг\p{L}*|жен\p{L}*|муж\p{L}*|семь\p{L}*|партнер\p{L}*|партнёр\p{L}*))|решен\p{L}*[^.!?]{0,18}совместн\p{L}*|совместн\p{L}*[^.!?]{0,18}решен\p{L}*|не\s+только\s+за\s+мной/iu.test(lower);
+  return detectDecisionMaker(text)?.kind === 'joint';
 }
 
 function isDistancePreferenceNotObjection(text: string): boolean {
