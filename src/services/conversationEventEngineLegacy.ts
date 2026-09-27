@@ -64,6 +64,25 @@ const normalize = (value: string): string =>
 const includesConfiguredPhrase = (text: string, rule: EventRuleConfig): boolean =>
   rule.phrases.some((phrase) => text.includes(normalize(phrase)));
 
+const matchesClientStop = (text: string, rule: EventRuleConfig): boolean => {
+  const temporaryCallback = /не\s+звоните[^.!?]{0,55}(?:позвоните|перезвоните|наберите|свяжитесь)[^.!?]{0,30}(?:позже|вечером|завтра)/iu.test(text);
+  if (temporaryCallback) return false;
+  return includesConfiguredPhrase(text, rule) ||
+    /(?:^|[^\p{L}\p{N}])(?:не\s+(?:звоните|связывайтесь)(?:\s+(?:мне|со\s+мной))?(?:\s+больше)?|больше\s+(?:мне\s+)?не\s+звоните|(?:удалите|уберите)\s+(?:мой\s+)?номер(?:\s+из\s+базы)?)(?=$|[^\p{L}\p{N}])/iu.test(text);
+};
+
+const matchesTimeConstraint = (text: string, rule: EventRuleConfig): boolean =>
+  includesConfiguredPhrase(text, rule) ||
+  /(?:говорить\s+(?:неудобно|не\s+могу)|на\s+разговор\s+времени\s+нет|давайте\s+(?:позже|потом)|я\s+занят[^.!?]{0,35}(?:наберите|перезвоните|позвоните))/iu.test(text);
+
+const matchesResearchMode = (text: string, rule: EventRuleConfig): boolean =>
+  includesConfiguredPhrase(text, rule) ||
+  /(?:сравнива\p{L}*\s+рынок|изуча\p{L}*\s+предложени\p{L}*)/iu.test(text);
+
+const matchesSoftResistance = (text: string, rule: EventRuleConfig): boolean =>
+  includesConfiguredPhrase(text, rule) ||
+  /(?:не\s+хочу\s+сейчас(?:\s+это)?\s+обсуждать|давайте\s+не\s+будем\s+пока\s+углубляться|(?:^|[^\p{L}\p{N}])(?:сначала\s+)?сам\s+(?:посмотрю|изучу|разберусь)(?=$|[^\p{L}\p{N}])|встречу\s+пока\s+не\s+назначаем)/iu.test(text);
+
 const findConfig = (id: ConversationEventType): EventRuleConfig | undefined =>
   EVENT_RULES.find((rule) => rule.id === id);
 
@@ -108,6 +127,10 @@ const configuredSoftResistanceEvent = (
   turn: TranscriptTurn,
   state: ConversationState,
 ): ConversationEventDetection => {
+  const text = normalize(turn.text);
+  const materialBoundary = /(?:пришл\p{L}*|скин\p{L}*|отправ\p{L}*|покаж\p{L}*|дайте)[^.!?]{0,55}(?:цен\p{L}*|планиров\p{L}*|вариант\p{L}*|материал\p{L}*|прайс\p{L}*|каталог\p{L}*|презентац\p{L}*|фото\p{L}*|подборк\p{L}*)|(?:цен\p{L}*|планиров\p{L}*|вариант\p{L}*|материал\p{L}*|прайс\p{L}*|каталог\p{L}*|презентац\p{L}*|фото\p{L}*|подборк\p{L}*)[^.!?]{0,35}(?:пришл\p{L}*|скин\p{L}*|отправ\p{L}*|покаж\p{L}*)/iu.test(text);
+  const discussionBoundary = /(?:не\s+хочу\s+сейчас(?:\s+это)?\s+обсуждать|давайте\s+не\s+будем\s+пока\s+углубляться)/iu.test(text);
+  const selfServiceBoundary = /(?:^|[^\p{L}\p{N}])(?:сначала\s+)?сам\s+(?:посмотрю|изучу|разберусь)(?=$|[^\p{L}\p{N}])/iu.test(text);
   const alreadyCounted = (state.events || []).some(
     (event) => event.turnId === turn.id && event.type === 'SOFT_RESISTANCE'
   );
@@ -116,14 +139,32 @@ const configuredSoftResistanceEvent = (
     (state.dialogueControl?.softResistanceCount || 0) - (alreadyCounted ? 1 : 0)
   );
   const repeated = priorCount >= 1;
+  const boundaryReply = materialBoundary
+    ? repeated
+      ? 'Понял. Отправлю конкретный материал без длинного опроса. Когда удобно коротко сверить выводы после просмотра?'
+      : config.suggestion
+    : discussionBoundary
+      ? 'Понял, сейчас не углубляемся. Вернёмся к теме, когда вам будет удобно.'
+      : selfServiceBoundary
+        ? 'Понял. Посмотрите в удобном темпе; если понадобится, помогу сравнить конкретные варианты.'
+        : repeated
+          ? 'Понял. Не буду продолжать опрос; вернёмся к теме, когда вам будет удобно.'
+          : config.suggestion;
   return configuredEvent(config, turn, {
     priority: repeated ? 97 : config.priority,
-    suggestedReply: repeated
-      ? 'Понял. Отправлю конкретный материал без длинного опроса. Когда удобно коротко сверить выводы после просмотра?'
-      : config.suggestion,
-    shortReason: repeated
-      ? 'Повторное мягкое сопротивление стало границей: материал и один конкретный возврат без дальнейшего опроса.'
-      : config.shortReason,
+    ruleId: discussionBoundary
+      ? 'soft_resistance_discussion'
+      : selfServiceBoundary && !materialBoundary
+        ? 'soft_resistance_self_service'
+        : config.ruleId,
+    suggestedReply: boundaryReply,
+    shortReason: discussionBoundary
+      ? 'Клиент не хочет продолжать текущую тему: останавливаем ветку без постоянного запрета на контакт.'
+      : selfServiceBoundary && !materialBoundary
+        ? 'Клиент хочет сначала разобраться самостоятельно: не продолжаем квалификацию и не давим следующим шагом.'
+        : repeated
+          ? 'Повторное мягкое сопротивление стало границей: материал и один конкретный возврат без дальнейшего опроса.'
+          : config.shortReason,
     suppressesAnalysis: repeated,
   });
 };
@@ -484,8 +525,8 @@ export function detectConversationEvent(
   }
 
   const clientStop = findConfig('CLIENT_STOP');
-  if (clientStop && includesConfiguredPhrase(text, clientStop)) {
-    const permanentContactStop = /(?:не\s+звоните|не\s+пишите|удалите\s+(?:мой\s+)?номер|забудьте\s+(?:этот\s+)?номер)/iu.test(text);
+  if (clientStop && matchesClientStop(text, clientStop)) {
+    const permanentContactStop = /(?:не\s+(?:звоните|пишите|связывайтесь)|(?:удалите|уберите)\s+(?:мой\s+)?номер|забудьте\s+(?:этот\s+)?номер)/iu.test(text);
     return configuredEvent(clientStop, turn, {
       suggestedReply: permanentContactStop
         ? clientStop.suggestion
@@ -497,7 +538,7 @@ export function detectConversationEvent(
   }
 
   const timeConstraint = findConfig('TIME_CONSTRAINT');
-  if (timeConstraint && includesConfiguredPhrase(text, timeConstraint)) {
+  if (timeConstraint && matchesTimeConstraint(text, timeConstraint)) {
     const callbackTime = extractCallbackTime(turn.text);
     return configuredEvent(timeConstraint, turn, {
       suggestedReply: callbackTime
@@ -613,12 +654,12 @@ export function detectConversationEvent(
   }
 
   const research = findConfig('RESEARCH_MODE');
-  if (research && includesConfiguredPhrase(text, research)) {
+  if (research && matchesResearchMode(text, research)) {
     return configuredEvent(research, turn);
   }
 
   const softResistance = findConfig('SOFT_RESISTANCE');
-  if (softResistance && includesConfiguredPhrase(text, softResistance)) {
+  if (softResistance && matchesSoftResistance(text, softResistance)) {
     return configuredSoftResistanceEvent(softResistance, turn, state);
   }
 

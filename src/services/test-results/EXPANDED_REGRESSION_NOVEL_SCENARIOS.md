@@ -6,11 +6,13 @@
 - Execution profiles per scenario: 32
 - Generated executions: 8192
 - Assertions: 32704
-- PASS: 24824
-- FAIL: 7880
-- Pass rate: 75.91%
-- Unique failure clusters: 50
-- Deterministic fingerprint: `40c023e63d69a4cd75fca6fc6cd9ab40b269c0375b2b84807ad836a2044fe05e`
+- PASS: 25112
+- FAIL: 7592
+- Pass rate: 76.79%
+- Unique failure clusters: 44
+- Production failure clusters: 42
+- Test-oracle limitation clusters: 2
+- Deterministic fingerprint: `4893dc0f4c4f16eaf1570bebb6b55b5bcc4eee68c002a2edcdd9d7451b4268d5`
 - Runtime: local deterministic only; no Gemini or external LLM calls
 
 Coverage by base scenario: goal 20; criteria 20; finance 28; timeline 20; decision maker 16; experience 16; material requests 16; objections 16; corrections 24; negation 16; transcript transport 12; session isolation 8; next action 20; recommendation quality 24.
@@ -21,8 +23,7 @@ Every fingerprint is listed below. Fingerprints with the same demonstrated root 
 
 | Cluster ids (count) | Invariant / minimal reproduction | Expected | Actual | Likely root cause; files/functions | Impact | Severity |
 |---|---|---|---|---|---|---|
-| `422c7c830dbc` (64), `4e9a2b7fbaad` (64), `b79acf39876a` (32), `07dbc99be13a` (32), `8b5006e65004` (32) | `INV_EXPLICIT_BOUNDARY`, `INV_EVENT_OVERRIDES_GENERIC_ACTION`; «Не связывайтесь со мной больше», «Я сейчас в поезде, говорить неудобно», «Пока только сравниваю рынок, без срочных предложений» | `CLIENT_STOP`, `TIME_CONSTRAINT`, `RESEARCH_MODE` must override generic guidance | `event=none`; generic analysis remains eligible | Phrase catalog matching is lexical and does not generalize these equivalent boundaries. `conversation-events.json`; `conversationEventEngineLegacy.ts::includesConfiguredPhrase`, `::detectConversationEvent`; `conversationEventEngine.ts::detectConversationEvent` | recommendation, next action | CRITICAL |
-| `b75a3a6c2beb` (128), `dcccc2f90db0` (66), `04f8e3a4703e` (32) | `INV_MATERIAL_REQUEST_ROUTING`, `INV_MATERIAL_RESISTANCE_BOUNDARY`, `INV_EVENT_OVERRIDES_GENERIC_ACTION`; «Отправьте актуальный прайс», «Планировки пришлите, дальше я сам разберусь», «Только прайс пришлите, встречу пока не назначаем» | Material request/resistance routes to one short material follow-up and does not propose a meeting | `event=none` for unseen nouns/orderings | Material intent recognizes `цены/планировки/варианты/материалы` near a small verb list but misses `прайс`, `каталог`, `презентация`, `фото`, `подборка` and reversed constructions. `conversationEventEngineLegacy.ts::hasDirectQuestion`, `::classifyDirectQuestionIntent`, `::detectConversationEvent` | recommendation, next action | CRITICAL |
+| `b75a3a6c2beb` (128), `dcccc2f90db0` (34) | `INV_MATERIAL_REQUEST_ROUTING`, `INV_MATERIAL_RESISTANCE_BOUNDARY`; «Отправьте актуальный прайс», unseen material nouns/orderings without an explicit boundary | Material request/resistance routes to one short material follow-up and does not propose a meeting | `event=none` for remaining unseen nouns/orderings | Material intent still misses standalone `прайс`, `каталог`, `презентация`, `фото`, `подборка` variants. Boundary combinations are now routed correctly; the remaining defect is the out-of-scope material lexicon. `conversationEventEngineLegacy.ts::hasDirectQuestion`, `::classifyDirectQuestionIntent`, `::detectConversationEvent` | recommendation, next action | CRITICAL |
 | `1ca2cd48ea60` (30) | `INV_MATERIAL_RESISTANCE_BOUNDARY`; «Каталог можно, видеопоказ пока не предлагайте» | Test expected `SOFT_RESISTANCE` | Runtime returns `NEXT_STEP_RESISTANCE` with target `ppv` | Event type expectation is over-specific: both routes preserve the refusal and select `CLARIFY`. This is a test/model limitation, not proven bad guidance. `conversationEventEngineLegacy.ts::detectConversationEvent`; `conversationEventEngine.ts::detectNextStepQuestion` | next action, recommendation | CRITICAL label; production bug not proven |
 | `e37e71c0c73c` (32) | `INV_SESSION_ISOLATION`; session A «Только начал смотреть рынок…», session B «Уже сравнил три конкретных комплекса» | Two distinct isolated `searchExperience` values | Session B stays `null`; no cross-session equality/leak was observed | The fixture conflates extraction coverage with isolation. Failure belongs to `detectSearchExperience`, not session storage. `semanticEvidence.ts::detectSearchExperience`; `localAnalysisEngine.ts::advanceLocalConversation` | state, recommendation | CRITICAL label; test/model limitation |
 | `63b34e88473f` (24) | `INV_NO_REPEAT_CLOSED_METRIC`; «Критично: тишина и море пешком» | Criteria metric closes; policy moves to another semantic action | `policy=ask_criteria` | Some surface profiles do not produce a confirmed criteria metric, so policy legitimately sees it open and repeats the branch. Upstream extraction/projection gap propagates into policy. `semanticEvidence.ts::extractSemanticCriteria`; `firstCallScriptEngineLegacy.ts::buildFirstCallScriptProgress`; `dialoguePolicyEngine.ts::chooseDialoguePolicyTarget` | next action, recommendation | CRITICAL |
@@ -59,11 +60,11 @@ The dominant pattern is not a broken generic supersede algorithm. In most correc
 
 ## A. Production bugs requiring fix
 
-1. Protect explicit client boundaries and material requests first: broaden semantic routing without weakening event priority. User effect: the agent stops or sends the requested material instead of continuing a generic script. Scope: `conversationEventEngineLegacy.ts::detectConversationEvent`, material intent classification, event catalog; targeted tests only.
-2. Make negation scope safe for payment and criteria before expanding positive lexicons. User effect: no mortgage/quiet recommendation from explicit rejection. Scope: payment negation in `extractDeterministicFacts` and negative-scope guards in `extractSemanticCriteria`.
-3. Expand canonical extraction by semantic category (goal, decision maker, timeline, experience) in separate iterations. User effect: correct active conversation state and fewer repeated qualification questions. Scope: one category/function per fix, no architecture rewrite.
-4. Fix child correction precedence (`у меня детей нет` before generic child tokens). User effect: family-mortgage guidance no longer uses a contradicted child fact. Scope: family section of `extractDeterministicFacts` plus lifecycle assertions.
-5. Add spoken compound-number normalization for down payment and budget. User effect: financial qualification reflects what the client actually said. Scope: shared numeric parser plus strict context guards; do not broaden unrelated number extraction.
+1. Make negation scope safe for payment and criteria before expanding positive lexicons. User effect: no mortgage/quiet recommendation from explicit rejection. Scope: payment negation in `extractDeterministicFacts` and negative-scope guards in `extractSemanticCriteria`.
+2. Expand canonical extraction by semantic category (goal, decision maker, timeline, experience) in separate iterations. User effect: correct active conversation state and fewer repeated qualification questions. Scope: one category/function per fix, no architecture rewrite.
+3. Fix child correction precedence (`у меня детей нет` before generic child tokens). User effect: family-mortgage guidance no longer uses a contradicted child fact. Scope: family section of `extractDeterministicFacts` plus lifecycle assertions.
+4. Complete standalone material-request vocabulary separately from the now-fixed boundary combinations. User effect: direct requests for a price list or catalogue receive the requested material instead of a generic question. Scope: material intent classification only.
+5. Add spoken compound-number normalization for down payment and budget. User effect: financial qualification reflects what the client actually said. Scope: category-specific numeric parsing with strict context guards.
 6. Re-run correction cases after extraction fixes. Only if linked supersede still fails should `mergeFactsDelta`/`hasConfirmedFactReplacement` change. User effect: avoids an unnecessary global fact-architecture refactor.
 7. Revalidate the criteria metric→policy projection after criteria extraction is fixed. User effect: the copilot moves to the next open question instead of asking criteria again.
 
@@ -79,3 +80,13 @@ The dominant pattern is not a broken generic supersede algorithm. In most correc
 - Late Gemini responses can replace or duplicate a deterministic hint only in the real asynchronous runtime.
 - Speaker-role mistakes can turn an agent phrase into a client fact and are not represented by deterministic speaker labels.
 - Actual card timing, one-card visibility, audio latency and reconnect behavior require a live call/browser acceptance pass.
+
+# FIX ITERATION 15 RESULT
+
+- Root cause: `includesConfiguredPhrase` only matched configured substrings. Equivalent hard-stop, temporary, research, discussion and self-service wording therefore returned `event=none`; once an event was recognized, existing priority and recommendation arbitration already worked correctly.
+- Scope: event-specific boundary matchers and subtype-specific `SOFT_RESISTANCE` replies in `conversationEventEngineLegacy.ts`; no event-catalog expansion, fact extraction, Sales Logic or lifecycle changes.
+- Original regression: unchanged at 101 golden cases, 3232 scenarios and 12288 / 12288 PASS.
+- Expanded regression: 24824 → 25112 PASS; 7880 → 7592 FAIL; 75.91% → 76.79%; 50 → 44 fingerprints.
+- All 224 failures from the five target clusters were removed: `422c7c830dbc`, `4e9a2b7fbaad`, `b79acf39876a`, `07dbc99be13a`, `8b5006e65004`.
+- An additional 64 boundary-overlap failures disappeared: `04f8e3a4703e` was removed and `dcccc2f90db0` decreased from 66 to 34.
+- New fingerprints: 0. Remaining clusters: 42 production and 2 test-oracle limitations.
