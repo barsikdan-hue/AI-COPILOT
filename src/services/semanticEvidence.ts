@@ -265,19 +265,69 @@ export function detectSearchExperience(text: string): SemanticSearchExperience |
 export function detectFundsAvailability(
   text: string,
   previousAgentTurnText = '',
-): { value: string; evidenceQuote: string } | null {
+): { value: string; evidenceQuote: string; needsClarification: boolean; comment: string } | null {
   const raw = (text || '').trim();
   if (!raw) return null;
   const lower = raw.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
   const prev = (previousAgentTurnText || '').toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
-  const asksFunds = /(?:первоначальн|первый\s+взнос|на\s+руках|продаж\p{L}+\s+актив|откуда\s+средств|источник\p{L}+\s+средств|внести\s+сразу)/iu.test(prev);
-  if (!asksFunds) return null;
+  const mentionsDownPayment = /(?:первоначальн\p{L}*|перв\p{L}*)\s+взнос\p{L}*|первого\s+платежа/iu;
+  const asksReadiness = mentionsDownPayment.test(prev) && /(?:есть|доступн\p{L}*|сформирован\p{L}*|на\s+руках)/iu.test(prev);
+  const asksFundsSource = /(?:средств\p{L}*|деньг\p{L}*)[^.!?]{0,36}(?:на\s+руках|продаж\p{L}*|вклад\p{L}*|актив\p{L}*)|(?:источник|откуда)[^.!?]{0,28}(?:средств\p{L}*|денег)/iu.test(prev);
 
-  const quote = firstMatch(lower, /(?:уже\s+на\s+руках|это\s+уже\s+на\s+руках|деньги\s+(?:уже\s+)?(?:есть|лежат)|средства\s+(?:уже\s+)?(?:есть|на\s+руках)|свои\s+средства|собственные\s+средства|продавать\s+ничего\s+не\s+планирую)/iu);
+  // A concrete amount is handled by the amount extractor. Do not also emit a
+  // generic readiness fact for the same evidence.
+  const hasExplicitAmount =
+    /(?:первоначальн\p{L}*|перв\p{L}*)\s+взнос\p{L}*\s*(?:(?:составля\p{L}*|будет|примерно|около|в\s+размере)\s*)?\d+(?:[.,]\d+)?\s*(?:млн|миллион\p{L}*|тыс\p{L}*|%|руб)/iu.test(lower) ||
+    /\d+(?:[.,]\d+)?\s*(?:млн|миллион\p{L}*|тыс\p{L}*|%|руб)\s+(?:на|для)\s+(?:первоначальн\p{L}*|перв\p{L}*)\s+взнос\p{L}*/iu.test(lower);
+  if (hasExplicitAmount) return null;
+
+  const explicitNegative =
+    /(?:пока\s+)?(?:первоначальн\p{L}*|перв\p{L}*)\s+взнос\p{L}*[^.!?]{0,24}(?:нет|не\s+сформирован\p{L}*|не\s+готов\p{L}*)|(?:нет|не\s+хватает)[^.!?]{0,32}(?:денег|средств)[^.!?]{0,32}(?:на\s+)?(?:первоначальн\p{L}*|перв\p{L}*)\s+взнос\p{L}*/iu.test(lower) ||
+    (asksReadiness && /^(?:нет|пока\s+нет|не\s+сформирован\p{L}*)[.!]?$/iu.test(lower));
+  if (explicitNegative) return null;
+
+  const futureQuote = firstMatch(
+    lower,
+    /(?:первоначальн\p{L}*|перв\p{L}*)\s+взнос\p{L}*[^.!?]{0,24}(?:будет|появится|сформиру\p{L}*)[^.!?]{0,28}(?:через|к)\s+[^.!?]+/iu,
+  );
+  if (futureQuote) {
+    return {
+      value: 'Средства на первоначальный взнос будут доступны позже; сейчас готовность не подтверждена',
+      evidenceQuote: futureQuote,
+      needsClarification: true,
+      comment: 'Клиент описал будущую, а не текущую доступность первоначального взноса.',
+    };
+  }
+
+  const partialQuote = asksReadiness
+    ? firstMatch(lower, /^(?:да[,.]?\s*)?(?:только\s+)?частичн\p{L}*[.!]?$/iu)
+    : firstMatch(lower, /част\p{L}*[^.!?]{0,24}(?:денег|средств)[^.!?]{0,40}(?:первоначальн\p{L}*|перв\p{L}*)\s+взнос\p{L}*|(?:первоначальн\p{L}*|перв\p{L}*)\s+взнос\p{L}*[^.!?]{0,40}част\p{L}*[^.!?]{0,20}(?:есть|доступн\p{L}*)/iu);
+  if (partialQuote) {
+    return {
+      value: 'Часть средств на первоначальный взнос доступна частично; полная готовность требует уточнения',
+      evidenceQuote: partialQuote,
+      needsClarification: true,
+      comment: 'Клиент подтвердил только частичную готовность первоначального взноса.',
+    };
+  }
+
+  const explicitQuote = firstMatch(
+    lower,
+    /(?:первоначальн\p{L}*|перв\p{L}*)\s+взнос\p{L}*[^.!?]{0,24}(?:уже\s+)?(?:есть|доступен\p{L}*|сформирован\p{L}*|готов\p{L}*)|на\s+(?:первоначальн\p{L}*|перв\p{L}*)\s+взнос\p{L}*[^.!?]{0,24}(?:деньг\p{L}*|средств\p{L}*)[^.!?]{0,18}(?:есть|доступн\p{L}*|на\s+руках)|(?:деньг\p{L}*|средств\p{L}*)[^.!?]{0,24}(?:есть|доступн\p{L}*|на\s+руках)[^.!?]{0,60}(?:на\s+)?(?:первоначальн\p{L}*|перв\p{L}*)\s+взнос\p{L}*/iu,
+  );
+  const contextualQuote = asksReadiness
+    ? firstMatch(lower, /^(?:да[,.]?\s*)?(?:в\s+целом\s+)?(?:уже\s+)?(?:есть|доступн(?:ы|а|о)|сформирован(?:ы|а|о)?)(?:\s*,\s*но[^.!?]{0,70})?[.!]?$/iu)
+    : null;
+  const sourceQuote = asksFundsSource
+    ? firstMatch(lower, /(?:это\s+)?уже\s+на\s+руках|деньг\p{L}*[^.!?]{0,18}(?:есть|лежат|на\s+руках)|средств\p{L}*[^.!?]{0,18}(?:есть|на\s+руках)|продавать\s+ничего\s+не\s+планирую/iu)
+    : null;
+  const quote = explicitQuote || contextualQuote || sourceQuote;
   if (!quote) return null;
   return {
-    value: 'Средства доступны / на руках; точный размер первого платежа зависит от выбранной схемы',
+    value: 'Средства доступны на первоначальный взнос; точный размер не назван',
     evidenceQuote: quote,
+    needsClarification: !sourceQuote,
+    comment: 'Готовность средств подтверждена, но точный размер первоначального взноса не назван.',
   };
 }
 

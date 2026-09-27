@@ -271,7 +271,12 @@ function sanitizeLiveState(
     }
   }
 
-  const downPaymentAvailable = hasAvailableDownPaymentWithoutAmount(turn.text);
+  const hasActiveCurrentTurnDownPayment = (state.confirmedFacts || []).some((fact: any) =>
+    fact.category === 'downPayment' &&
+    fact.turnId === turn.id &&
+    !['superseded', 'rejected'].includes(fact.lifecycleStatus || '')
+  );
+  const downPaymentAvailable = !hasActiveCurrentTurnDownPayment && hasAvailableDownPaymentWithoutAmount(turn.text);
   if (downPaymentAvailable) {
     state = {
       ...state,

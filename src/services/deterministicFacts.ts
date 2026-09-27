@@ -163,6 +163,18 @@ export function extractDeterministicFacts(
       /(?:(?:бюджет(?:ом|а)?|до|около|примерно|в\s*районе)\s*)?(\d+(?:[.,]\d+)?(?:\s*-\s*\d+(?:[.,]\d+)?)?)\s*(млн|миллион(?:а|ов)?|млрд|тысяч(?:и)?|тыс|к)(?:[^\p{L}\p{N}]|$)/giu
     )
   );
+  const explicitDownPaymentAmount = (() => {
+    const afterLabel = lower.match(
+      /(?:первоначальн\p{L}*|перв\p{L}*)\s+взнос\p{L}*\s*(?:(?:составля\p{L}*|будет|примерно|около|в\s+размере)\s*)?(\d+(?:[.,]\d+)?)\s*(млн|миллион(?:а|ов)?|тысяч(?:и)?|тыс|%|руб(?:лей|ля)?)/iu
+    );
+    if (afterLabel) return { amount: afterLabel[1], unit: afterLabel[2], quote: afterLabel[0].trim() };
+    const beforeLabel = lower.match(
+      /(\d+(?:[.,]\d+)?)\s*(млн|миллион(?:а|ов)?|тысяч(?:и)?|тыс|%|руб(?:лей|ля)?)\s+(?:на|для)\s+(?:первоначальн\p{L}*|перв\p{L}*)\s+взнос\p{L}*/iu
+    );
+    return beforeLabel
+      ? { amount: beforeLabel[1], unit: beforeLabel[2], quote: beforeLabel[0].trim() }
+      : null;
+  })();
   // In corrections such as “not 10m, but 6m”, the last explicit value is current.
   // In flexible-budget phrases (“до 30, но 35–40 если стоящая история”) preserve
   // both the base target and the stretch ceiling instead of collapsing to one number.
@@ -183,7 +195,10 @@ export function extractDeterministicFacts(
     /(?:квартир|жиль|дом).{0,80}вырос\S*\s+(?:в\s+)?цен/iu.test(lower) &&
     /не\s+прода(?:вал|вала|вали|ю|ем)/iu.test(lower);
   const explicitlyBudgetContext = /(?:бюджет|общая\s*стоимость|весь\s*бюджет|максимальн\w*\s*сумм)/iu.test(lower);
-  const nonBudgetMoneyContext = !explicitlyBudgetContext && /(?:(?:цена|стоимость)\s+(?:за\s+)?(?:квадратн\p{L}*\s+)?метр|доходност\p{L}*|(?:арендн\p{L}*\s+)?доход\s+(?:за|в)\s+|выручк\p{L}*)/iu.test(lower);
+  const nonBudgetMoneyContext = !explicitlyBudgetContext && (
+    Boolean(explicitDownPaymentAmount) ||
+    /(?:(?:цена|стоимость)\s+(?:за\s+)?(?:квадратн\p{L}*\s+)?метр|доходност\p{L}*|(?:арендн\p{L}*\s+)?доход\s+(?:за|в)\s+|выручк\p{L}*)/iu.test(lower)
+  );
   const upperBoundMatch = !structuredBudget && !conditionalStretch && !hasStretchCue && lower.match(/(?:^|[^\p{L}\p{N}])(до|максимум|не\s+больше)\s*(\d+(?:[.,]\d+)?)\s*(млн|миллион(?:а|ов)?|млрд|тысяч(?:и)?|тыс|к)(?=$|[^\p{L}\p{N}])/iu);
   const lowerBoundMatch = !structuredBudget && !conditionalStretch && !hasStretchCue && lower.match(/(?:^|[^\p{L}\p{N}])(от|не\s+меньше)\s*(\d+(?:[.,]\d+)?)\s*(млн|миллион(?:а|ов)?|млрд|тысяч(?:и)?|тыс|к)(?=$|[^\p{L}\p{N}])/iu);
   if (structuredBudget && !nonBudgetMoneyContext && (!agentAskedDownPayment || explicitlyBudgetContext || Boolean(unitlessCorrectionRangeMatch))) {
@@ -390,7 +405,8 @@ export function extractDeterministicFacts(
   const fundsAvailability = detectFundsAvailability(trimmed, previousAgentTurnText || '');
   if (fundsAvailability) {
     addFact('downPayment', 'downPayment', fundsAvailability.value, fundsAvailability.evidenceQuote, 0.94, {
-      comment: 'Средства доступны; размер первого платежа уточняется под конкретную схему оплаты.',
+      needsClarification: fundsAvailability.needsClarification,
+      comment: fundsAvailability.comment,
     });
   }
 
@@ -440,7 +456,7 @@ export function extractDeterministicFacts(
 
   // Contextual initial payment: a short client answer like "15 миллионов" or "30%"
   // counts only when Andrei has just asked about the down payment.
-  if (agentAskedDownPayment) {
+  if (agentAskedDownPayment && !explicitDownPaymentAmount) {
     const downPaymentMoneyMatch = lower.match(
       /(\d+(?:[.,]\d+)?)\s*(млн|миллион(?:а|ов)?|тысяч(?:и)?|тыс)(?:\s*(?:руб(?:лей|ля)?|₽))?/iu
     );
@@ -660,6 +676,21 @@ export function extractDeterministicFacts(
     addFact('timeline', 'purchaseTimeline', timelineValue, timelineQuote, 0.95, {
       isFlexible: isFlexibleTimeline,
       comment: boundaryComment,
+    });
+  }
+
+  if (explicitDownPaymentAmount) {
+    const amount = explicitDownPaymentAmount.amount.replace(',', '.');
+    const rawUnit = explicitDownPaymentAmount.unit;
+    const value = rawUnit === '%'
+      ? `${amount}%`
+      : rawUnit.startsWith('тыс')
+        ? `${amount} тыс руб`
+        : rawUnit.startsWith('руб')
+          ? `${amount} руб`
+          : `${amount} млн руб`;
+    addFact('downPayment', 'downPayment', value, explicitDownPaymentAmount.quote, 0.98, {
+      comment: 'Клиент явно назвал сумму первоначального взноса.',
     });
   }
 
