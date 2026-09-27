@@ -9,6 +9,7 @@ import { applyConversationEvent, detectConversationEvent } from './conversationE
 import { createInitialState, mergeFactsDelta } from './conversationStore';
 import { classifyClientTurnIntent, detectLocalObjection, getActiveObjectionGuidance, updateObjectionLifecycle } from './objectionEngine';
 import { extractDeterministicFacts } from './deterministicFacts';
+import { extractSemanticCriteria } from './semanticEvidence';
 import { evaluateFirstCallScript, getFirstCallSuggestion } from './firstCallScriptEngine';
 import { checkSemanticAntiRepeat, extractSemanticKey } from './semanticAntiRepeat';
 import { isSuggestionAllowedByState } from './suggestionLifecycle';
@@ -88,10 +89,7 @@ function classifyAgentActionForLiveTurn(text: string) {
 function hasExplicitResidentialQuietCriterion(turns: TranscriptTurn[]): boolean {
   return turns
     .filter((turn) => turn.speaker === 'client')
-    .some((turn) => {
-      const lower = turn.text.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
-      return /(?:(?:хоч\p{L}*|нужн\p{L}*|важн\p{L}*|ценю|предпочита\p{L}*)[^.!?]{0,28}тишин\p{L}*|тишин\p{L}*[^.!?]{0,28}(?:важн\p{L}*|нужн\p{L}*|хоч\p{L}*|предпочита\p{L}*)|тих\p{L}+\s+(?:мест|район|двор)|спокойн\p{L}+\s+(?:мест|район|окруж)|без\s+шум\p{L}*|слишком\s+шумн\p{L}*|окна\s+выходил\p{L}*\s+на\s+дорог)/iu.test(lower);
-    });
+    .some((turn) => extractSemanticCriteria(turn.text).some((criterion) => criterion.key === 'quiet'));
 }
 
 function sanitizeFirstCallProgress(

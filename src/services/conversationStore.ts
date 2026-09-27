@@ -306,25 +306,35 @@ export function mergeFactsDelta(
     const quote = (evidenceQuote && evidenceQuote.trim()) || (turnText ? turnText.trim() : '');
     if (quote && evidenceTurnId) {
       const cat = item.category || field;
+      const isAdditiveCriteria = cat === 'criteria';
       const existingIdx = next.confirmedFacts.findIndex(
-        (f) => f.turnId === evidenceTurnId && f.category === cat
+        (f) =>
+          f.turnId === evidenceTurnId &&
+          f.category === cat &&
+          (!isAdditiveCriteria || f.value === sanitizedVal)
       );
-      const previousActiveFact = [...next.confirmedFacts]
-        .reverse()
-        .find(
-          (f) =>
-            f.category === cat &&
-            f.lifecycleStatus !== 'superseded' &&
-            f.lifecycleStatus !== 'rejected' &&
-            f.value !== sanitizedVal
-        );
+      // Criteria are an additive collection: quiet and infrastructure are
+      // independent facts, not competing versions of one scalar value.
+      const previousActiveFact = isAdditiveCriteria
+        ? undefined
+        : [...next.confirmedFacts]
+          .reverse()
+          .find(
+            (f) =>
+              f.category === cat &&
+              f.lifecycleStatus !== 'superseded' &&
+              f.lifecycleStatus !== 'rejected' &&
+              f.value !== sanitizedVal
+          );
 
       if (previousActiveFact) {
         previousActiveFact.lifecycleStatus = 'superseded';
       }
 
       const factRecord: ConfirmedFact = {
-        id: `fact_${evidenceTurnId}_${field}`,
+        id: existingIdx >= 0
+          ? next.confirmedFacts[existingIdx].id
+          : `fact_${evidenceTurnId}_${field}${isAdditiveCriteria ? `_${next.confirmedFacts.filter((fact) => fact.turnId === evidenceTurnId && fact.category === cat).length + 1}` : ''}`,
         category: cat,
         value: sanitizedVal,
         evidenceQuote: quote,
