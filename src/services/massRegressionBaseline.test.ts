@@ -24,16 +24,9 @@ describe('AI Copilot mass offline regression baseline', () => {
       fingerprint: report.fingerprint,
     }).toMatchInlineSnapshot(`
       {
-        "assertions": 12160,
+        "assertions": 12224,
         "baseGoldenCases": 101,
         "clusters": [
-          {
-            "count": 64,
-            "invariant": "INV_CONSISTENCY",
-            "key": "463804bfb794",
-            "priority": "P1",
-            "probableLayer": "canonical fact extraction",
-          },
           {
             "count": 32,
             "invariant": "INV_CONSISTENCY",
@@ -49,11 +42,11 @@ describe('AI Copilot mass offline regression baseline', () => {
             "probableLayer": "canonical fact extraction",
           },
         ],
-        "fail": 128,
-        "fingerprint": "9401cb59d56fbebb72578e4849ef6b3c46fc8746c43090272d998ff245da7dbb",
+        "fail": 64,
+        "fingerprint": "8a6e23fb9b45b1a578559eece5b344678ad85201f5c82d7e250476f7d913e4b6",
         "generatedScenarios": 3232,
-        "pass": 12032,
-        "passRate": 98.95,
+        "pass": 12160,
+        "passRate": 99.48,
         "seed": 99537922,
       }
     `);

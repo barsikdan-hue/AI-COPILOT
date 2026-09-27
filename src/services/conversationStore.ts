@@ -483,6 +483,8 @@ export function mergeFactsDelta(
               new Set([...(next.purchaseTimeline?.evidenceTurnIds || []), evidenceTurnId])
             ),
             needsClarification,
+            isFlexible,
+            comment,
           };
           if (next.timeline) next.timeline.value = sanitizedVal;
         }

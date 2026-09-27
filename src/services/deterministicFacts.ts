@@ -638,13 +638,29 @@ export function extractDeterministicFacts(
     addFact('property_type', 'propertyType', flatMatch[0].toLowerCase().startsWith('апарт') ? 'Апартаменты' : 'Квартира', flatMatch[0]);
   }
 
-  // 9. Timeline. Calendar wording such as "до декабря" is a concrete deadline.
+  // 9. Timeline. Preserve relative direction/range in the scalar value instead
+  // of reducing "не раньше", "максимум" or "где-то" to an exact duration.
   const timelineMatch = lower.match(
-    /(?:пара\s*месяцев|пару\s*месяцев|в\s*течение\s*пары\s*месяцев|(?:2|два)[-–—\s]*(?:3|три)\s*месяц(?:а|ев)?|к\s*лету|в\s*течение\s*месяца|(?:^|[^\p{L}\p{N}])срочно(?:[^\p{L}\p{N}]|$)|не\s*к\s*спеху|(?:до|к)\s*(?:концу\s*)?(?:января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)|(?:в|на)\s*(?:январе|феврале|марте|апреле|мае|июне|июле|августе|сентябре|октябре|ноябре|декабре))/iu
+    /(?:(?:не\s+раньше\s+чем|максимум)\s+через\s+(?:полгода|(?:\d+|один|одного|два|две|двух|три|тр[её]х|четыре|четыр[её]х)(?:\s*[-–—]\s*(?:\d+|два|две|двух|три|тр[её]х|четыре|четыр[её]х))?\s*месяц(?:а|ев)?)|(?:(?:где-то|примерно|ориентировочно|приблизительно)\s+)?(?:в\s+течение|через)\s+(?:полгода|(?:\d+|один|одного|два|две|двух|три|тр[её]х|четыре|четыр[её]х)(?:\s*[-–—]\s*(?:\d+|два|две|двух|три|тр[её]х|четыре|четыр[её]х))?\s*месяц(?:а|ев)?)|пара\s*месяцев|пару\s*месяцев|в\s*течение\s*пары\s*месяцев|(?:2|два)[-–—\s]*(?:3|три)\s*месяц(?:а|ев)?|к\s*лету|в\s*течение\s*месяца|до\s+(?:конца\s+года|нового\s+года)|(?:^|[^\p{L}\p{N}])срочно(?:[^\p{L}\p{N}]|$)|не\s*к\s*спеху|(?:до|к)\s*(?:концу\s*)?(?:января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)|(?:в|на)\s*(?:январе|феврале|марте|апреле|мае|июне|июле|августе|сентябре|октябре|ноябре|декабре))/iu
   );
   if (timelineMatch) {
     const timelineQuote = timelineMatch[0].trim().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
-    addFact('timeline', 'purchaseTimeline', timelineQuote, timelineQuote);
+    const timelineValue = timelineQuote
+      .replace(/(^|[^\p{L}])(?:двух|два|две)(?=$|[^\p{L}])/giu, (_match, prefix: string) => `${prefix}2`)
+      .replace(/(^|[^\p{L}])(?:тр[её]х|три)(?=$|[^\p{L}])/giu, (_match, prefix: string) => `${prefix}3`)
+      .replace(/(^|[^\p{L}])(?:четыр[её]х|четыре)(?=$|[^\p{L}])/giu, (_match, prefix: string) => `${prefix}4`);
+    const isFlexibleTimeline = /(?:где-то|примерно|ориентировочно|приблизительно)/iu.test(timelineQuote);
+    const boundaryComment = /не\s+раньше\s+чем/iu.test(timelineQuote)
+      ? 'Нижняя граница срока; не трактовать как точную дату.'
+      : /максимум/iu.test(timelineQuote)
+        ? 'Верхняя граница срока; не трактовать как точную дату.'
+        : isFlexibleTimeline
+          ? 'Ориентировочный срок; неопределённость сохранена.'
+          : undefined;
+    addFact('timeline', 'purchaseTimeline', timelineValue, timelineQuote, 0.95, {
+      isFlexible: isFlexibleTimeline,
+      comment: boundaryComment,
+    });
   }
 
   // 10. Criteria: Reliability / Transparency

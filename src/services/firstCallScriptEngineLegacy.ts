@@ -479,6 +479,8 @@ export function isConcreteTimeline(text: string): boolean {
     lower.includes('в течение года') ||
     lower.includes('в течение двух') ||
     lower.includes('до конца') ||
+    lower.includes('до нового года') ||
+    lower.includes('полгода') ||
     /(?:до|к)\s*(?:концу\s*)?(?:января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)/iu.test(lower) ||
     /(?:в|на)\s*(?:январе|феврале|марте|апреле|мае|июне|июле|августе|сентябре|октябре|ноябре|декабре)/iu.test(lower) ||
     /\d{1,2}[:.]\d{2}/.test(lower) ||
