@@ -730,20 +730,6 @@ export function extractDeterministicFacts(
     addFact('criteria', 'clientCriteria', 'Надёжность и прозрачность сделки', quote);
   }
 
-  const seaPreferenceMatch = lower.match(
-    /(?:близост[а-яё]*\s*к\s*морю|рядом\s*с\s*морем|недалеко\s*от\s*моря|у\s*моря|море[^.!?]{0,24}(?:бонус|важн|желатель))/iu
-  );
-  if (seaPreferenceMatch) {
-    addFact(
-      'criteria',
-      'clientCriteria',
-      'Близость к морю / пляжу',
-      seaPreferenceMatch[0].trim(),
-      0.94,
-      { comment: 'Клиент обозначил море как предпочтение; не повышать до обязательного критерия без подтверждения.' }
-    );
-  }
-
   // 11. Contextual agreedNextStep (e.g. Agent: "Видеопоказ завтра в 15:00 удобно?" -> Client: "Да")
   // Check polite agreement idioms (e.g., "нет проблем, завтра в 15:00 удобно", "без проблем", "нет вопросов")
   const isPoliteAgreement =
