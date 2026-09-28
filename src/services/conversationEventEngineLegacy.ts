@@ -73,7 +73,7 @@ const matchesClientStop = (text: string, rule: EventRuleConfig): boolean => {
 
 const matchesTimeConstraint = (text: string, rule: EventRuleConfig): boolean =>
   includesConfiguredPhrase(text, rule) ||
-  /(?:говорить\s+(?:неудобно|не\s+могу)|на\s+разговор\s+времени\s+нет|давайте\s+(?:позже|потом)|я\s+занят[^.!?]{0,35}(?:наберите|перезвоните|позвоните))/iu.test(text);
+  /(?:говорить\s+(?:неудобно|не\s+могу)|на\s+разговор\s+времени\s+нет|давайте\s+(?:позже|потом)|я\s+(?:тороплюсь|занят[^.!?]{0,35}(?:наберите|перезвоните|позвоните)))/iu.test(text);
 
 const matchesResearchMode = (text: string, rule: EventRuleConfig): boolean =>
   includesConfiguredPhrase(text, rule) ||
@@ -82,6 +82,23 @@ const matchesResearchMode = (text: string, rule: EventRuleConfig): boolean =>
 const matchesSoftResistance = (text: string, rule: EventRuleConfig): boolean =>
   includesConfiguredPhrase(text, rule) ||
   /(?:не\s+хочу\s+сейчас(?:\s+это)?\s+обсуждать|давайте\s+не\s+будем\s+пока\s+углубляться|(?:^|[^\p{L}\p{N}])(?:сначала\s+)?сам\s+(?:посмотрю|изучу|разберусь)(?=$|[^\p{L}\p{N}])|встречу\s+пока\s+не\s+назначаем)/iu.test(text);
+
+function hasMaterialRequestIntent(value: string): boolean {
+  const text = normalize(value);
+  const delivery = text.match(
+    /(?:(?:пришл(?:ите|и|ете)|прислать)|скин(?:ьте|ь|уть|ете)|отправ(?:ьте|ь|ить|ите)|покаж(?:ите|и|ем|ешь|ете)|дайте|предостав(?:ьте|ить)|перешл(?:ите|ать))/iu,
+  );
+  const material = text.match(
+    /(?:прайс\p{L}*|каталог\p{L}*|презентац\p{L}*|фото(?:граф\p{L}*)?|подборк\p{L}*|планировк\p{L}*|цен\p{L}*|вариант\p{L}*|материал\p{L}*)/iu,
+  );
+  if (delivery && material && Math.abs((delivery.index || 0) - (material.index || 0)) <= 65) return true;
+
+  const viewableMaterial = /(?:фото(?:граф\p{L}*)?|планировк\p{L}*|каталог\p{L}*|презентац\p{L}*|подборк\p{L}*|вариант\p{L}*)/iu;
+  return (
+    /(?:фото(?:граф\p{L}*)?|планировк\p{L}*|каталог\p{L}*|презентац\p{L}*|подборк\p{L}*)[^.!?]{0,18}\sбы\s+(?:посмотр\p{L}*|получ\p{L}*|увид\p{L}*)/iu.test(text) ||
+    /(?:можно|хочу|хотел(?:а|ось)?\s+бы)[^.!?]{0,22}(?:получить|посмотреть|увидеть|ознакомиться)[^.!?]{0,30}/iu.test(text) && viewableMaterial.test(text)
+  );
+}
 
 const findConfig = (id: ConversationEventType): EventRuleConfig | undefined =>
   EVENT_RULES.find((rule) => rule.id === id);
@@ -128,7 +145,7 @@ const configuredSoftResistanceEvent = (
   state: ConversationState,
 ): ConversationEventDetection => {
   const text = normalize(turn.text);
-  const materialBoundary = /(?:пришл\p{L}*|скин\p{L}*|отправ\p{L}*|покаж\p{L}*|дайте)[^.!?]{0,55}(?:цен\p{L}*|планиров\p{L}*|вариант\p{L}*|материал\p{L}*|прайс\p{L}*|каталог\p{L}*|презентац\p{L}*|фото\p{L}*|подборк\p{L}*)|(?:цен\p{L}*|планиров\p{L}*|вариант\p{L}*|материал\p{L}*|прайс\p{L}*|каталог\p{L}*|презентац\p{L}*|фото\p{L}*|подборк\p{L}*)[^.!?]{0,35}(?:пришл\p{L}*|скин\p{L}*|отправ\p{L}*|покаж\p{L}*)/iu.test(text);
+  const materialBoundary = hasMaterialRequestIntent(text);
   const discussionBoundary = /(?:не\s+хочу\s+сейчас(?:\s+это)?\s+обсуждать|давайте\s+не\s+будем\s+пока\s+углубляться)/iu.test(text);
   const selfServiceBoundary = /(?:^|[^\p{L}\p{N}])(?:сначала\s+)?сам\s+(?:посмотрю|изучу|разберусь)(?=$|[^\p{L}\p{N}])/iu.test(text);
   const alreadyCounted = (state.events || []).some(
@@ -324,7 +341,8 @@ function hasDirectQuestion(text: string): boolean {
     explicitInterrogativeLead ||
     spokenWhenQuestion ||
     /(?:хочу|хотел|хотела|хотелось)\s+(?:бы\s+)?(?:узнать|понять)[^.!?]{0,70}(?:сколько|какая|какой|почему|зачем|что)/iu.test(lower) ||
-    /(?:скин\p{L}*|пришл\p{L}*|отправ\p{L}*|покаж\p{L}*|дайте)\s+[^.!?]{0,45}(?:цен|планиров|вариант|материал|договор|расчет|расчёт|документ)/iu.test(lower)
+    hasMaterialRequestIntent(lower) ||
+    /(?:скин\p{L}*|пришл\p{L}*|отправ\p{L}*|покаж\p{L}*|дайте)\s+[^.!?]{0,45}(?:договор|расчет|расчёт|документ)/iu.test(lower)
   );
 }
 
@@ -357,7 +375,7 @@ function classifyDirectQuestionIntent(text: string, previousAgentText: string | 
   if (/(?:сколько|какая|какой).{0,25}(?:стоит|цена|стоимость)|(?:цена|стоимость).{0,25}(?:сколько|какая|какой)/iu.test(normalized)) return 'price';
   if (/(?:доходност|окупаем|депозит|денежн\p{L}*\s+поток|сколько.{0,35}(?:получить|заработать|принос\p{L}*)|что.{0,35}даст.{0,20}инвест)/iu.test(normalized)) return 'yield_comparison';
   if (/ипотек|ставк|плат[её]ж|банк|рассроч|первоначальн.*взнос/iu.test(normalized)) return 'financing';
-  if (/(?:скин\p{L}*|пришл\p{L}*|отправ\p{L}*|покаж\p{L}*)[^.!?]{0,55}(?:цен|планиров|вариант|материал)|(?:цен|планиров|вариант)[^.!?]{0,35}(?:скин\p{L}*|пришл\p{L}*|отправ\p{L}*)/iu.test(normalized)) return 'materials_request';
+  if (hasMaterialRequestIntent(normalized)) return 'materials_request';
   if (/(?:что\s+(?:реально\s+)?интересн|что\s+можете\s+предлож|какие\s+есть\s+(?:вариант|решен)|что\s+есть\s+такого)/iu.test(normalized)) return 'market_options';
   if (/площад|этаж|планиров|отделк|ремонт|срок сдач|инфраструктур|паркинг|вид|море/iu.test(normalized)) return 'property_details';
   return 'general';
@@ -545,8 +563,11 @@ export function detectConversationEvent(
   const timeConstraint = findConfig('TIME_CONSTRAINT');
   if (timeConstraint && matchesTimeConstraint(text, timeConstraint)) {
     const callbackTime = extractCallbackTime(turn.text);
+    const materialRequest = hasMaterialRequestIntent(turn.text);
     return configuredEvent(timeConstraint, turn, {
-      suggestedReply: callbackTime
+      suggestedReply: materialRequest
+        ? 'Понял, не отвлекаю. Отправлю запрошенный материал; к разговору вернёмся позже.'
+        : callbackTime
         ? `Понял. Перезвоню ${callbackTime}. Не отвлекаю.`
         : timeConstraint.suggestion,
     });
@@ -554,7 +575,7 @@ export function detectConversationEvent(
 
   const previousAgent = lastAgentBefore(turn, recentTurns);
 
-  const resistance = detectNextStepResistance(turn.text, state, previousAgent?.text);
+  const resistance = detectNextStepResistance(text, state, previousAgent?.text);
   if (resistance && (['ppv', 'ppi'].includes(resistance.target) || !hasDirectQuestion(turn.text))) {
     const recorded = state.dialogueControl?.nextStepResistanceHistory?.[resistance.target]?.lastEvidenceTurnId === turn.id;
     const count = resistance.count - (recorded ? 1 : 0);
@@ -593,7 +614,8 @@ export function detectConversationEvent(
   if (hasDirectQuestion(turn.text) && !isBarrierQuestion(turn.text)) {
     const intent = classifyDirectQuestionIntent(turn.text, previousAgent?.text || null);
     const materialRequest = intent === 'materials_request' ? findConfig('SOFT_RESISTANCE') : null;
-    if (materialRequest) {
+    const materialBoundaryQuestion = /(?:^|[^\p{L}\p{N}])сам\s+(?:посмотрю|изучу|разберусь)(?=$|[^\p{L}\p{N}])/iu.test(text);
+    if (materialRequest && (!turn.text.includes('?') || materialBoundaryQuestion || matchesSoftResistance(text, materialRequest))) {
       return configuredSoftResistanceEvent(materialRequest, turn, state);
     }
     return {

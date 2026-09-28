@@ -6,13 +6,13 @@
 - Execution profiles per scenario: 32
 - Generated executions: 8192
 - Assertions: 32704
-- PASS: 30148
-- FAIL: 2556
-- Pass rate: 92.18%
-- Unique failure clusters: 24
-- Production failure clusters: 22
+- PASS: 30308
+- FAIL: 2396
+- Pass rate: 92.67%
+- Unique failure clusters: 22
+- Production failure clusters: 20
 - Test-oracle limitation clusters: 2
-- Deterministic fingerprint: `74b5da04e82d1e7b15d0a64c59ad84e73acf734dadeb22c6c6d9310908275b3a`
+- Deterministic fingerprint: `9366bd8d8a9d449b21747132e8311daad77083be2b460a27814f3f07c57d3074`
 - Runtime: local deterministic only; no Gemini or external LLM calls
 
 Coverage by base scenario: goal 20; criteria 20; finance 28; timeline 20; decision maker 16; experience 16; material requests 16; objections 16; corrections 24; negation 16; transcript transport 12; session isolation 8; next action 20; recommendation quality 24.
@@ -23,8 +23,7 @@ Every fingerprint is listed below. Fingerprints with the same demonstrated root 
 
 | Cluster ids (count) | Invariant / minimal reproduction | Expected | Actual | Likely root cause; files/functions | Impact | Severity |
 |---|---|---|---|---|---|---|
-| `b75a3a6c2beb` (128), `dcccc2f90db0` (34) | `INV_MATERIAL_REQUEST_ROUTING`, `INV_MATERIAL_RESISTANCE_BOUNDARY`; «Отправьте актуальный прайс», unseen material nouns/orderings without an explicit boundary | Material request/resistance routes to one short material follow-up and does not propose a meeting | `event=none` for remaining unseen nouns/orderings | Material intent still misses standalone `прайс`, `каталог`, `презентация`, `фото`, `подборка` variants. Boundary combinations are now routed correctly; the remaining defect is the out-of-scope material lexicon. `conversationEventEngineLegacy.ts::hasDirectQuestion`, `::classifyDirectQuestionIntent`, `::detectConversationEvent` | recommendation, next action | CRITICAL |
-| `1ca2cd48ea60` (30) | `INV_MATERIAL_RESISTANCE_BOUNDARY`; «Каталог можно, видеопоказ пока не предлагайте» | Test expected `SOFT_RESISTANCE` | Runtime returns `NEXT_STEP_RESISTANCE` with target `ppv` | Event type expectation is over-specific: both routes preserve the refusal and select `CLARIFY`. This is a test/model limitation, not proven bad guidance. `conversationEventEngineLegacy.ts::detectConversationEvent`; `conversationEventEngine.ts::detectNextStepQuestion` | next action, recommendation | CRITICAL label; production bug not proven |
+| `1ca2cd48ea60` (32) | `INV_MATERIAL_RESISTANCE_BOUNDARY`; «Каталог можно, видеопоказ пока не предлагайте» | Test expected `SOFT_RESISTANCE` | Runtime returns `NEXT_STEP_RESISTANCE` with target `ppv` | Event type expectation is over-specific: both routes preserve the refusal and select `CLARIFY`. This is a test/model limitation, not proven bad guidance. `conversationEventEngineLegacy.ts::detectConversationEvent`; `conversationEventEngine.ts::detectNextStepQuestion` | next action, recommendation | CRITICAL label; production bug not proven |
 | `e37e71c0c73c` (32) | `INV_SESSION_ISOLATION`; session A «Только начал смотреть рынок…», session B «Уже сравнил три конкретных комплекса» | Two distinct isolated `searchExperience` values | Session B stays `null`; no cross-session equality/leak was observed | The fixture conflates extraction coverage with isolation. Failure belongs to `detectSearchExperience`, not session storage. `semanticEvidence.ts::detectSearchExperience`; `localAnalysisEngine.ts::advanceLocalConversation` | state, recommendation | CRITICAL label; test/model limitation |
 | `b65ab4bb1a79` (27), `12138ebfbfda` (5) | `INV_TIMELINE_SUPERSEDE`; month→quarter correction | Explicit new quarter replaces the old month horizon | Old month value remains; five surface variants still emit `FACT_CORRECTION` before canonical replacement | Separate remaining merge-precedence defect: `timelineSpecificity` ranks a quarter below a month and blocks a genuine correction. `conversationStore.ts::timelineSpecificity`, `::shouldReplaceTimeline`, `::mergeFactsDelta` | state, metric | HIGH |
 | `f2c2a970a83e` (85) | `INV_TRUE_CORRECTION_SUPERSEDE` timeline; recognized year→month, spring→autumn and urgent→six-month replacements | `FACT_CORRECTION` emitted after linked supersede | Canonical fact and supersede lineage are correct, but event remains `none` for 85 discourse variations | Separate correction-event cue gap after successful extraction/supersede. `conversationEventEngineLegacy.ts::hasConfirmedFactReplacement`, `::extractCorrection` | state, metric | HIGH |
@@ -55,9 +54,8 @@ The dominant pattern is not a broken generic supersede algorithm. In most remain
 
 1. Expand canonical extraction by semantic category (decision maker, timeline, experience) in separate iterations. User effect: correct active conversation state and fewer repeated qualification questions. Scope: one category/function per fix, no architecture rewrite.
 2. Fix child correction precedence (`у меня детей нет` before generic child tokens). User effect: family-mortgage guidance no longer uses a contradicted child fact. Scope: family section of `extractDeterministicFacts` plus lifecycle assertions.
-3. Complete standalone material-request vocabulary separately from the now-fixed boundary combinations. User effect: direct requests for a price list or catalogue receive the requested material instead of a generic question. Scope: material intent classification only.
-4. Add spoken compound-number normalization for down payment and budget. User effect: financial qualification reflects what the client actually said. Scope: category-specific numeric parsing with strict context guards.
-5. Re-run correction cases after extraction fixes. Only if linked supersede still fails should `mergeFactsDelta`/`hasConfirmedFactReplacement` change. User effect: avoids an unnecessary global fact-architecture refactor.
+3. Add spoken compound-number normalization for down payment and budget. User effect: financial qualification reflects what the client actually said. Scope: category-specific numeric parsing with strict context guards.
+4. Re-run correction cases after extraction fixes. Only if linked supersede still fails should `mergeFactsDelta`/`hasConfirmedFactReplacement` change. User effect: avoids an unnecessary global fact-architecture refactor.
 
 ## B. Test/model limitations
 
@@ -130,3 +128,12 @@ The dominant pattern is not a broken generic supersede algorithm. In most remain
 - Expanded regression: 29047 → 30148 PASS; 3657 → 2556 FAIL; 88.82% → 92.18%; 27 → 24 fingerprints.
 - Exactly 1101 failures were removed. All three extraction/state target clusters disappeared: `7418e2144f34` (576), `1d14311297fb` (256), `e27f9ca9c8d6` (224). The separate event-only cluster `646bab95452d` decreased 128 → 83 as an incidental result of more incoming facts but was not otherwise fixed.
 - New failing assertions: 0. New fingerprints: 0. Remaining fingerprints: 22 production and 2 test-oracle limitations.
+
+# FIX ITERATION 21 RESULT
+
+- Root cause: material-request intent recognition was duplicated across three incomplete regex paths. Common standalone nouns, reversed request order and polite delivery forms therefore returned `event=none` or a generic property-details answer. Two normalized no-video variants also bypassed the existing resistance detector.
+- Scope: one category-specific `hasMaterialRequestIntent` helper, material-aware time-boundary reply and normalized input for existing next-step resistance detection in `conversationEventEngineLegacy.ts`. Event priority, Sales Logic, recommendation lifecycle, generic fact lifecycle, UI and oracle were not changed.
+- Original regression: unchanged at 101 golden cases, 3232 scenarios and 12288 / 12288 PASS.
+- Expanded regression: 30148 → 30308 PASS; 2556 → 2396 FAIL; 92.18% → 92.67%; 24 → 22 fingerprints.
+- Both production targets disappeared: `b75a3a6c2beb` 128 → 0 and `dcccc2f90db0` 34 → 0. Net reduction is 160 assertions because two former `event=none` variants joined the existing oracle-only `1ca2cd48ea60` cluster, which changed 30 → 32; this is reclassification, not a new failure.
+- New fingerprints: 0. Remaining fingerprints: 20 production and 2 test-oracle limitations.
