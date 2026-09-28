@@ -346,16 +346,45 @@ function extractCallbackDurationMinutes(text: string): number | null {
   return null;
 }
 
+function extractCallbackDateOrDay(text: string): string | null {
+  const normalized = normalize(text);
+  const dayPattern = /(?:^|[^\p{L}\p{N}])(сегодня|завтра|послезавтра|понедельник|вторник|сред[ау]|четверг|пятниц[ау]|суббот[ау]|воскресенье|через\s+(?:день|два\s+дня|три\s+дня))(?=$|[^\p{L}\p{N}])/giu;
+  const contrastClause = normalized.match(/(?:^|[^\p{L}\p{N}])а\s+(.+)$/iu)?.[1] || null;
+  const contrastChoice = contrastClause ? Array.from(contrastClause.matchAll(dayPattern))[0]?.[1] : null;
+  if (contrastChoice) return contrastChoice;
+  const matches = Array.from(normalized.matchAll(dayPattern));
+  return matches.at(-1)?.[1] || null;
+}
+
+function normalizeContextualHour(rawHour: number, text: string): number {
+  const explicitMorning = /(?:утра|утром)/iu.test(text);
+  return !explicitMorning && rawHour >= 1 && rawHour <= 11 ? rawHour + 12 : rawHour;
+}
+
 function extractConversationalCallbackTiming(text: string): { dateOrDay: string | null; time: string | null } | null {
   const normalized = normalize(text);
-  const explicitDay = normalized.match(/(?:^|[^\p{L}\p{N}])(сегодня|завтра|послезавтра)(?=$|[^\p{L}\p{N}])/iu)?.[1] || null;
+  const explicitDay = extractCallbackDateOrDay(normalized);
+  const range = normalized.match(new RegExp(String.raw`(?:^|[^\p{L}\p{N}])с\s+(${CALLBACK_NUMBER_PATTERN})(?::(\d{2}))?\s+до\s+(${CALLBACK_NUMBER_PATTERN})(?::(\d{2}))?`, 'iu'));
+  if (range) {
+    const rawStart = parseCallbackNumber(range[1]);
+    const rawEnd = parseCallbackNumber(range[3]);
+    const startMinute = Number(range[2] || 0);
+    const endMinute = Number(range[4] || 0);
+    if (rawStart != null && rawEnd != null && rawStart <= 23 && rawEnd <= 23 && startMinute <= 59 && endMinute <= 59) {
+      const start = normalizeContextualHour(rawStart, normalized);
+      const end = normalizeContextualHour(rawEnd, normalized);
+      return {
+        dateOrDay: explicitDay,
+        time: `с ${String(start).padStart(2, '0')}:${String(startMinute).padStart(2, '0')} до ${String(end).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}`,
+      };
+    }
+  }
   const after = normalized.match(new RegExp(String.raw`(?:часов?\s+)?после\s+(${CALLBACK_NUMBER_PATTERN})(?::(\d{2}))?`, 'iu'));
   if (after) {
     const rawHour = parseCallbackNumber(after[1]);
     const minute = Number(after[2] || 0);
     if (rawHour != null && rawHour >= 0 && rawHour <= 23 && minute >= 0 && minute <= 59) {
-      const explicitMorning = /(?:утра|утром)/iu.test(normalized);
-      const hour = !explicitMorning && rawHour >= 1 && rawHour <= 11 ? rawHour + 12 : rawHour;
+      const hour = normalizeContextualHour(rawHour, normalized);
       return {
         dateOrDay: explicitDay || 'сегодня',
         time: `после ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`,
@@ -368,8 +397,7 @@ function extractConversationalCallbackTiming(text: string): { dateOrDay: string 
     const rawHour = parseCallbackNumber(at[1]);
     const minute = Number(at[2] || 0);
     if (rawHour != null && rawHour >= 0 && rawHour <= 23 && minute >= 0 && minute <= 59) {
-      const explicitMorning = /(?:утра|утром)/iu.test(normalized);
-      const hour = !explicitMorning && rawHour >= 1 && rawHour <= 11 ? rawHour + 12 : rawHour;
+      const hour = normalizeContextualHour(rawHour, normalized);
       return {
         dateOrDay: explicitDay,
         time: `в ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`,
@@ -380,7 +408,45 @@ function extractConversationalCallbackTiming(text: string): { dateOrDay: string 
   if (/(?:сегодня\s+)?вечером/iu.test(normalized)) {
     return { dateOrDay: explicitDay || 'сегодня', time: 'вечером' };
   }
+  if (/(?:^|[^\p{L}\p{N}])утром(?=$|[^\p{L}\p{N}])/iu.test(normalized)) {
+    return { dateOrDay: explicitDay, time: 'утром' };
+  }
+  if (explicitDay) return { dateOrDay: explicitDay, time: null };
   return null;
+}
+
+const NEXT_STEP_ACTION_PATTERN = /(?:видеовстреч\p{L}*|видеопоказ\p{L}*|видеосвяз\p{L}*|созвон\p{L}*|позвон\p{L}*|перезвон\p{L}*|на(?:бер|бр)\p{L}*|звонк\p{L}*|встре(?:т|ч)\p{L}*|телемост\p{L}*)/iu;
+const LEGACY_MEETING_CONTEXT_PATTERN = /(?:видеовстреч|видеопоказ|видео|созвон|зум|zoom|встреч|показ)/iu;
+const NEXT_STEP_FOLLOW_UP_PATTERN = /(?:когда[^.!?]{0,55}(?:удобн|продолж|связат|вернут)|верн\p{L}*[^.!?]{0,80}когда[^.!?]{0,35}удобн|следующ\p{L}*\s+шаг[^.!?]{0,55}когда)/iu;
+
+function isNextStepSchedulingTurn(text: string): boolean {
+  const normalized = normalize(text);
+  if (NEXT_STEP_ACTION_PATTERN.test(normalized) || NEXT_STEP_FOLLOW_UP_PATTERN.test(normalized)) return true;
+  const hasTiming = Boolean(extractConversationalCallbackTiming(normalized) || extractCallbackTime(normalized));
+  const schedulingLanguage = /(?:тогда|предлагаю|планируем|согласуем|назначим|подойд[её]т|удобн\p{L}*|по\s+времени|свободн\p{L}*\s+время|во\s+сколько|в\s+какое\s+время)/iu.test(normalized);
+  return hasTiming && schedulingLanguage;
+}
+
+function activeNextStepProposal(
+  turn: TranscriptTurn,
+  recentTurns: TranscriptTurn[],
+): { contextText: string; timingText: string } | null {
+  const prior = recentTurns.filter((candidate) => {
+    if (candidate.id === turn.id) return false;
+    if (typeof candidate.revision === 'number' && typeof turn.revision === 'number') {
+      return candidate.revision < turn.revision;
+    }
+    return candidate.timestamp <= turn.timestamp;
+  });
+  const immediateAgent = [...prior].reverse().find((candidate) => candidate.speaker === 'agent');
+  if (!immediateAgent || !isNextStepSchedulingTurn(immediateAgent.text)) return null;
+
+  const recentAgentTurns = prior.slice(-6).filter((candidate) => candidate.speaker === 'agent');
+  const actionTurn = [...recentAgentTurns].reverse().find((candidate) => NEXT_STEP_ACTION_PATTERN.test(normalize(candidate.text)));
+  return {
+    contextText: [actionTurn?.text, immediateAgent.text].filter(Boolean).join(' '),
+    timingText: immediateAgent.text,
+  };
 }
 
 function normalizeMeetingDeadline(value: string | null | undefined): string | undefined {
@@ -392,6 +458,12 @@ function normalizeMeetingDeadline(value: string | null | undefined): string | un
     const time = `после ${after[1].padStart(2, '0')}:${after[2] || '00'}`;
     return day ? `${day} ${time}` : time;
   }
+  const range = normalized.match(/с\s+(\d{1,2}):(\d{2})\s+до\s+(\d{1,2}):(\d{2})/iu);
+  if (range) {
+    const time = `с ${range[1].padStart(2, '0')}:${range[2]} до ${range[3].padStart(2, '0')}:${range[4]}`;
+    return day ? `${day} ${time}` : time;
+  }
+  if (/утром/iu.test(normalized)) return day ? `${day} утром` : 'утром';
   if (/вечером/iu.test(normalized)) return day ? `${day} вечером` : 'вечером';
   const clock = extractClock(normalized);
   if (day && clock) return `${day} ${clock}`;
@@ -585,10 +657,13 @@ function isAmbiguousShortConfirmation(text: string, agentText: string | null): b
 function detectMeetingContract(
   turn: TranscriptTurn,
   previousAgent: TranscriptTurn | null,
+  recentTurns: TranscriptTurn[],
   state: ConversationState
 ): ConversationEventDetection | null {
   const text = normalize(turn.text);
   const agentText = normalize(previousAgent?.text || '');
+  const activeProposal = activeNextStepProposal(turn, recentTurns);
+  const proposalText = normalize(activeProposal?.contextText || agentText);
   const existingAgreement = agreementIsConfirmed(state);
   if (isAgreedNextStepReaffirmation(turn.text, state)) return null;
   const explicitMeetingRefusal = /(?:без\s+(?:всяких\s+)?(?:видео|видеопоказ\w*|видеовстреч\w*)|никак\w*\s+(?:видео|видеопоказ\w*)|на\s+видео\s+(?:я\s+)?не\s+(?:выйду|буду)|не\s+(?:хочу|буду|готов\w*)[^.!?]{0,25}(?:видео|видеопоказ\w*|видеовстреч\w*))/iu.test(text);
@@ -597,10 +672,10 @@ function detectMeetingContract(
 
   const conversationalTiming = extractConversationalCallbackTiming(turn.text);
   const exactClientSlot = extractPreferredCallbackTime(turn.text) || extractCallbackTime(turn.text);
-  const clientHasOwnTiming = Boolean(conversationalTiming?.time || exactClientSlot);
-  const followUpPrompt = /(?:когда[^.!?]{0,55}(?:удобн|продолж|связат|вернут)|верн\p{L}*[^.!?]{0,80}когда[^.!?]{0,35}удобн|следующ\p{L}*\s+шаг[^.!?]{0,55}когда)/iu.test(agentText);
+  const clientHasOwnTiming = Boolean(conversationalTiming?.dateOrDay || conversationalTiming?.time || exactClientSlot);
+  const followUpPrompt = NEXT_STEP_FOLLOW_UP_PATTERN.test(proposalText);
   const clientSchedulingVerb = /(?:давайте|созвон\p{L}*|позвон\p{L}*|перезвон\p{L}*|свяж\p{L}*|продолж\p{L}*)/iu.test(text);
-  const contextualTimingResponse = followUpPrompt && clientHasOwnTiming;
+  const contextualTimingResponse = Boolean(activeProposal && clientHasOwnTiming);
   const explicitAffirmative = /(?:^|[^\p{L}\p{N}])(?:да|давайте|согласен|согласна|подходит|удобно|удобнее|предпочту|выбираю|договорились|окей|хорошо)(?:$|[^\p{L}\p{N}])/iu.test(text);
   const durationChange = existingAgreement && explicitAgreementDurationChange(turn.text);
   const channelChange = existingAgreement && explicitAgreementChannelChange(turn.text);
@@ -612,38 +687,49 @@ function detectMeetingContract(
     channelChange ||
     reschedule;
   const meetingContext =
-    /(?:видеовстреч|видеопоказ|видео|созвон|зум|zoom|встреч|показ)/iu.test(`${agentText} ${text}`) ||
+    LEGACY_MEETING_CONTEXT_PATTERN.test(`${agentText} ${text}`) ||
+    Boolean(activeProposal) ||
     followUpPrompt;
   if (!affirmative || !meetingContext) return null;
 
+  const proposalTiming = extractConversationalCallbackTiming(activeProposal?.timingText || previousAgent?.text || '');
+  const explicitClientDay = extractCallbackDateOrDay(turn.text);
   const clientSlot = conversationalTiming
-    ? [conversationalTiming.dateOrDay, conversationalTiming.time].filter(Boolean).join(' ')
+    ? [explicitClientDay || conversationalTiming.dateOrDay, conversationalTiming.time].filter(Boolean).join(' ')
     : exactClientSlot;
-  const agentSlots = extractCallbackSlots(previousAgent?.text || '');
+  const agentSlots = extractCallbackSlots(activeProposal?.timingText || previousAgent?.text || '');
   const explicitPartialChange = durationChange || channelChange;
   const inheritedSingleAgentSlot = !clientSlot && !explicitPartialChange && agentSlots.length === 1 ? agentSlots[0] : null;
   const callbackSlot = clientSlot || inheritedSingleAgentSlot;
-  const time = conversationalTiming?.time || extractClock(callbackSlot);
-  const clientDay = conversationalTiming?.dateOrDay || turn.text.match(/(?:^|[^\p{L}\p{N}])(сегодня|завтра|послезавтра|понедельник|вторник|сред[ау]|четверг|пятниц[ау]|суббот[ау]|воскресенье)(?=$|[^\p{L}\p{N}])/iu)?.[1] || null;
+  const time = conversationalTiming?.time || extractClock(callbackSlot) || (!clientSlot && agentSlots.length <= 1 ? proposalTiming?.time || null : null);
+  const clientDay = explicitClientDay || (conversationalTiming?.dateOrDay === 'сегодня' && proposalTiming?.dateOrDay
+    ? proposalTiming.dateOrDay
+    : conversationalTiming?.dateOrDay) || null;
   const inheritedDay = inheritedSingleAgentSlot?.match(/(?:^|[^\p{L}\p{N}])(сегодня|завтра|послезавтра|понедельник|вторник|сред[ау]|четверг|пятниц[ау]|суббот[ау]|воскресенье)(?=$|[^\p{L}\p{N}])/iu)?.[1] || null;
-  const dateOrDay = clientDay || inheritedDay || null;
+  const dateOrDay = clientDay || inheritedDay || proposalTiming?.dateOrDay || null;
   const replacementChannel = channelChange
     ? text.match(/а\s+(видео\p{L}*|встреч\p{L}*|звонок|созвон)/iu)?.[1] || null
     : null;
-  const rawChannel = replacementChannel || `${agentText} ${text}`.match(/(видеовстреча|видеопоказ|видео|zoom|зум|телефон|звонок|созвон\p{L}*|whatsapp|ватсап|telegram|телеграм)/iu)?.[1] || null;
-  const channel = rawChannel && /созвон|телефон/iu.test(rawChannel)
+  const channelContext = `${proposalText} ${text}`;
+  const rawChannel = replacementChannel ||
+    channelContext.match(/(видеовстреч\p{L}*|видеопоказ\p{L}*|видеосвяз\p{L}*|телемост\p{L}*|видео|zoom|зум)/iu)?.[1] ||
+    channelContext.match(/(телефон|звонк\p{L}*|созвон\p{L}*|позвон\p{L}*|перезвон\p{L}*|на(?:бер|бр)\p{L}*)/iu)?.[1] ||
+    channelContext.match(/(встрет\p{L}*)/iu)?.[1] ||
+    channelContext.match(/(whatsapp|ватсап|telegram|телеграм)/iu)?.[1] || null;
+  const channel = rawChannel && /созвон|телефон|звонк|позвон|перезвон|набер|набр/iu.test(rawChannel)
     ? 'созвон'
-    : rawChannel && /звонок/iu.test(rawChannel)
-      ? 'созвон'
-    : rawChannel || (contextualTimingResponse ? 'созвон' : null);
+    : rawChannel && /видео|телемост|zoom|зум/iu.test(rawChannel)
+      ? 'видео'
+      : rawChannel || (activeProposal ? 'созвон' : contextualTimingResponse ? 'созвон' : null);
   const participants = /(?:вдвоем|вдвоём|с супруг|с муж|с жен|всей семь)/iu.test(text) ? 'несколько участников' : null;
-  const expectedResult = /(?:сравним|выберем|определим|решим|проверим)/iu.test(`${agentText} ${text}`)
+  const expectedResult = /(?:сравним|выберем|определим|решим|проверим)/iu.test(`${proposalText} ${text}`)
     ? 'результат обозначен'
     : null;
   const durationMinutes = extractCallbackDurationMinutes(turn.text);
 
   const priorBoundary = Boolean(state.dialogueControl?.clientBoundaryActive);
-  const tentative = /(?:попробуем|может быть|наверное|скорее всего)/iu.test(text);
+  const preferredTimingClause = text.split(/(?:^|[^\p{L}\p{N}])(?:а|но)(?=$|[^\p{L}\p{N}])/iu).at(-1) || text;
+  const tentative = /(?:попробуем|может быть|наверное|скорее всего)/iu.test(preferredTimingClause);
   const clientOriginatedConcreteProposal =
     (clientHasOwnTiming && (contextualTimingResponse || (explicitAffirmative && clientSchedulingVerb) || reschedule)) ||
     durationChange ||
@@ -836,7 +922,7 @@ export function detectConversationEvent(
     };
   }
 
-  const meeting = detectMeetingContract(turn, previousAgent, state);
+  const meeting = detectMeetingContract(turn, previousAgent, recentTurns, state);
   if (meeting) return meeting;
 
   if (hasDirectQuestion(turn.text) && !isBarrierQuestion(turn.text)) {
