@@ -19,6 +19,7 @@ import {
   classifyInvestmentIntent,
   classifyTrustQuestion,
   detectSearchExperience,
+  isNoSearchExperienceValue,
   extractSemanticCriteria,
 } from './semanticEvidence';
 import { checkSemanticAntiRepeat, extractSemanticKey } from './semanticAntiRepeat';
@@ -1404,13 +1405,17 @@ export function evaluateFirstCallScript(
   let expEvidenceTurnId: string | null = state.searchExperience?.evidenceTurnIds?.at(-1) || null;
 
   if (expValue) {
-    expStatus = state.searchExperience?.needsClarification ? 'partially_confirmed' : 'confirmed';
-    expReason = 'Опыт выбора взят из канонического состояния диалога.';
+    expStatus = isNoSearchExperienceValue(expValue)
+      ? 'not_applicable'
+      : state.searchExperience?.needsClarification ? 'partially_confirmed' : 'confirmed';
+    expReason = expStatus === 'not_applicable'
+      ? 'Клиент прямо сообщил, что конкретные объекты ещё не смотрел.'
+      : 'Опыт выбора взят из канонического состояния диалога.';
   } else {
     for (let i = clientTurns.length - 1; i >= 0; i -= 1) {
       const experience = detectSearchExperience(clientTurns[i].text);
       if (!experience) continue;
-      expStatus = 'confirmed';
+      expStatus = experience.level === 'none' ? 'not_applicable' : 'confirmed';
       expValue = experience.value;
       expReason = 'Опыт выбора и взаимодействия с рынком зафиксирован по смыслу высказывания клиента.';
       expEvidenceQuote = experience.evidenceQuote;
@@ -1430,7 +1435,7 @@ export function evaluateFirstCallScript(
     evidenceQuote: expEvidenceQuote || undefined,
     evidenceTurnId: expEvidenceTurnId || undefined,
     semanticReason: expReason || (expStatus === 'confirmed' ? 'Опыт выбора озвучен' : 'Опыт выбора не выяснен'),
-    confidence: expStatus === 'confirmed' ? 0.92 : 0.5,
+    confidence: expStatus === 'confirmed' || expStatus === 'not_applicable' ? 0.92 : 0.5,
     agentQuestionAsked: Boolean(agentAskedMetricMap['experience']),
     agentQuestionQuote: agentAskedMetricMap['experience']?.quote || null,
   };

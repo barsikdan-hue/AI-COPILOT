@@ -19,8 +19,11 @@ export interface SemanticCriterion {
 export interface SemanticSearchExperience {
   value: string;
   evidenceQuote: string;
-  level: 'browsing' | 'agent_contact' | 'viewings' | 'purchase';
+  level: 'none' | 'browsing' | 'agent_contact' | 'viewings' | 'purchase';
 }
+
+export const isNoSearchExperienceValue = (value: string | null | undefined): boolean =>
+  /конкретн\p{L}*\s+объект\p{L}*\s+ещ[её]\s+не\s+смотрел/iu.test(value || '');
 
 export type TrustQuestionKind = 'technical' | 'personal' | null;
 
@@ -405,14 +408,44 @@ export function detectSearchExperience(text: string): SemanticSearchExperience |
   const purchase = firstMatch(lower, /(?:уже\s+покупал\p{L}*\s+недвижимост\p{L}*|есть\s+опыт\s+покупк\p{L}*|не\s+первая\s+покупк\p{L}*)/iu);
   if (purchase) return { value: 'Есть опыт покупки недвижимости', evidenceQuote: purchase, level: 'purchase' };
 
-  const viewings = firstMatch(lower, /(?:был\p{L}*\s+на\s+показ\p{L}*|ездил\p{L}*\s+на\s+показ\p{L}*|(?:смотрел\p{L}*|видел\p{L}*|увидел\p{L}*)\s+(?:один|одну|пару|несколько)\s+(?:объект\p{L}*|вариант\p{L}*|жк|квартир\p{L}*)|уже\s+(?:один|одну|пару|несколько)\s+(?:объект\p{L}*|вариант\p{L}*|жк|квартир\p{L}*)\s+(?:смотрел\p{L}*|видел\p{L}*))/iu);
+  // Completed actions and real-estate anchors are deliberately separate from
+  // future intent ("посмотрю", "хочу посмотреть") and unrelated visual verbs.
+  const viewings = firstSemanticMatch(lower, [
+    /(?:был\p{L}*\s+(?:уже\s+)?на\s+(?:просмотр\p{L}*|показ\p{L}*)|ездил\p{L}*\s+(?:на\s+(?:просмотр\p{L}*|показ\p{L}*)|смотреть\s+(?:дом\p{L}*|квартир\p{L}*|апартамент\p{L}*|объект\p{L}*|жк)))/iu,
+    /(?:посмотрел\p{L}*|смотрел\p{L}*|осмотрел\p{L}*|видел\p{L}*|увидел\p{L}*)\s+(?:(?:уже|всего)\s+)?(?:(?:один|одну|два|две|три|четыре|пять|пару|несколько|кучу)\s+)?(?:объект\p{L}*|вариант\p{L}*|жк|квартир\p{L}*|апартамент\p{L}*|дом\p{L}*|новостро\p{L}*|вторичк\p{L}*|комплекс\p{L}*)/iu,
+    /(?:(?:один|одну|два|две|три|четыре|пять|пару|несколько|кучу)\s+)(?:объект\p{L}*|вариант\p{L}*|жк|квартир\p{L}*|апартамент\p{L}*|дом\p{L}*|новостро\p{L}*|комплекс\p{L}*)[^.!?]{0,32}(?:смотрел\p{L}*|видел\p{L}*|посетил\p{L}*)/iu,
+    /(?:объехал\p{L}*|пересмотрел\p{L}*|сравнил\p{L}*)[^.!?]{0,24}(?:объект\p{L}*|вариант\p{L}*|жк|квартир\p{L}*|апартамент\p{L}*|дом\p{L}*|новостро\p{L}*|вторичк\p{L}*|комплекс\p{L}*)/iu,
+    /(?:был\p{L}*|побывал\p{L}*)\s+(?:уже\s+)?в\s+(?:одном|двух|тр[её]х|четыр[её]х|пяти|нескольких)\s+(?:жк|комплекс\p{L}*|новостро\p{L}*)/iu,
+    /(?:съездил\p{L}*|ездил\p{L}*)\s+в\s+(?:один|два|три|четыре|пять|несколько)\s+(?:жк|комплекс\p{L}*|новостро\p{L}*)/iu,
+  ]);
   if (viewings) return { value: 'Есть опыт просмотров и сравнения объектов', evidenceQuote: viewings, level: 'viewings' };
+
+  const remoteViewing = firstSemanticMatch(lower, [
+    /(?:прош[её]л\p{L}*|был\p{L}*)[^.!?]{0,18}видеопоказ\p{L}*/iu,
+    /(?:мне\s+)?(?:уже\s+)?показывал\p{L}*[^.!?]{0,28}(?:объект\p{L}*|вариант\p{L}*|квартир\p{L}*|апартамент\p{L}*|дом\p{L}*|жк)[^.!?]{0,18}(?:по\s+видео|онлайн)/iu,
+    /смотрел\p{L}*\s+презентаци\p{L}*\s+(?:объект\p{L}*|вариант\p{L}*|проект\p{L}*)[^.!?]{0,32}(?:вместе\s+с|с)\s+(?:агент\p{L}*|менеджер\p{L}*)/iu,
+  ]);
+  if (remoteViewing) {
+    return { value: 'Есть опыт видеопросмотра объектов; очный просмотр не подтверждён', evidenceQuote: remoteViewing, level: 'viewings' };
+  }
 
   const digitalOnly = firstMatch(
     lower,
-    /(?:(?:в\s+интернете|онлайн)\s+(?:смотрел\p{L}*|изучал\p{L}*)[^.!?]{0,45}(?:вживую|очно)[^.!?]{0,20}(?:ещ[её]\s+)?нет|(?:вживую|очно)[^.!?]{0,20}(?:ещ[её]\s+)?не\s+(?:смотрел\p{L}*|ездил\p{L}*)[^.!?]{0,45}(?:в\s+интернете|онлайн))/iu,
+    /(?:(?:в\s+интернете|онлайн)\s+(?:смотрел\p{L}*|изучал\p{L}*)[^.!?]{0,45}(?:вживую|очно)[^.!?]{0,20}(?:ещ[её]\s+)?нет|(?:сравнивал\p{L}*|изучал\p{L}*|смотрел\p{L}*)\s+(?:объявлени\p{L}*|вариант\p{L}*)\s+онлайн[^.!?]{0,45}(?:на\s+просмотр\p{L}*|вживую|очно)[^.!?]{0,20}не\s+(?:был\p{L}*|ездил\p{L}*|смотрел\p{L}*)|(?:вживую|очно)[^.!?]{0,20}(?:ещ[её]\s+)?не\s+(?:смотрел\p{L}*|ездил\p{L}*)[^.!?]{0,45}(?:в\s+интернете|онлайн))/iu,
   );
   if (digitalOnly) return { value: 'Изучал варианты онлайн; очных просмотров ещё не было', evidenceQuote: digitalOnly, level: 'browsing' };
+
+  // A full, self-contained no-viewings statement is semantic evidence too.
+  // Short contextual answers ("нет", "ничего", "ещё не успел") stay outside
+  // this extractor and continue to be handled by their separate dialogue branch.
+  const noViewings = firstSemanticMatch(lower, [
+    /(?:объект\p{L}*|вариант\p{L}*|квартир\p{L}*|апартамент\p{L}*|дом\p{L}*|новостройк\p{L}*|жк)\s+(?:ещ[её]\s+|пока\s+)?не\s+(?:смотрел\p{L}*|видел\p{L}*|посещал\p{L}*)/iu,
+    /(?:пока\s+)?ни\s+одного\s+(?:объект\p{L}*|вариант\p{L}*|жк|квартир\p{L}*|апартамент\p{L}*|дом\p{L}*|новостройк\p{L}*)\s+не\s+(?:смотрел\p{L}*|видел\p{L}*|посещал\p{L}*)/iu,
+    /что\s+(?:уже\s+)?смотрел\p{L}*\s*\?\s*(?:пока\s+)?(?:вообще\s+)?ничего/iu,
+  ]);
+  if (noViewings) {
+    return { value: 'Изучает рынок; конкретные объекты ещё не смотрел', evidenceQuote: noViewings, level: 'none' };
+  }
 
   const agentContact = firstMatch(
     lower,

@@ -148,3 +148,13 @@ The dominant pattern is not a broken generic supersede algorithm. In most remain
 - Unrelated active budget, down-payment amount and down-payment-source facts remain active through a payment-method replacement; independent session replays do not share facts.
 - Original regression: unchanged at 101 golden cases, 3232 scenarios and 12288 / 12288 PASS.
 - Expanded regression: unchanged at 30308 PASS, 2396 FAIL, 92.67%, 22 fingerprints, 20 production clusters and 2 test-oracle limitations. New fingerprints: 0.
+
+# FIX ITERATION 23 RESULT
+
+- Root cause: `semanticEvidence.ts::detectSearchExperience` accepted only a few narrow viewing phrases. Completed visits across property formats, multi-object comparisons and interactive video viewings therefore produced no incoming `searchExperience` fact; voluntary later evidence could not reopen an empty branch because there was nothing to project. Full standalone no-viewings statements also had no canonical representation.
+- Scope: category-specific completed-action/domain-anchor patterns in `detectSearchExperience` and metric interpretation of its explicit `none` value in `firstCallScriptEngineLegacy.ts`. Contextual short answers, dialogue policy, generic supersede, Sales Logic, recommendation lifecycle, UI, fixtures and oracle checks were not changed.
+- Original regression: unchanged at 101 golden cases, 3232 scenarios and 12288 / 12288 PASS.
+- Expanded regression: 30308 → 31249 PASS; 2396 → 1455 FAIL; 92.67% → 95.55%; 22 → 15 fingerprints.
+- All six target clusters disappeared: `4b2495e4c59d` (448), `a636f5db6038` (256), `adf7d794b2d1` (85), `061dc840e0c4` (64), `4dcabe583576` (28), `bebf9fb7f70d` (28). Target reduction: 909 failures.
+- The oracle-only `e37e71c0c73c` (32) also disappeared because its second session seed now extracts correctly; no session-state change was made. Total reduction: 941 failures.
+- Explicitly excluded contextual-answer clusters are unchanged: `a380869ea85c` (128) and `d0460e176b9c` (60). New failing assertions: 0. New fingerprints: 0. Remaining: 14 production clusters and 1 oracle limitation.
