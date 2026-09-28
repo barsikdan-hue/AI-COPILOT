@@ -137,3 +137,14 @@ The dominant pattern is not a broken generic supersede algorithm. In most remain
 - Expanded regression: 30148 → 30308 PASS; 2556 → 2396 FAIL; 92.18% → 92.67%; 24 → 22 fingerprints.
 - Both production targets disappeared: `b75a3a6c2beb` 128 → 0 and `dcccc2f90db0` 34 → 0. Net reduction is 160 assertions because two former `event=none` variants joined the existing oracle-only `1ca2cd48ea60` cluster, which changed 30 → 32; this is reclassification, not a new failure.
 - New fingerprints: 0. Remaining fingerprints: 20 production and 2 test-oracle limitations.
+
+# FIX ITERATION 22 RESULT
+
+- Root cause: `mergeFactsDelta` treated `paymentMethod` like a generic scalar. Repeated identical values did not retire an older active fact, and a later different value superseded only the latest duplicate selected by `reverse().find()`. Canonical projection was already correct.
+- Scope: category-safe active-version retirement for `paymentMethod` inside `conversationStore.ts::mergeFactsDelta`. Historical records remain in the ledger as `superseded`; no other semantic category, extraction, projection, Sales Logic, recommendation policy or UI changed.
+- Reproduction before the fix: two repeated mortgage turns produced two active confirmed facts; after a mixed-financing turn the oldest mortgage fact remained active beside the new mixed fact. The dedicated suite failed 8 of 11 tests on the baseline.
+- Reproduction after the fix: repeated mortgage, cash and mixed assertions, three repeats and all tested payment transitions leave exactly one active `paymentMethod`; dedicated suite 11 / 11 PASS. Canonical and script metric values remain aligned.
+- External stress replay: the five conversations that previously produced 37 turn-level `multiple_active_values:paymentMethod` violations now produce 0 unique-value violations and 0 turns with more than one active payment fact. The separate mortgage-question extraction behavior remains intentionally unchanged.
+- Unrelated active budget, down-payment amount and down-payment-source facts remain active through a payment-method replacement; independent session replays do not share facts.
+- Original regression: unchanged at 101 golden cases, 3232 scenarios and 12288 / 12288 PASS.
+- Expanded regression: unchanged at 30308 PASS, 2396 FAIL, 92.67%, 22 fingerprints, 20 production clusters and 2 test-oracle limitations. New fingerprints: 0.

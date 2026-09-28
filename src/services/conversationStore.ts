@@ -311,9 +311,20 @@ export function mergeFactsDelta(
           f.category === cat &&
           (!isAdditiveCriteria || f.value === sanitizedVal)
       );
+      const priorActivePaymentFacts = cat === 'paymentMethod'
+        ? next.confirmedFacts.filter(
+          (f) =>
+            f.category === cat &&
+            f.turnId !== evidenceTurnId &&
+            f.lifecycleStatus !== 'superseded' &&
+            f.lifecycleStatus !== 'rejected'
+        )
+        : [];
       // Criteria are an additive collection: quiet and infrastructure are
       // independent facts, not competing versions of one scalar value.
-      const previousActiveFact = isAdditiveCriteria
+      // paymentMethod is a scalar category as well: a repeated confirmation
+      // becomes the current version and retires every older active duplicate.
+      const previousActiveFact = priorActivePaymentFacts.at(-1) || (isAdditiveCriteria
         ? undefined
         : [...next.confirmedFacts]
           .reverse()
@@ -323,10 +334,15 @@ export function mergeFactsDelta(
               f.lifecycleStatus !== 'superseded' &&
               f.lifecycleStatus !== 'rejected' &&
               f.value !== sanitizedVal
-          );
+          ));
 
-      if (previousActiveFact) {
-        previousActiveFact.lifecycleStatus = 'superseded';
+      const factsToSupersede = priorActivePaymentFacts.length > 0
+        ? priorActivePaymentFacts
+        : previousActiveFact
+          ? [previousActiveFact]
+          : [];
+      for (const previous of factsToSupersede) {
+        previous.lifecycleStatus = 'superseded';
       }
 
       const factRecord: ConfirmedFact = {
