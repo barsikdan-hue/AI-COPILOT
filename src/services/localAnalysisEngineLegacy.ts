@@ -5,7 +5,7 @@ import {
   SuggestionMode,
   TranscriptTurn,
 } from '../types';
-import { applyConversationEvent, detectConversationEvent } from './conversationEventEngine';
+import { applyConversationEvent, detectConversationEvent, isAgreedNextStepReaffirmation } from './conversationEventEngine';
 import { createInitialState, mergeFactsDelta } from './conversationStore';
 import { classifyClientTurnIntent, detectLocalObjection, getActiveObjectionGuidance, updateObjectionLifecycle } from './objectionEngine';
 import { extractDeterministicFacts } from './deterministicFacts';
@@ -234,6 +234,7 @@ export function advanceLocalConversation(current: ConversationState, turn: Trans
   let state = current;
   const acknowledgementOnly = turn.speaker === 'client' && isConversationalAcknowledgement(turn.text);
   const decisionalForMyself = turn.speaker === 'client' && isDecisionalForMyselfPhrase(turn.text);
+  const agreementReaffirmation = turn.speaker === 'client' && isAgreedNextStepReaffirmation(turn.text, current);
 
   if (turn.speaker === 'client') {
     const lookup = Object.fromEntries(turns.filter(t => t.speaker === 'client').map(t => [t.id, t.text]));
@@ -244,7 +245,7 @@ export function advanceLocalConversation(current: ConversationState, turn: Trans
         extractDeterministicFacts(turn.text, turn.id, previousAgent?.text),
         previousAgent?.text || null
       )
-    );
+    ).filter((fact) => !agreementReaffirmation || !['agreedNextStep', 'agreed_next_step'].includes(fact.field));
     state = mergeFactsDelta(state, extractedFacts, state.stage, undefined, turn.revision, lookup);
     const lowerClient = turn.text.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
     const rejectsMortgage = /(?:без\s+ипотек\w*|ипотек\w*[^.!?]{0,40}(?:не\s*(?:рассматрива\w*|собира\w*|хочу|нужн\w*))|не\s*(?:рассматрива\w*|собира\w*|хочу|нужн\w*)[^.!?]{0,30}ипотек\w*)/iu.test(lowerClient);
@@ -269,10 +270,12 @@ export function advanceLocalConversation(current: ConversationState, turn: Trans
   if (event) state = applyConversationEvent(state, event, turn);
   const rawClientIntent = classifyClientTurnIntent(turn.text, state, previousAgent?.text);
   const alternativeDisinterest = turn.speaker === 'client' && isAlternativeInstrumentDisinterest(turn.text);
-  const clientIntent = alternativeDisinterest && rawClientIntent.category === 'objection_interest'
+  const clientIntent = agreementReaffirmation
+    ? { type: 'fact' as const, category: 'next_step_reaffirmation', text: turn.text, confidence: 0.99 }
+    : alternativeDisinterest && rawClientIntent.category === 'objection_interest'
     ? { type: 'fact' as const, category: 'client_fact', text: turn.text, confidence: 0.95 }
     : rawClientIntent;
-  const localObjection = turn.speaker === 'client' && !alternativeDisinterest
+  const localObjection = turn.speaker === 'client' && !alternativeDisinterest && !agreementReaffirmation
     ? detectLocalObjection(turn.text, state, previousAgent?.text)
     : null;
 
@@ -307,7 +310,7 @@ export function advanceLocalConversation(current: ConversationState, turn: Trans
         'COMPLIANCE_STOP',
       ].includes(event.type)
     );
-    if (!controlEventBlocksSpin && !acknowledgementOnly && !decisionalForMyself) {
+    if (!controlEventBlocksSpin && !acknowledgementOnly && !decisionalForMyself && !agreementReaffirmation) {
       const previousAgentAction = previousAgent ? classifyAgentActionForLiveTurn(previousAgent.text) : 'none';
       const spin = evaluateSpinAndHpb(turn, state.spin, previousAgentAction, previousAgent?.text || '', state);
       state = { ...state, spin: spin.updatedSpin, spinState: spin.updatedSpin };
@@ -441,6 +444,9 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
       completedStages: Array.isArray((incomingState.spin || incomingState.spinState)?.completedStages) ? (incomingState.spin || incomingState.spinState)!.completedStages : [],
     },
   };
+  const agreementReaffirmation = Boolean(
+    lastClientTurn && isAgreedNextStepReaffirmation(lastClientTurn.text, normalizedState)
+  );
 
   const factsDelta = clientTurns.flatMap((turn) => {
     const previousAgent = previousMeaningfulAgentTurn(turn, allTurns);
@@ -451,6 +457,9 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
         extractDeterministicFacts(turn.text, turn.id, previousAgent?.text || null),
         previousAgent?.text || null
       )
+    ).filter((fact) =>
+      !isAgreedNextStepReaffirmation(turn.text, normalizedState) ||
+      !['agreedNextStep', 'agreed_next_step'].includes(fact.field)
     );
   });
   const clientTurnLookup = Object.fromEntries(allTurns.filter(turn => turn.speaker === 'client').map(turn => [turn.id, turn.text]));
@@ -495,7 +504,7 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
   const scriptProgress = sanitizeFirstCallProgress(evaluateFirstCallScript(allTurns, workingState), allTurns);
   const calculatedAgentAction = lastAgentTurn ? classifyAgentActionForLiveTurn(lastAgentTurn.text) : 'none';
 
-  if (acknowledgementOnly) {
+  if (acknowledgementOnly || agreementReaffirmation) {
     return {
       sessionId: input.sessionId,
       basedOnRevision: input.revision,
@@ -513,7 +522,9 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
       objection: null,
       candidateRuleId: null,
       suggestedReply: null,
-      shortReason: 'Клиент только оценил вопрос, но не ответил по существу. Не двигаем SPIN и не создаём новую подсказку.',
+      shortReason: agreementReaffirmation
+        ? 'Клиент подтвердил уже согласованный следующий шаг. Канонический контракт сохраняем без новой подсказки.'
+        : 'Клиент только оценил вопрос, но не ответил по существу. Не двигаем SPIN и не создаём новую подсказку.',
       expectedClientMeaning: null,
       evidenceTurnIds: lastClientTurn ? [lastClientTurn.id] : [],
       missingCriticalField: scriptProgress.quality?.immediatePriorityMetric || null,

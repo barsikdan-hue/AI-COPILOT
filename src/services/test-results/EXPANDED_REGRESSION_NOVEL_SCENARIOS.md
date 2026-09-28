@@ -183,3 +183,11 @@ The dominant pattern is not a broken generic supersede algorithm. In most remain
 - Exact live replay: `event=null`, empty next-step state and rejected criteria candidate → `MEETING_CONTRACT`, `status=agreed`, `timeOrDeadline=сегодня после 19:00`, `action=Созвон на 10 минут`, confirmed `agreedNextStep` with final-turn evidence and one valid confirmation card.
 - Original regression: unchanged at 101 golden cases, 3232 scenarios and 12288 / 12288 PASS.
 - Expanded regression: unchanged at 31437 PASS, 1267 FAIL, 96.13%, 13 fingerprints, 12 production clusters and 1 oracle limitation. New failing assertions: 0. New fingerprints: 0.
+
+# FIX ITERATION 27 RESULT
+
+- Root cause: after a client-owned callback reached `status=agreed`, generic confirmations were still reclassified as new `MEETING_CONTRACT` events and inherited time from the latest agent echo. Broad next-step negation also treated resistance to new alternatives as resistance to the agreed callback.
+- Scope: sticky confirmed-agreement detection, explicit-change precedence, callback reaffirmation guard and preservation of canonical duration/consent in the existing event/state paths. Limited-window subtype, callback/video separation, Sales Logic, UI, meta-question routing and regression oracles were not changed.
+- Exact live replay: subsequent confirmations and defences produce `event=null`; canonical agreement remains `сегодня после 19:00`, duration 10 minutes, `status=agreed`, consent quality `clear`, with no callback objection or repeated meeting card. Explicit reschedule, cancellation, duration correction and channel change remain supported.
+- Original regression: unchanged at 101 golden cases, 3232 scenarios and 12288 / 12288 PASS.
+- Expanded regression: unchanged at 31437 PASS, 1267 FAIL, 96.13%, 13 fingerprints, 12 production clusters and 1 oracle limitation. Deterministic fingerprint remains `480cbaf1864c895b5ad11a80c8e00bc63065f2cfc6a608bf0e735cce46b99e21`; new failing assertions: 0; new fingerprints: 0.

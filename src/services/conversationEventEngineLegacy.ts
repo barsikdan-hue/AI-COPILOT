@@ -62,6 +62,36 @@ const normalize = (value: string): string =>
     .replace(/\s+/g, ' ')
     .trim();
 
+const agreementIsConfirmed = (state: ConversationState): boolean =>
+  state.nextStepAgreement?.status === 'agreed' || Boolean(state.agreedNextStep?.value);
+
+const explicitAgreementCancellation = (text: string): boolean =>
+  /(?:^|[.!?]\s*)(?:отменяем|отмена|созвон\p{L}*\s+отмен\p{L}*)|(?:сегодня|завтра|в\s+этот\s+раз)[^.!?]{0,35}(?:не\s+получится|не\s+смогу|неудобно|не\s+удобно)(?![^.!?]{0,55}(?:давайте|перенес\p{L}*|лучше|вместо))/iu.test(text);
+
+const explicitAgreementDurationChange = (text: string): boolean =>
+  /не\s+(?:\d{1,3}|\p{L}+)(?:\s*минут\p{L}*)?\s*[,;:-]?\s*а\s+(?:\d{1,3}|\p{L}+)\s*минут/iu.test(text);
+
+const explicitAgreementChannelChange = (text: string): boolean =>
+  /(?:лучше\s+)?не\s+(?:звонок|созвон|видео\p{L}*|встреч\p{L}*)\s*[,;:-]?\s*а\s+(?:видео\p{L}*|встреч\p{L}*|звонок|созвон)/iu.test(text);
+
+const explicitAgreementReschedule = (text: string): boolean =>
+  /(?:нет\s*[,;:-]?\s*)?(?:давайте\s+лучше|лучше|перенес\p{L}*|вместо)[^.!?]{0,55}(?:сегодня|завтра|послезавтра|после\s+\p{L}+|в\s+(?:\d{1,2}|\p{L}+))/iu.test(text);
+
+const hasExplicitAgreementChange = (text: string): boolean =>
+  explicitAgreementCancellation(text) ||
+  explicitAgreementDurationChange(text) ||
+  explicitAgreementChannelChange(text) ||
+  explicitAgreementReschedule(text);
+
+/** Acknowledges an already confirmed contract without replacing any of its fields. */
+export function isAgreedNextStepReaffirmation(text: string, state: ConversationState): boolean {
+  if (!agreementIsConfirmed(state) || hasExplicitAgreementChange(text)) return false;
+  const normalized = normalize(text);
+  const genericConfirmation = /^(?:хорошо\s*[,;:-]?\s*)?(?:да\s*[,;:-]?\s*)?(?:вс[её]\s+верно|договорились|так\s+и\s+остав(?:им|ляем|ляю)|после\s+семи|верно|хорошо)(?:\s*[,;:-]?\s*спасибо)?[.!]?$/iu.test(normalized);
+  const existingAgreementReference = /(?:мы\s+)?уже\s+(?:это\s+)?(?:договорились|согласовали)|я\s+же\s+сказал|придержива\p{L}*\s+договор[её]нност|так\s+и\s+остав(?:им|ляем|ляю)/iu.test(normalized);
+  return genericConfirmation || existingAgreementReference;
+}
+
 const includesConfiguredPhrase = (text: string, rule: EventRuleConfig): boolean =>
   rule.phrases.some((phrase) => text.includes(normalize(phrase)));
 
@@ -268,6 +298,10 @@ function parseCallbackNumber(value: string | null | undefined): number | null {
 
 function extractCallbackDurationMinutes(text: string): number | null {
   const normalized = normalize(text);
+  const correction = normalized.match(new RegExp(String.raw`не\s+${CALLBACK_NUMBER_PATTERN}(?:\s*минут\p{L}*)?\s*[,;:-]?\s*а\s+(${CALLBACK_NUMBER_PATTERN})\s*минут`, 'iu'));
+  const correctedValue = parseCallbackNumber(correction?.[1]);
+  if (correctedValue && correctedValue <= 180) return correctedValue;
+
   const reversed = normalized.match(new RegExp(String.raw`минут(?:ы|у)?\s+(?:на\s+)?(${CALLBACK_NUMBER_PATTERN})(?=$|[^\p{L}\p{N}])`, 'iu'));
   const reversedValue = parseCallbackNumber(reversed?.[1]);
   if (reversedValue && reversedValue <= 180) return reversedValue;
@@ -295,6 +329,20 @@ function extractConversationalCallbackTiming(text: string): { dateOrDay: string 
       return {
         dateOrDay: explicitDay || 'сегодня',
         time: `после ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`,
+      };
+    }
+  }
+
+  const at = normalized.match(new RegExp(String.raw`(?:^|[^\p{L}\p{N}])(?:сегодня\s+|завтра\s+|послезавтра\s+)?(?:ровно\s+)?в\s+(${CALLBACK_NUMBER_PATTERN})(?::(\d{2}))?`, 'iu'));
+  if (at) {
+    const rawHour = parseCallbackNumber(at[1]);
+    const minute = Number(at[2] || 0);
+    if (rawHour != null && rawHour >= 0 && rawHour <= 23 && minute >= 0 && minute <= 59) {
+      const explicitMorning = /(?:утра|утром)/iu.test(normalized);
+      const hour = !explicitMorning && rawHour >= 1 && rawHour <= 11 ? rawHour + 12 : rawHour;
+      return {
+        dateOrDay: explicitDay,
+        time: `в ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`,
       };
     }
   }
@@ -493,6 +541,8 @@ function detectMeetingContract(
 ): ConversationEventDetection | null {
   const text = normalize(turn.text);
   const agentText = normalize(previousAgent?.text || '');
+  const existingAgreement = agreementIsConfirmed(state);
+  if (isAgreedNextStepReaffirmation(turn.text, state)) return null;
   const explicitMeetingRefusal = /(?:без\s+(?:всяких\s+)?(?:видео|видеопоказ\w*|видеовстреч\w*)|никак\w*\s+(?:видео|видеопоказ\w*)|на\s+видео\s+(?:я\s+)?не\s+(?:выйду|буду)|не\s+(?:хочу|буду|готов\w*)[^.!?]{0,25}(?:видео|видеопоказ\w*|видеовстреч\w*))/iu.test(text);
   const explicitCallbackRefusal = /(?:не\s+(?:могу|смогу)|не\s+получится|неудобно|не\s+удобно)[^.!?]{0,35}(?:после|вечер)|(?:после|вечер)[^.!?]{0,35}(?:не\s+(?:могу|смогу)|не\s+получится|неудобно|не\s+удобно)/iu.test(text);
   if (explicitMeetingRefusal || explicitCallbackRefusal) return null;
@@ -504,9 +554,15 @@ function detectMeetingContract(
   const clientSchedulingVerb = /(?:давайте|созвон\p{L}*|позвон\p{L}*|перезвон\p{L}*|свяж\p{L}*|продолж\p{L}*)/iu.test(text);
   const contextualTimingResponse = followUpPrompt && clientHasOwnTiming;
   const explicitAffirmative = /(?:^|[^\p{L}\p{N}])(?:да|давайте|согласен|согласна|подходит|удобно|удобнее|предпочту|выбираю|договорились|окей|хорошо)(?:$|[^\p{L}\p{N}])/iu.test(text);
+  const durationChange = existingAgreement && explicitAgreementDurationChange(turn.text);
+  const channelChange = existingAgreement && explicitAgreementChannelChange(turn.text);
+  const reschedule = existingAgreement && explicitAgreementReschedule(turn.text);
   const affirmative =
     explicitAffirmative ||
-    contextualTimingResponse;
+    contextualTimingResponse ||
+    durationChange ||
+    channelChange ||
+    reschedule;
   const meetingContext =
     /(?:видеовстреч|видеопоказ|видео|созвон|зум|zoom|встреч|показ)/iu.test(`${agentText} ${text}`) ||
     followUpPrompt;
@@ -516,15 +572,21 @@ function detectMeetingContract(
     ? [conversationalTiming.dateOrDay, conversationalTiming.time].filter(Boolean).join(' ')
     : exactClientSlot;
   const agentSlots = extractCallbackSlots(previousAgent?.text || '');
-  const inheritedSingleAgentSlot = !clientSlot && agentSlots.length === 1 ? agentSlots[0] : null;
+  const explicitPartialChange = durationChange || channelChange;
+  const inheritedSingleAgentSlot = !clientSlot && !explicitPartialChange && agentSlots.length === 1 ? agentSlots[0] : null;
   const callbackSlot = clientSlot || inheritedSingleAgentSlot;
   const time = conversationalTiming?.time || extractClock(callbackSlot);
   const clientDay = conversationalTiming?.dateOrDay || turn.text.match(/(?:^|[^\p{L}\p{N}])(сегодня|завтра|послезавтра|понедельник|вторник|сред[ау]|четверг|пятниц[ау]|суббот[ау]|воскресенье)(?=$|[^\p{L}\p{N}])/iu)?.[1] || null;
   const inheritedDay = inheritedSingleAgentSlot?.match(/(?:^|[^\p{L}\p{N}])(сегодня|завтра|послезавтра|понедельник|вторник|сред[ау]|четверг|пятниц[ау]|суббот[ау]|воскресенье)(?=$|[^\p{L}\p{N}])/iu)?.[1] || null;
   const dateOrDay = clientDay || inheritedDay || null;
-  const rawChannel = `${agentText} ${text}`.match(/(видеовстреча|видеопоказ|zoom|зум|телефон|созвон\p{L}*|whatsapp|ватсап|telegram|телеграм)/iu)?.[1] || null;
+  const replacementChannel = channelChange
+    ? text.match(/а\s+(видео\p{L}*|встреч\p{L}*|звонок|созвон)/iu)?.[1] || null
+    : null;
+  const rawChannel = replacementChannel || `${agentText} ${text}`.match(/(видеовстреча|видеопоказ|видео|zoom|зум|телефон|звонок|созвон\p{L}*|whatsapp|ватсап|telegram|телеграм)/iu)?.[1] || null;
   const channel = rawChannel && /созвон|телефон/iu.test(rawChannel)
     ? 'созвон'
+    : rawChannel && /звонок/iu.test(rawChannel)
+      ? 'созвон'
     : rawChannel || (contextualTimingResponse ? 'созвон' : null);
   const participants = /(?:вдвоем|вдвоём|с супруг|с муж|с жен|всей семь)/iu.test(text) ? 'несколько участников' : null;
   const expectedResult = /(?:сравним|выберем|определим|решим|проверим)/iu.test(`${agentText} ${text}`)
@@ -534,7 +596,10 @@ function detectMeetingContract(
 
   const priorBoundary = Boolean(state.dialogueControl?.clientBoundaryActive);
   const tentative = /(?:попробуем|может быть|наверное|скорее всего)/iu.test(text);
-  const clientOriginatedConcreteProposal = clientHasOwnTiming && (contextualTimingResponse || (explicitAffirmative && clientSchedulingVerb));
+  const clientOriginatedConcreteProposal =
+    (clientHasOwnTiming && (contextualTimingResponse || (explicitAffirmative && clientSchedulingVerb) || reschedule)) ||
+    durationChange ||
+    channelChange;
   const quality: MeetingConsentQuality = tentative
     ? 'tentative'
     : clientOriginatedConcreteProposal
@@ -545,9 +610,9 @@ function detectMeetingContract(
 
   const missing: string[] = [];
   const multipleAgentSlotsWithoutSelection = !clientSlot && agentSlots.length > 1;
-  if (!dateOrDay) missing.push('день');
-  if (!time) missing.push('время');
-  if (!channel) missing.push('канал');
+  if (!dateOrDay && !existingAgreement) missing.push('день');
+  if (!time && !existingAgreement) missing.push('время');
+  if (!channel && !existingAgreement) missing.push('канал');
   if (multipleAgentSlotsWithoutSelection && !missing.includes('время')) missing.push('выбор времени');
 
   const normalizedDeadline = composeMeetingDeadline(dateOrDay, time);
@@ -883,7 +948,10 @@ export function applyConversationEvent(
     else if (count >= 2 && (target === 'ppi' || target === 'ppv')) control.blockedNextSteps = Array.from(new Set([...(control.blockedNextSteps || []), target]));
   }
   if (event.type === 'MEETING_CONTRACT' && event.meetingConsentQuality) {
-    control.meetingConsentQuality = event.meetingConsentQuality;
+    const confirmedAlready = current.nextStepAgreement?.status === 'agreed';
+    control.meetingConsentQuality = confirmedAlready && event.meetingConsentQuality !== 'clear'
+      ? current.dialogueControl?.meetingConsentQuality || 'clear'
+      : event.meetingConsentQuality;
   }
   if (event.type === 'TIME_CONTRACT' && event.timeContractSeconds) {
     control.timeContract = {
@@ -936,16 +1004,20 @@ export function applyConversationEvent(
     const effectiveStatus = previousAgreement?.status === 'agreed' && incomingStatus === 'discussing'
       ? 'agreed' as const
       : incomingStatus;
+    const previousDuration = previousAgreement?.durationMinutes || Number(previousAgreement?.action.match(/на\s+(\d{1,3})\s*минут/iu)?.[1] || 0) || undefined;
+    const effectiveDuration = contract.durationMinutes || previousDuration;
+    const previousBaseAction = previousAgreement?.action.replace(/\s+на\s+\d{1,3}\s*минут\p{L}*/iu, '').trim();
     const baseAction = contract.channel === 'созвон'
       ? 'Созвон'
       : contract.channel
         ? `Встреча: ${contract.channel}`
-        : previousAgreement?.action || 'Встреча / видеопоказ';
-    const effectiveAction = contract.durationMinutes
-      ? `${baseAction} на ${contract.durationMinutes} минут`
+        : previousBaseAction || 'Встреча / видеопоказ';
+    const effectiveAction = effectiveDuration
+      ? `${baseAction} на ${effectiveDuration} минут`
       : baseAction;
     next.nextStepAgreement = {
       action: effectiveAction,
+      durationMinutes: effectiveDuration,
       assignee: contract.participants || previousAgreement?.assignee || undefined,
       timeOrDeadline: effectiveTime,
       channel: contract.channel || previousAgreement?.channel || undefined,

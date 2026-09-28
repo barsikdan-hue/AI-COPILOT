@@ -145,6 +145,7 @@ export interface DialogueControlState {
 
 export interface NextStepAgreement {
   action: string;
+  durationMinutes?: number;
   assignee?: string;
   timeOrDeadline?: string;
   channel?: string;

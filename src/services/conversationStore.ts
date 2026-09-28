@@ -273,6 +273,14 @@ export function mergeFactsDelta(
         !/(?:поправлю|ошибся|ошиблась|точнее|на самом деле)/iu.test(turnText || '')) continue;
     const sanitizedVal = sanitizeFactValue(field, value, turnText);
     if (!sanitizedVal) continue;
+    // A deterministic contextual confirmation is derived from the agent's last
+    // wording. Once the client already owns a confirmed agreement, that echo is
+    // not allowed to replace its canonical action/time/channel. Explicit
+    // changes are applied by the meeting-contract event path instead.
+    if (
+      (field === 'agreedNextStep' || field === 'agreed_next_step') &&
+      next.nextStepAgreement?.status === 'agreed'
+    ) continue;
 
     // Requirement 6: EVIDENCE INVARIANT
     // A confirmed fact MUST have a valid quote found in the client turn text

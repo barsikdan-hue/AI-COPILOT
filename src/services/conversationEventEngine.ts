@@ -234,6 +234,25 @@ export function applyConversationEvent(
 ): ConversationState {
   const next = legacy.applyConversationEvent(current, event, turn, now);
 
+  if (event.type === 'NEXT_STEP_RESISTANCE' && event.nextStepTarget === 'callback') {
+    return {
+      ...next,
+      agreedNextStep: {
+        value: null,
+        evidenceTurnIds: next.agreedNextStep?.evidenceTurnIds || [],
+        needsClarification: true,
+      },
+      nextStepAgreement: next.nextStepAgreement
+        ? { ...next.nextStepAgreement, status: 'none' }
+        : next.nextStepAgreement,
+      confirmedFacts: (next.confirmedFacts || []).map((fact) =>
+        fact.category === 'next_step' && fact.lifecycleStatus !== 'superseded'
+          ? { ...fact, lifecycleStatus: 'rejected' as const }
+          : fact
+      ),
+    };
+  }
+
   if (event.type !== 'NEXT_STEP_RESISTANCE' || event.nextStepTarget !== 'ppv') return next;
 
   return {

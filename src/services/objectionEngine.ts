@@ -1090,6 +1090,12 @@ export function detectNextStepResistance(text: string, state?: ConversationState
   target: NextStepTarget; count: number; reopened: boolean;
 } | null {
   const lower = text.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
+  const defendsAgreedStep = Boolean(
+    (state?.nextStepAgreement?.status === 'agreed' || state?.agreedNextStep?.value) &&
+    /(?:мы\s+)?уже\s+(?:это\s+)?(?:договорились|согласовали)|я\s+же\s+сказал|придержива\p{L}*\s+договор[её]нност/iu.test(lower) &&
+    /не\s+(?:надо|нужно|хочу)[^.!?]{0,35}(?:нов\p{L}*|друг\p{L}*|альтернатив\p{L}*)\s+(?:вариант\p{L}*|предложен\p{L}*)/iu.test(lower)
+  );
+  if (defendsAgreedStep) return null;
   const explicitTarget = (value: string): NextStepTarget | null =>
     /видео|показ|назначать время|специалист.{0,5}застройщик/iu.test(value) ? 'ppv'
       : /брокер|специалист|ипотечн.*консультац/iu.test(value) ? 'ppi'
@@ -1100,7 +1106,8 @@ export function detectNextStepResistance(text: string, state?: ConversationState
   const explicitBrokerRefusal = /(?:без\s+(?:ипотечн\w*\s+)?брокер\w*|не\s+(?:хочу|нужен|надо|готов\w*)[^.!?]{0,25}(?:брокер\w*|ипотечн\w*\s+специалист\w*))/iu.test(lower);
   const materialsInstead = /(?:пришл\p{L}*|отправ\p{L}*|скин\p{L}*)[^.!?]{0,80}(?:цен|планиров|вариант|материал|в сообщени|на бумаге)/iu.test(lower);
   const elliptical = /преждевременно|потом.*(?:времени|согласуем)|сначала.*(?:вариант|объект)|(?:ставк|ипотек).{0,45}(?:потом|позже|когда|после|более увер)|(?:сначала|сперва).{0,60}(?:параметр|планиров|услов|объект|вариант)|^(?:а |ну )?(?:пока рано|не сейчас|теперь готов|сейчас это)/iu.test(lower) || /^(?:пока )?(?:не готов|не надо|не нужно|нет|позже|потом)[.!\s]*$/iu.test(lower.trim());
-  const deferral = explicitVideoRefusal || explicitBrokerRefusal || /(?:^|[^\p{L}\p{N}])(?:не готов|не хочу|не надо|не нужно|не будем|пока не|сначала|сперва|потом|позже|преждевременно|пока рано|не сейчас|рано)/iu.test(lower) || /когда.+тогда/iu.test(lower) || /(?:ставк|ипотек).{0,50}(?:когда|после|более увер|позже)/iu.test(lower) || /^нет[.!\s]*$/iu.test(lower.trim());
+  const scheduleCancellation = /(?:^|[.!?]\s*)(?:отменяем|отмена)|(?:сегодня|завтра|в\s+этот\s+раз)[^.!?]{0,35}(?:не\s+получится|не\s+смогу|неудобно|не\s+удобно)(?![^.!?]{0,55}(?:давайте|перенес\p{L}*|лучше|вместо))/iu.test(lower);
+  const deferral = explicitVideoRefusal || explicitBrokerRefusal || scheduleCancellation || /(?:^|[^\p{L}\p{N}])(?:не готов|не хочу|не надо|не нужно|не будем|пока не|сначала|сперва|потом|позже|преждевременно|пока рано|не сейчас|рано)/iu.test(lower) || /когда.+тогда/iu.test(lower) || /(?:ставк|ипотек).{0,50}(?:когда|после|более увер|позже)/iu.test(lower) || /^нет[.!\s]*$/iu.test(lower.trim());
   const bareDeferral = /^(?:а\s+|ну\s+)?(?:не готов|не хочу|не надо|не нужно|пока рано|не сейчас|позже|потом|сначала|сперва|нет)(?:\s+(?:это|сейчас|пока))?[.!\s]*$/iu.test(lower.trim());
   const permission = /(?:давайте|можно|можем|готов|подключим|назначим|теперь|договорились)/iu.test(lower);
   const action = /подключ|показ|созвон|назнач|теперь готов|договорил/iu.test(lower);
@@ -1109,7 +1116,7 @@ export function detectNextStepResistance(text: string, state?: ConversationState
       ? state?.dialogueControl?.nextStepResistance?.target || null
       : null;
   const contextualTarget = explicitTarget(agentText || '') || rememberedTarget;
-  const contextualDeferral = elliptical || bareDeferral || (materialsInstead && Boolean(contextualTarget)) || (permission && action);
+  const contextualDeferral = elliptical || bareDeferral || scheduleCancellation || (materialsInstead && Boolean(contextualTarget)) || (permission && action);
   const target = explicitVideoRefusal ? 'ppv'
     : explicitBrokerRefusal ? 'ppi'
     : explicitTarget(lower) || (contextualDeferral ? contextualTarget : null);
