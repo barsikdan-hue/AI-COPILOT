@@ -167,3 +167,11 @@ The dominant pattern is not a broken generic supersede algorithm. In most remain
 - Expanded regression: 31249 → 31437 PASS; 1455 → 1267 FAIL; 95.55% → 96.13%; 15 → 13 fingerprints.
 - Both target clusters disappeared: `a380869ea85c` (128) and `d0460e176b9c` (60). Exactly 188 target failures were removed.
 - All six FIX 23 target clusters remain at zero, voluntary reopening remains confirmed, and same-turn current positive evidence wins over historical negative wording. New failing assertions: 0. New fingerprints: 0. Remaining: 12 production clusters and 1 oracle limitation.
+
+# FIX ITERATION 25 RESULT
+
+- Root cause: `matchesTimeConstraint` depended on literal configured substrings, so `я сейчас на работе` bypassed the configured `я на работе` phrase and common requests for a brief business-like call were not classified. The fallback rapport path then treated any `работ...` occurrence as permission for a personal work question.
+- Scope: narrow business/time-boundary semantics and brief-continuation response selection in `conversationEventEngineLegacy.ts`, plus a genuine-professional-disclosure guard in `dopamineQuestionEngine.ts`. Trust metrics, Sales Logic, state model, lifecycle, UI and the separate meta-question/property-details defect were not changed.
+- Exact live replay: `event=null`, `clientBoundaryActive=false`, personal work question → `TIME_CONSTRAINT`, `clientBoundaryActive=true`, short task-oriented goal question without forced callback.
+- Original regression: unchanged at 101 golden cases, 3232 scenarios and 12288 / 12288 PASS.
+- Expanded regression: unchanged at 31437 PASS, 1267 FAIL, 96.13%, 13 fingerprints, 12 production clusters and 1 oracle limitation. New failing assertions: 0. New fingerprints: 0.

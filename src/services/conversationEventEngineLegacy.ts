@@ -71,9 +71,23 @@ const matchesClientStop = (text: string, rule: EventRuleConfig): boolean => {
     /(?:^|[^\p{L}\p{N}])(?:не\s+(?:звоните|связывайтесь)(?:\s+(?:мне|со\s+мной))?(?:\s+больше)?|больше\s+(?:мне\s+)?не\s+звоните|(?:удалите|уберите)\s+(?:мой\s+)?номер(?:\s+из\s+базы)?)(?=$|[^\p{L}\p{N}])/iu.test(text);
 };
 
+const hasBusinessTimeBoundary = (text: string): boolean => {
+  const workLogistics = /(?:я\s+(?:сейчас\s+)?на\s+работе|(?:^|[.!?]\s*)на\s+работе[^.!?]{0,35}(?:коротко|быстро|по\s+делу)|у\s+меня\s+встреча\s+через\s+(?:\d+|пять|десять|пару)\s+минут)/iu.test(text);
+  const brevityRequest = /(?:если\s+можно[^.!?]{0,20})?(?:давайте\s+)?(?:коротко(?:\s+и\s+по\s+делу)?|быстро\s+и\s+по\s+делу)|(?:лучше\s+)?ближе\s+к\s+сути/iu.test(text);
+  const shortMeetingAgreement = /давайте\s+коротко\s+(?:созвон\p{L}*|посмотр\p{L}*|встрет\p{L}*)/iu.test(text);
+  const limitedAvailability = /(?:времени\s+(?:немного|мало)|я\s+(?:сейчас\s+)?занят[^.!?]{0,28}(?:пару\s+минут|немного\s+времени)|сейчас\s+долго\s+говорить\s+не\s+могу)/iu.test(text);
+  return workLogistics || (brevityRequest && !shortMeetingAgreement) || limitedAvailability;
+};
+
+const allowsBriefContinuation = (text: string): boolean =>
+  hasBusinessTimeBoundary(text) &&
+  /(?:коротко|быстро\s+и\s+по\s+делу|ближе\s+к\s+сути|пару\s+минут\s+есть)/iu.test(text) &&
+  !/(?:перезвоните|позвоните|наберите|давайте\s+(?:позже|потом|в\s+другой\s+раз)|не\s+могу\s+говорить\s+вообще)/iu.test(text);
+
 const matchesTimeConstraint = (text: string, rule: EventRuleConfig): boolean =>
   includesConfiguredPhrase(text, rule) ||
-  /(?:говорить\s+(?:неудобно|не\s+могу)|на\s+разговор\s+времени\s+нет|давайте\s+(?:позже|потом)|я\s+(?:тороплюсь|занят[^.!?]{0,35}(?:наберите|перезвоните|позвоните)))/iu.test(text);
+  hasBusinessTimeBoundary(text) ||
+  /(?:говорить\s+(?:неудобно|не\s+могу)|на\s+разговор\s+времени\s+нет|давайте\s+(?:позже|потом|в\s+другой\s+раз)|я\s+(?:тороплюсь|занят[^.!?]{0,35}(?:наберите|перезвоните|позвоните)))/iu.test(text);
 
 const matchesResearchMode = (text: string, rule: EventRuleConfig): boolean =>
   includesConfiguredPhrase(text, rule) ||
@@ -564,12 +578,19 @@ export function detectConversationEvent(
   if (timeConstraint && matchesTimeConstraint(text, timeConstraint)) {
     const callbackTime = extractCallbackTime(turn.text);
     const materialRequest = hasMaterialRequestIntent(turn.text);
+    const briefContinuation = allowsBriefContinuation(text);
     return configuredEvent(timeConstraint, turn, {
+      actionType: briefContinuation ? 'CLARIFY' : timeConstraint.actionType,
       suggestedReply: materialRequest
         ? 'Понял, не отвлекаю. Отправлю запрошенный материал; к разговору вернёмся позже.'
         : callbackTime
         ? `Понял. Перезвоню ${callbackTime}. Не отвлекаю.`
+        : briefContinuation
+        ? 'Понял. Тогда коротко: для какой задачи рассматриваете недвижимость — для жизни, отдыха или инвестиции?'
         : timeConstraint.suggestion,
+      shortReason: briefContinuation
+        ? 'Клиент ограничил формат разговора, но разрешил кратко продолжить: без small talk переходим к задаче покупки.'
+        : timeConstraint.shortReason,
     });
   }
 

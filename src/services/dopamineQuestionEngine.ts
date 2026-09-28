@@ -27,6 +27,11 @@ function hasHobbyContext(text: string): boolean {
   return /(?:хобби|увлека\p{L}*|свободн\p{L}*\s+врем|спорт|прогул\p{L}*|отдых\p{L}*)/iu.test(text || '');
 }
 
+function hasGenuineWorkContext(text: string): boolean {
+  const lower = normalizeRu(text);
+  return /(?:я\s+работаю\s+(?:в|на|архитектор\p{L}*|дизайнер\p{L}*|врач\p{L}*|юрист\p{L}*|инженер\p{L}*)|я\s+(?:архитектор|дизайнер|врач|юрист|инженер|предприниматель)\p{L}*|по\s+професси\p{L}*|моя\s+професси\p{L}*|(?:я\s+)?занимаюсь\s+(?:проектировани\p{L}*|строительств\p{L}*|бизнес\p{L}*|разработк\p{L}*)|люблю[^.!?]{0,28}(?:свою\s+)?работ\p{L}*|(?:в\s+)?работ\p{L}*[^.!?]{0,28}(?:нравит\p{L}*|ценю|люблю)|мой\s+бизнес)/iu.test(lower);
+}
+
 function rejectsSochiMemoryBranch(text: string): boolean {
   const lower = normalizeRu(text);
   return /(?:давно[^.!?]{0,35}не\s+был|не\s+был[^.!?]{0,35}давно|не\s+помн\p{L}*|не\s+вспомн\p{L}*|ничего[^.!?]{0,25}не\s+запомн\p{L}*|не\s+знаю[^.!?]{0,35}(?:что|где|район|запомн))/iu.test(lower);
@@ -85,13 +90,13 @@ export function getContextualDopamineQuestion(
   // from the buying task into tourism nostalgia.
   if (positiveInvestmentContext) add('investor', 'Вопрос адаптирован под подтверждённый инвестиционный мотив клиента.');
   if (hasFamilyContext(latest)) add('family', 'Личный вопрос продолжает реально озвученный семейный контекст клиента.');
-  if (hasAny(latest, ['работ', 'професс', 'бизнес', 'предприним'])) add('work', 'Личный вопрос естественно продолжает тему работы клиента.');
+  if (hasGenuineWorkContext(latest)) add('work', 'Личный вопрос естественно продолжает добровольно раскрытую профессиональную тему клиента.');
   if (hasUsefulSochiExperienceContext(latest)) add('sochi', 'Клиент сам раскрыл реальный опыт Сочи; личный вопрос продолжает эту тему.');
   if (hasHobbyContext(latest)) add('hobbies', 'Личный вопрос продолжает уже раскрытую клиентом тему отдыха или увлечений.');
 
   if (!candidates.length && (state.decisionMakers?.value || hasFamilyContext(allClient))) add('family', 'Личный вопрос связан с уже подтверждённым семейным сценарием клиента.');
   if (!candidates.length && clientOpenedUsefulSochiExperience && !rejectsSochiMemoryBranch(latest)) add('sochi', 'Личный вопрос продолжает ранее раскрытый реальный опыт Сочи.');
-  if (!candidates.length && (state.employment?.value || hasAny(allClient, ['работ', 'бизнес', 'предприним']))) add('work', 'Личный вопрос продолжает уже раскрытую тему работы.');
+  if (!candidates.length && (state.employment?.value || hasGenuineWorkContext(allClient))) add('work', 'Личный вопрос продолжает уже раскрытую профессиональную тему клиента.');
   if (!candidates.length && hasHobbyContext(allClient)) add('hobbies', 'Личный вопрос продолжает ранее раскрытую клиентом тему отдыха или увлечений.');
 
   for (const candidate of candidates) {
