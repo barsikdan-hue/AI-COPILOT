@@ -25,7 +25,7 @@ function lastAgentBefore(turn: TranscriptTurn, recentTurns: TranscriptTurn[]): T
 function isRhetoricalTagQuestion(text: string): boolean {
   const normalized = normalize(text);
   if (normalized.length < 18) return false;
-  return /(?:,|—|-)\s*(?:да|верно|правильно)\s*\?\s*$/iu.test(text) &&
+  return /(?:,|—|-)\s*(?:да|верно|правильно)\s*\?(?:\s*$|\s*(?:и|но|а)(?=$|[^\p{L}\p{N}]))/iu.test(text) &&
     !/^(?:да|верно|правильно)\s*\?\s*$/iu.test(normalized);
 }
 
@@ -212,7 +212,10 @@ export function detectConversationEvent(
   }
 
   if (turn.speaker === 'client' && isRhetoricalTagQuestion(turn.text)) {
-    const withoutTag = turn.text.replace(/(?:,|—|-)\s*(?:да|верно|правильно)\s*\?\s*$/iu, '.');
+    const withoutTag = turn.text.replace(
+      /(?:,|—|-)\s*(?:да|верно|правильно)\s*\?(?=\s*$|\s*(?:и|но|а)(?=$|[^\p{L}\p{N}]))/giu,
+      ',',
+    );
     const result = legacy.detectConversationEvent({ ...turn, text: withoutTag }, recentTurns, state, now);
     const contextual = contextualizeLegacyResult(result, turn, recentTurns, state);
     return contextual ? { ...contextual, evidenceTurnId: turn.id, evidenceQuote: turn.text } : null;

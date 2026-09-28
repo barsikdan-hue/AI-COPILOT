@@ -517,22 +517,40 @@ type DirectQuestionIntent =
   | 'property_details'
   | 'general';
 
-function classifyDirectQuestionIntent(text: string, previousAgentText: string | null): DirectQuestionIntent {
+function lastRelevantInterrogativeClause(text: string): string {
   const normalized = normalize(text);
+  const throughQuestionMarks = normalized.split(/(?<=\?)/u);
+  const lastQuestionSegment = throughQuestionMarks
+    .filter((segment) => segment.trim().endsWith('?'))
+    .at(-1);
+  if (!lastQuestionSegment) return normalized;
+
+  return lastQuestionSegment
+    .split(/[.!;]\s*/u)
+    .filter(Boolean)
+    .at(-1)
+    ?.trim() || normalized;
+}
+
+function classifyDirectQuestionIntent(text: string, previousAgentText: string | null): DirectQuestionIntent {
+  const questionClause = lastRelevantInterrogativeClause(text);
   const previous = normalize(previousAgentText || '');
-  const combined = `${previous} ${normalized}`;
+  const combined = `${previous} ${questionClause}`;
 
   if (
-    /(?:подойд[её]т|удобно|удобнее|можем|давайте).{0,25}(?:сегодня|завтра|послезавтра|\d{1,2}[:.]\d{2})/iu.test(normalized) ||
-    (/(?:сегодня|завтра|послезавтра|\d{1,2}[:.]\d{2})/u.test(normalized) && /видео|показ|созвон|встреч/iu.test(combined))
+    /(?:подойд[её]т|удобно|удобнее|можем|давайте).{0,25}(?:сегодня|завтра|послезавтра|\d{1,2}[:.]\d{2})/iu.test(questionClause) ||
+    (/(?:сегодня|завтра|послезавтра|\d{1,2}[:.]\d{2})/u.test(questionClause) && /видео|показ|созвон|встреч/iu.test(combined))
   ) return 'meeting_time_confirmation';
-  if (/документ|дду|договор|выписк|разрешен|эскроу|земл|214[-\s]?фз/iu.test(normalized)) return 'documents';
-  if (/(?:сколько|какая|какой).{0,25}(?:стоит|цена|стоимость)|(?:цена|стоимость).{0,25}(?:сколько|какая|какой)/iu.test(normalized)) return 'price';
-  if (/(?:доходност|окупаем|депозит|денежн\p{L}*\s+поток|сколько.{0,35}(?:получить|заработать|принос\p{L}*)|что.{0,35}даст.{0,20}инвест)/iu.test(normalized)) return 'yield_comparison';
-  if (/ипотек|ставк|плат[её]ж|банк|рассроч|первоначальн.*взнос/iu.test(normalized)) return 'financing';
-  if (hasMaterialRequestIntent(normalized)) return 'materials_request';
-  if (/(?:что\s+(?:реально\s+)?интересн|что\s+можете\s+предлож|какие\s+есть\s+(?:вариант|решен)|что\s+есть\s+такого)/iu.test(normalized)) return 'market_options';
-  if (/площад|этаж|планиров|отделк|ремонт|срок сдач|инфраструктур|паркинг|вид|море/iu.test(normalized)) return 'property_details';
+  if (/документ|дду|договор|выписк|разрешен|эскроу|земл|214[-\s]?фз/iu.test(questionClause)) return 'documents';
+  if (/(?:сколько|какая|какой).{0,25}(?:стоит|цена|стоимость)|(?:цена|стоимость).{0,25}(?:сколько|какая|какой)/iu.test(questionClause)) return 'price';
+  if (/(?:доходност|окупаем|депозит|денежн\p{L}*\s+поток|сколько.{0,35}(?:получить|заработать|принос\p{L}*)|что.{0,35}даст.{0,20}инвест)/iu.test(questionClause)) return 'yield_comparison';
+  if (/ипотек|ставк|плат[её]ж|банк|рассроч|первоначальн.*взнос/iu.test(questionClause)) return 'financing';
+  if (hasMaterialRequestIntent(questionClause)) return 'materials_request';
+  if (/(?:что\s+(?:реально\s+)?интересн|что\s+можете\s+предлож|какие\s+есть\s+(?:вариант|решен)|что\s+есть\s+такого)/iu.test(questionClause)) return 'market_options';
+  if (
+    /(?<![\p{L}\p{N}])(?:площад\p{L}*|этаж\p{L}*|планиров\p{L}*|отделк\p{L}*|ремонт\p{L}*|срок\s+сдач\p{L}*|инфраструктур\p{L}*|паркинг\p{L}*|вид\s+(?:из\s+окна|на\s+(?:море|горы|город))|видов\p{L}*\s+характеристик\p{L}*|море)(?![\p{L}\p{N}])/iu.test(questionClause) ||
+    /(?<![\p{L}\p{N}])(?:лпх|объект\p{L}*|квартир\p{L}*|апартамент\p{L}*|дом\p{L}*|участок\p{L}*)[^?]{0,60}(?:можно|разреш\p{L}*|сдава\p{L}*|использ\p{L}*|коммерц\p{L}*)/iu.test(questionClause)
+  ) return 'property_details';
   return 'general';
 }
 
