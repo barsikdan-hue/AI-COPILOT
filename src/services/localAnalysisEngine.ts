@@ -2,7 +2,7 @@ import * as legacy from './localAnalysisEngineLegacy';
 import type { AnalysisResponse, ConversationState, TranscriptTurn } from '../types';
 import { chooseDialoguePolicyTarget } from './dialoguePolicyEngine';
 import { evaluateFirstCallScript } from './firstCallScriptEngine';
-import { detectDecisionMaker } from './semanticEvidence';
+import { detectDecisionMaker, detectSearchExperience } from './semanticEvidence';
 
 export * from './localAnalysisEngineLegacy';
 
@@ -25,11 +25,16 @@ const stableHash = (value: string): number => {
 const isClosed = (status: string | null | undefined): boolean =>
   status === 'confirmed' || status === 'not_applicable';
 
+const isSearchExperienceQuestion = (text: string): boolean => {
+  const lower = normalize(text);
+  return /(?:что\s+(?:из\s+)?(?:объект\p{L}*\s+|вариант\p{L}*\s+)?(?:уже\s+)?(?:успел\p{L}*\s+)?(?:смотрел\p{L}*|видел\p{L}*)|(?:какие|что\s+из)\s+(?:объект\p{L}*|вариант\p{L}*|жк|квартир\p{L}*)[^.!?]{0,32}(?:смотрел\p{L}*|видел\p{L}*|сравнил\p{L}*|посетил\p{L}*)|(?:смотрел\p{L}*|видел\p{L}*)\s+(?:уже\s+)?(?:какие[- ]?то\s+)?(?:объект\p{L}*|вариант\p{L}*|жк|квартир\p{L}*)|(?:на\s+)?просмотр\p{L}*[^.!?]{0,24}(?:ездил\p{L}*|ходил\p{L}*|был\p{L}*)|(?:ездил\p{L}*|ходил\p{L}*|был\p{L}*)[^.!?]{0,24}(?:на\s+)?просмотр\p{L}*|что\s+(?:понравил\p{L}*|не\s+устроил\p{L}*|подош\p{L}*)\s+из\s+просмотренн\p{L}*|успел\p{L}*\s+(?:уже\s+)?(?:что[- ]?нибудь\s+)?посмотреть)/iu.test(lower);
+};
+
 const semanticKey = (text: string): string => {
   const lower = normalize(text);
   if (/давно.*(?:рассматрива|присматрива)|только.*(?:изуча|рынок)|на каком.*этап.*рын/iu.test(lower)) return 'ask_search_experience';
   if (/что.*(?:причин|изменил).*сейчас|почему.*именно.*сейчас|тема недвижимости.*актуаль/iu.test(lower)) return 'ask_motive_now';
-  if (/(?:что|какие\s+варианты).*уже\s+успел\p{L}*\s+посмотр|что из.*(?:видел|смотрел|просмотр)|что.*не устроил|что.*точно не подош|из уже увиденного/iu.test(lower)) return 'ask_experience';
+  if (isSearchExperienceQuestion(lower) || /что.*точно не подош|из уже увиденного/iu.test(lower)) return 'ask_experience';
   if (/для чего|цель покупк|для жизни|отдых.*инвест|жить самому/iu.test(lower)) return 'ask_goal';
   if (/формат жилья|квартир.*апартамент|тип недвижим/iu.test(lower)) return 'ask_property_type';
   if (/район|локац|часть сочи|где.*сочи/iu.test(lower)) return 'ask_location';
@@ -85,7 +90,10 @@ function isDistancePreferenceNotObjection(text: string): boolean {
 
 function isNoExperienceAnswer(text: string): boolean {
   const lower = normalize(text);
-  return /(?:не\s+могу\s+(?:ответить|ничего\s+выделить|выделить\s+(?:что-то|что\s+то|ничего)|сказать[^.!?]{0,40}(?:понрав|подош|ближе))|реально\s+не\s+могу\s+ничего\s+выделить|нечего\s+выделить|ничего\s+не\s+зацепило|(?:пока\s+)?ничего\s+(?:конкретн\p{L}*\s+)?не\s+(?:смотрел\p{L}*|видел\p{L}*)|конкретн\p{L}*\s+(?:вариант\p{L}*|объект\p{L}*)\s+(?:пока\s+|ещ[её]\s+)?не\s+(?:смотрел\p{L}*|видел\p{L}*)|ярк\p{L}*\s+пример\p{L}*\s+(?:пока\s+)?нет)/iu.test(lower);
+  const currentPositive = detectSearchExperience(text);
+  if (currentPositive && ['viewings', 'purchase'].includes(currentPositive.level)) return false;
+
+  return /(?:нет,?\s+ни\s+разу|^(?:нет|пока\s+нет|ничего|ещ[её]\s+ничего|пока\s+ничего|ни\s+одного)[.!]?\s*$|(?:нет,?\s+)?(?:ещ[её]\s+)?не\s+успел\p{L}*(?:\s+(?:ничего\s+)?(?:посмотреть|смотреть))?|(?:нет,?\s+)?(?:пока\s+)?только\s+начал\p{L}*\s+(?:искать|поиск)|ни\s+одного[^.!?]{0,24}(?:пока\s+)?только\s+начал\p{L}*\s+(?:искать|поиск)|пока\s+только\s+изуча\p{L}*\s+рынок|до\s+просмотр\p{L}*\s+(?:ещ[её]\s+)?не\s+дош[её]л\p{L}*|не\s+могу\s+(?:ответить|ничего\s+выделить|выделить\s+(?:что-то|что\s+то|ничего)|сказать[^.!?]{0,40}(?:понрав|подош|ближе))|реально\s+не\s+могу\s+ничего\s+выделить|нечего\s+выделить|ничего\s+не\s+зацепило|(?:пока\s+)?ничего\s+(?:конкретн\p{L}*\s+)?не\s+(?:смотрел\p{L}*|видел\p{L}*)|конкретн\p{L}*\s+(?:вариант\p{L}*|объект\p{L}*)\s+(?:пока\s+|ещ[её]\s+)?(?:не\s+(?:смотрел\p{L}*|видел\p{L}*)|нет)|ярк\p{L}*\s+пример\p{L}*\s+(?:пока\s+)?нет)/iu.test(lower);
 }
 
 function hasMaterialsResistanceContext(

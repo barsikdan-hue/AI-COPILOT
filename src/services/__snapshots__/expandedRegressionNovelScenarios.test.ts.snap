@@ -21,7 +21,7 @@ exports[`expanded regression: novel scenarios > characterizes 8192 local determi
     "transcript_transport": 12,
   },
   "executionsPerScenario": 32,
-  "fail": 1455,
+  "fail": 1267,
   "failureClusters": [
     {
       "count": 32,
@@ -41,16 +41,6 @@ exports[`expanded regression: novel scenarios > characterizes 8192 local determi
       "invariant": "INV_DOWN_PAYMENT_READINESS",
       "productionLayer": "deterministic fact extraction and canonical projection",
       "semanticAction": "update_state",
-      "severity": "HIGH",
-    },
-    {
-      "count": 128,
-      "eventType": "none",
-      "factCategory": "searchExperience",
-      "id": "a380869ea85c",
-      "invariant": "INV_CLOSED_EXPERIENCE_BRANCH",
-      "productionLayer": "deterministic fact extraction and canonical projection",
-      "semanticAction": "close_experience_branch",
       "severity": "HIGH",
     },
     {
@@ -124,16 +114,6 @@ exports[`expanded regression: novel scenarios > characterizes 8192 local determi
       "severity": "HIGH",
     },
     {
-      "count": 60,
-      "eventType": "none",
-      "factCategory": "searchExperience",
-      "id": "d0460e176b9c",
-      "invariant": "INV_CLOSED_EXPERIENCE_BRANCH",
-      "productionLayer": "deterministic fact extraction and canonical projection",
-      "semanticAction": "close_experience_branch",
-      "severity": "HIGH",
-    },
-    {
       "count": 54,
       "eventType": "none",
       "factCategory": "property_type",
@@ -174,10 +154,10 @@ exports[`expanded regression: novel scenarios > characterizes 8192 local determi
       "severity": "HIGH",
     },
   ],
-  "fingerprint": "f6b1dc7b899bdff11a1d54e4dd157fab361df92d5cff650b5f87a5042f13d249",
+  "fingerprint": "480cbaf1864c895b5ad11a80c8e00bc63065f2cfc6a608bf0e735cce46b99e21",
   "generatedExecutions": 8192,
-  "pass": 31249,
-  "passRate": 95.55,
+  "pass": 31437,
+  "passRate": 96.13,
   "seed": 2654435769,
 }
 `;

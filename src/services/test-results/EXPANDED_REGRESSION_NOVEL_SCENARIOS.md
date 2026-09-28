@@ -158,3 +158,12 @@ The dominant pattern is not a broken generic supersede algorithm. In most remain
 - All six target clusters disappeared: `4b2495e4c59d` (448), `a636f5db6038` (256), `adf7d794b2d1` (85), `061dc840e0c4` (64), `4dcabe583576` (28), `bebf9fb7f70d` (28). Target reduction: 909 failures.
 - The oracle-only `e37e71c0c73c` (32) also disappeared because its second session seed now extracts correctly; no session-state change was made. Total reduction: 941 failures.
 - Explicitly excluded contextual-answer clusters are unchanged: `a380869ea85c` (128) and `d0460e176b9c` (60). New failing assertions: 0. New fingerprints: 0. Remaining: 14 production clusters and 1 oracle limitation.
+
+# FIX ITERATION 24 RESULT
+
+- Root cause: the branch-local context classifier recognized only a subset of agent questions about past viewings, while `isNoExperienceAnswer` rejected short contextual answers such as `Нет`, `Ничего`, `Пока нет` and `не успел`. The existing downstream metric closure worked once both the question and answer were classified correctly.
+- Scope: search-experience question recognition and narrow context-gated empty-answer semantics in `localAnalysisEngine.ts`. Positive extraction from FIX 23, canonical state model, dialogue policy, generic supersede, Sales Logic, recommendation lifecycle, UI, fixtures and oracle checks were not changed.
+- Original regression: unchanged at 101 golden cases, 3232 scenarios and 12288 / 12288 PASS.
+- Expanded regression: 31249 → 31437 PASS; 1455 → 1267 FAIL; 95.55% → 96.13%; 15 → 13 fingerprints.
+- Both target clusters disappeared: `a380869ea85c` (128) and `d0460e176b9c` (60). Exactly 188 target failures were removed.
+- All six FIX 23 target clusters remain at zero, voluntary reopening remains confirmed, and same-turn current positive evidence wins over historical negative wording. New failing assertions: 0. New fingerprints: 0. Remaining: 12 production clusters and 1 oracle limitation.
