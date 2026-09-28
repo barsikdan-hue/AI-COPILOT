@@ -175,3 +175,11 @@ The dominant pattern is not a broken generic supersede algorithm. In most remain
 - Exact live replay: `event=null`, `clientBoundaryActive=false`, personal work question → `TIME_CONSTRAINT`, `clientBoundaryActive=true`, short task-oriented goal question without forced callback.
 - Original regression: unchanged at 101 golden cases, 3232 scenarios and 12288 / 12288 PASS.
 - Expanded regression: unchanged at 31437 PASS, 1267 FAIL, 96.13%, 13 fingerprints, 12 production clusters and 1 oracle limitation. New failing assertions: 0. New fingerprints: 0.
+
+# FIX ITERATION 26 RESULT
+
+- Root cause: the live meeting-contract extractor required explicit meeting/call vocabulary and numeric clock syntax, while every agreement under an active time boundary was downgraded even when the client voluntarily proposed a concrete callback.
+- Scope: conversational callback time/duration parsing, contextual follow-up consent and client-originated consent quality inside the existing `MEETING_CONTRACT` path in `conversationEventEngineLegacy.ts`. Generic rejected-candidate replacement, Sales Logic, lifecycle, UI, meta-question routing and regression oracles were not changed.
+- Exact live replay: `event=null`, empty next-step state and rejected criteria candidate → `MEETING_CONTRACT`, `status=agreed`, `timeOrDeadline=сегодня после 19:00`, `action=Созвон на 10 минут`, confirmed `agreedNextStep` with final-turn evidence and one valid confirmation card.
+- Original regression: unchanged at 101 golden cases, 3232 scenarios and 12288 / 12288 PASS.
+- Expanded regression: unchanged at 31437 PASS, 1267 FAIL, 96.13%, 13 fingerprints, 12 production clusters and 1 oracle limitation. New failing assertions: 0. New fingerprints: 0.
