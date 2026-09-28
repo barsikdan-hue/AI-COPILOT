@@ -206,7 +206,13 @@ export function isSuggestionAllowedByState(candidate: Partial<SuggestedReply>, s
     const boundarySafeAction = ['RESPECT_STOP', 'OBJECTION_CLARIFICATION', 'ANSWER', 'WAIT'].includes(candidate.actionType || '');
     const boundarySafeStage = candidate.stage === 'objection_clarification';
     const highPriorityOverride = (candidate.priority || 0) >= 110;
-    if (!boundarySafeEvent && !boundarySafeAction && !boundarySafeStage && !highPriorityOverride) return false;
+    const limitedWindowQuestion =
+      state.dialogueControl?.boundaryMode === 'limited_active_window' &&
+      candidate.actionType === 'CLARIFY' &&
+      (text.match(/\?/gu) || []).length === 1 &&
+      !['SPIN_IMPLICATION', 'SPIN_NEED_PAYOFF', 'HPB_PRESENTATION'].includes(String(candidate.suggestionMode || '')) &&
+      !/(?:работа|професси|хобби|увлека|семья|отдыхать)/iu.test(text);
+    if (!boundarySafeEvent && !boundarySafeAction && !boundarySafeStage && !highPriorityOverride && !limitedWindowQuestion) return false;
   }
   if (state.paymentMethod.value?.includes('Ипотека') && /(?:покупаете|оплачиваете|покупаем).*(?:наличн|без ипотеки)/iu.test(text)) return false;
   if (/наличные|собственные средства/iu.test(state.paymentMethod.value || '') && /(?:покупаете|оплачиваете|покупаем).*в ипотеку/iu.test(text)) return false;

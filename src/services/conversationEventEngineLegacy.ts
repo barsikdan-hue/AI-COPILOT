@@ -4,6 +4,7 @@ import eventRulesData from '../../conversation-events.json';
 import {
   ActionType,
   CallStage,
+  ClientBoundaryMode,
   ConversationEventRecord,
   ConversationEventType,
   ConversationState,
@@ -51,6 +52,7 @@ export interface ConversationEventDetection {
     durationMinutes?: number | null;
   } | null;
   timeContractSeconds?: number | null;
+  boundaryMode?: Exclude<ClientBoundaryMode, 'none'>;
 }
 
 const EVENT_RULES = eventRulesData as EventRuleConfig[];
@@ -110,13 +112,41 @@ const hasBusinessTimeBoundary = (text: string): boolean => {
   return workLogistics || (brevityRequest && !shortMeetingAgreement) || limitedAvailability;
 };
 
+/** Classifies the client's control over the current call, not incidental time wording. */
+export function classifyClientBoundaryMode(value: string): ClientBoundaryMode {
+  const text = normalize(value);
+  const shortMeetingAgreement = /давайте\s+коротко\s+(?:созвон\p{L}*|посмотр\p{L}*|встрет\p{L}*)/iu.test(text);
+  const defer =
+    /перезвоните[^.!?]{0,45}(?:вечером|позже|завтра|после\s+\p{L}+|через\s+(?:\d+|\p{L}+)\s+(?:минут\p{L}*|час\p{L}*))|позвоните\s+(?:вечером|позже|завтра|после\s+\p{L}+|через\s+(?:\d+|\p{L}+)\s+(?:минут\p{L}*|час\p{L}*))|наберите[^.!?]{0,45}(?:вечером|позже|завтра|после\s+\p{L}+|через\s+(?:\d+|\p{L}+)\s+(?:минут\p{L}*|час\p{L}*))|давайте\s+(?:позже|потом|в\s+другой\s+раз)|сейчас\s+не\s+могу[^.!?]{0,50}(?:перезвон|позвон|набер|через)/iu.test(text);
+  if (defer) return 'defer';
+
+  const limitedWindow = !shortMeetingAgreement && (
+    /(?:у\s+меня\s+(?:правда\s+)?(?:сейчас\s+)?(?:есть\s+)?(?:буквально\s+)?|буквально\s+|есть\s+)(?:пару|две|три|\d+)\s+минут(?:ы)?(?:\s+(?:есть|могу|можно))?/iu.test(text) ||
+    /могу\s+(?:говорить\s+)?(?:буквально\s+)?(?:пару|две|три|\d+)\s+минут(?:ы)?/iu.test(text) ||
+    /сейчас\s+могу\s+говорить\s+минуты?\s+(?:две|три|\d+)/iu.test(text) ||
+    /пару\s+минут\s+у\s+меня\s+есть/iu.test(text) ||
+    /(?:я\s+занят[^.!?]{0,25})?(?:но\s+)?пару\s+минут\s+есть/iu.test(text) ||
+    /времени\s+(?:мало|немного)[^.!?]{0,35}(?:ближе\s+к\s+сути|коротко|быстро)/iu.test(text) ||
+    /времени\s+(?:мало|немного)[^.!?]{0,35}(?:но\s+)?(?:пару|один|два|несколько)\s+вопрос\p{L}*\s+можно/iu.test(text) ||
+    /(?:я\s+(?:сейчас\s+)?на\s+работе[^.!?]{0,45})?(?:давайте\s+)?(?:коротко|быстро)(?:\s+и\s+по\s+делу)?/iu.test(text) ||
+    /(?:если\s+можно[^.!?]{0,20})(?:коротко|быстро|по\s+делу)/iu.test(text)
+  );
+  if (limitedWindow) return 'limited_active_window';
+
+  const hardStop =
+    /(?:^|[.!?]\s*)(?:не\s+могу\s+говорить|сейчас\s+(?:вообще\s+)?неудобно|мне\s+некогда|не\s+звоните\s+сейчас|я\s+занят[^.!?]{0,30}говорить\s+не\s+могу)(?:$|[.!?])/iu.test(text) ||
+    /(?:говорить\s+(?:совсем\s+)?неудобно|на\s+разговор\s+времени\s+нет)/iu.test(text);
+  if (hardStop) return 'hard_stop';
+
+  return 'none';
+}
+
 const allowsBriefContinuation = (text: string): boolean =>
-  hasBusinessTimeBoundary(text) &&
-  /(?:коротко|быстро\s+и\s+по\s+делу|ближе\s+к\s+сути|пару\s+минут\s+есть)/iu.test(text) &&
-  !/(?:перезвоните|позвоните|наберите|давайте\s+(?:позже|потом|в\s+другой\s+раз)|не\s+могу\s+говорить\s+вообще)/iu.test(text);
+  classifyClientBoundaryMode(text) === 'limited_active_window';
 
 const matchesTimeConstraint = (text: string, rule: EventRuleConfig): boolean =>
   includesConfiguredPhrase(text, rule) ||
+  classifyClientBoundaryMode(text) !== 'none' ||
   hasBusinessTimeBoundary(text) ||
   /(?:говорить\s+(?:неудобно|не\s+могу)|на\s+разговор\s+времени\s+нет|давайте\s+(?:позже|потом|в\s+другой\s+раз)|я\s+(?:тороплюсь|занят[^.!?]{0,35}(?:наберите|перезвоните|позвоните)))/iu.test(text);
 
@@ -735,8 +765,10 @@ export function detectConversationEvent(
     const callbackTime = extractCallbackTime(turn.text);
     const materialRequest = hasMaterialRequestIntent(turn.text);
     const briefContinuation = allowsBriefContinuation(text);
+    const detectedBoundaryMode = classifyClientBoundaryMode(turn.text);
+    const boundaryMode = detectedBoundaryMode === 'none' ? 'defer' : detectedBoundaryMode;
     return configuredEvent(timeConstraint, turn, {
-      actionType: briefContinuation ? 'CLARIFY' : timeConstraint.actionType,
+      actionType: timeConstraint.actionType,
       suggestedReply: materialRequest
         ? 'Понял, не отвлекаю. Отправлю запрошенный материал; к разговору вернёмся позже.'
         : callbackTime
@@ -747,6 +779,7 @@ export function detectConversationEvent(
       shortReason: briefContinuation
         ? 'Клиент ограничил формат разговора, но разрешил кратко продолжить: без small talk переходим к задаче покупки.'
         : timeConstraint.shortReason,
+      boundaryMode,
     });
   }
 
@@ -891,6 +924,7 @@ export function applyConversationEvent(
     lastEventType: null,
     lastEventTurnId: null,
     clientBoundaryActive: false,
+    boundaryMode: 'none',
     researchMode: false,
     softResistanceCount: 0,
     rejectedBranches: [],
@@ -904,6 +938,9 @@ export function applyConversationEvent(
 
   if (event.type === 'CLIENT_STOP' || event.type === 'TIME_CONSTRAINT' || event.type === 'COMPLIANCE_STOP') {
     control.clientBoundaryActive = true;
+    control.boundaryMode = event.type === 'TIME_CONSTRAINT'
+      ? event.boundaryMode || 'defer'
+      : 'hard_stop';
   }
   if (event.type === 'SOFT_RESISTANCE') {
     if (!eventAlreadyRecorded) control.softResistanceCount += 1;

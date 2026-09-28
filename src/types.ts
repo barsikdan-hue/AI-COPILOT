@@ -82,6 +82,12 @@ export type MeetingConsentQuality =
   | 'tentative'
   | 'forced_or_low_confidence';
 
+export type ClientBoundaryMode =
+  | 'none'
+  | 'limited_active_window'
+  | 'defer'
+  | 'hard_stop';
+
 export interface ConversationEventRecord {
   id: string;
   type: ConversationEventType;
@@ -129,6 +135,7 @@ export interface DialogueControlState {
   lastEventType: ConversationEventType | null;
   lastEventTurnId: string | null;
   clientBoundaryActive: boolean;
+  boundaryMode?: ClientBoundaryMode;
   researchMode: boolean;
   softResistanceCount: number;
   rejectedBranches: string[];

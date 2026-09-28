@@ -26,6 +26,7 @@ export function createInitialState(): ConversationState {
       lastEventType: null,
       lastEventTurnId: null,
       clientBoundaryActive: false,
+      boundaryMode: 'none',
       researchMode: false,
       softResistanceCount: 0,
       rejectedBranches: [],

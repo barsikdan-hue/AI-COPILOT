@@ -692,7 +692,11 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
 
   // Liveness invariant: a client boundary blocks the questionnaire, not the assistant.
   // Keep one short, ready-to-say line alive even during repeated resistance.
-  if (workingState.dialogueControl?.clientBoundaryActive && lastClientTurn) {
+  if (
+    workingState.dialogueControl?.clientBoundaryActive &&
+    workingState.dialogueControl?.boundaryMode !== 'limited_active_window' &&
+    lastClientTurn
+  ) {
     const boundaryCandidateIsSafe =
       actionType === 'RESPECT_STOP' ||
       actionType === 'OBJECTION_CLARIFICATION' ||

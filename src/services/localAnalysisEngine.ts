@@ -3,6 +3,7 @@ import type { AnalysisResponse, ConversationState, TranscriptTurn } from '../typ
 import { chooseDialoguePolicyTarget } from './dialoguePolicyEngine';
 import { evaluateFirstCallScript } from './firstCallScriptEngine';
 import { detectDecisionMaker, detectSearchExperience } from './semanticEvidence';
+import { classifyClientBoundaryMode } from './conversationEventEngine';
 
 export * from './localAnalysisEngineLegacy';
 
@@ -710,6 +711,45 @@ export function buildLocalAnalysisResponse(
         confidence: 0.95,
         needsClarification: false,
       };
+    }
+  }
+
+  const currentBoundaryMode = input.currentState?.dialogueControl?.boundaryMode || 'none';
+  const latestBoundaryMode = latestClient ? classifyClientBoundaryMode(latestClient.text) : 'none';
+  const limitedActiveWindow = currentBoundaryMode === 'limited_active_window' || latestBoundaryMode === 'limited_active_window';
+  const nextStepAlreadyAgreed =
+    input.currentState?.nextStepAgreement?.status === 'agreed' ||
+    Boolean(input.currentState?.agreedNextStep?.value);
+  const qualificationAlreadyStarted = Boolean(
+    input.currentState?.goal?.value ||
+    input.currentState?.primaryGoal?.value
+  );
+
+  if (limitedActiveWindow && !nextStepAlreadyAgreed) {
+    result.actionType = 'CLARIFY';
+    result.suggestionMode = 'WAIT';
+  }
+
+  if (
+    limitedActiveWindow &&
+    qualificationAlreadyStarted &&
+    !nextStepAlreadyAgreed &&
+    (!result.eventType || result.eventType === 'TIME_CONSTRAINT')
+  ) {
+    const compressedSelection =
+      selectPolicyQualification(input, result, turns) ||
+      (() => {
+        const selected = selectContextualQualification(input, result, turns);
+        return selected ? { ...selected, branch: 'limited_active_window', reason: selected.card.reason } : null;
+      })();
+    if (compressedSelection) {
+      const boundaryEventType = result.eventType;
+      applyContextualCard(result, compressedSelection, {
+        branch: compressedSelection.branch,
+        reason: `У клиента только короткое активное окно. ${compressedSelection.reason}`,
+      });
+      result.eventType = boundaryEventType === 'TIME_CONSTRAINT' ? 'TIME_CONSTRAINT' : null;
+      result.shortReason = `Короткое активное окно: задаём ровно один приоритетный вопрос. ${result.shortReason}`;
     }
   }
 
