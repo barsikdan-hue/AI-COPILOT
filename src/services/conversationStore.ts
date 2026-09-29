@@ -280,7 +280,8 @@ export function mergeFactsDelta(
     // changes are applied by the meeting-contract event path instead.
     if (
       (field === 'agreedNextStep' || field === 'agreed_next_step') &&
-      next.nextStepAgreement?.status === 'agreed'
+      next.nextStepAgreement?.status === 'agreed' &&
+      next.nextStepAgreement.basisTurnId !== evidenceTurnId
     ) continue;
 
     // Requirement 6: EVIDENCE INVARIANT
@@ -320,7 +321,7 @@ export function mergeFactsDelta(
           f.category === cat &&
           (!isAdditiveCriteria || f.value === sanitizedVal)
       );
-      const priorActivePaymentFacts = cat === 'paymentMethod'
+      const priorActiveScalarFacts = cat === 'paymentMethod' || cat === 'next_step'
         ? next.confirmedFacts.filter(
           (f) =>
             f.category === cat &&
@@ -331,9 +332,10 @@ export function mergeFactsDelta(
         : [];
       // Criteria are an additive collection: quiet and infrastructure are
       // independent facts, not competing versions of one scalar value.
-      // paymentMethod is a scalar category as well: a repeated confirmation
-      // becomes the current version and retires every older active duplicate.
-      const previousActiveFact = priorActivePaymentFacts.at(-1) || (isAdditiveCriteria
+      // paymentMethod and next_step are scalar categories as well: a repeated
+      // confirmation becomes the current version and retires every older
+      // active duplicate while preserving it as history.
+      const previousActiveFact = priorActiveScalarFacts.at(-1) || (isAdditiveCriteria
         ? undefined
         : [...next.confirmedFacts]
           .reverse()
@@ -345,8 +347,8 @@ export function mergeFactsDelta(
               f.value !== sanitizedVal
           ));
 
-      const factsToSupersede = priorActivePaymentFacts.length > 0
-        ? priorActivePaymentFacts
+      const factsToSupersede = priorActiveScalarFacts.length > 0
+        ? priorActiveScalarFacts
         : previousActiveFact
           ? [previousActiveFact]
           : [];

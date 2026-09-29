@@ -1,6 +1,7 @@
 import * as legacy from './conversationEventEngineLegacy';
 import type { ConversationEventDetection } from './conversationEventEngineLegacy';
 import type { ConversationState, TranscriptTurn } from '../types';
+import { mergeFactsDelta } from './conversationStore';
 
 export * from './conversationEventEngineLegacy';
 
@@ -235,7 +236,48 @@ export function applyConversationEvent(
   turn: TranscriptTurn,
   now = Date.now(),
 ): ConversationState {
-  const next = legacy.applyConversationEvent(current, event, turn, now);
+  let next = legacy.applyConversationEvent(current, event, turn, now);
+
+  if (
+    event.type === 'MEETING_CONTRACT' &&
+    next.nextStepAgreement?.status === 'agreed'
+  ) {
+    const projectedValue = next.agreedNextStep?.value || [
+      next.nextStepAgreement.action,
+      next.nextStepAgreement.timeOrDeadline,
+    ].filter(Boolean).join(' ').replace(/\s+/gu, ' ').trim();
+    next = {
+      ...next,
+      agreedNextStep: {
+        value: projectedValue,
+        evidenceTurnIds: Array.from(new Set([
+          ...(next.agreedNextStep?.evidenceTurnIds || []),
+          turn.id,
+        ])),
+        needsClarification: false,
+      },
+    };
+    // The meeting event owns the canonical action/time/channel update. Project
+    // that same version through the existing scalar fact merge in this turn so
+    // the ledger cannot retain a different active next step.
+    next = mergeFactsDelta(
+      next,
+      [{
+        category: 'next_step',
+        field: 'agreedNextStep',
+        value: projectedValue,
+        evidenceQuote: turn.text,
+        evidenceTurnId: turn.id,
+        confidence: 0.99,
+        status: 'confirmed',
+        semanticReason: 'Confirmed meeting contract projected atomically from the conversation event.',
+      }],
+      undefined,
+      undefined,
+      turn.revision,
+      { [turn.id]: turn.text },
+    );
+  }
 
   if (event.type === 'NEXT_STEP_RESISTANCE' && event.nextStepTarget === 'callback') {
     return {
@@ -269,7 +311,10 @@ export function applyConversationEvent(
       ? { ...next.nextStepAgreement, status: 'none' }
       : next.nextStepAgreement,
     confirmedFacts: (next.confirmedFacts || []).map((fact) =>
-      fact.category === 'next_step' && fact.turnId === turn.id
+      fact.category === 'next_step' &&
+      fact.lifecycleStatus !== 'superseded' &&
+      fact.lifecycleStatus !== 'rejected' &&
+      (fact.turnId === turn.id || /видео|показ/iu.test(fact.value))
         ? { ...fact, lifecycleStatus: 'rejected' as const }
         : fact
     ),
