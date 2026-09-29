@@ -77,7 +77,7 @@ const explicitAgreementChannelChange = (text: string): boolean =>
   /(?:лучше\s+)?не\s+(?:звонок|созвон|видео\p{L}*|встреч\p{L}*)\s*[,;:-]?\s*а\s+(?:видео\p{L}*|встреч\p{L}*|звонок|созвон)/iu.test(text);
 
 const explicitAgreementReschedule = (text: string): boolean =>
-  /(?:нет\s*[,;:-]?\s*)?(?:давайте\s+лучше|лучше|перенес\p{L}*|вместо)[^.!?]{0,55}(?:сегодня|завтра|послезавтра|после\s+\p{L}+|в\s+(?:\d{1,2}|\p{L}+))/iu.test(text);
+  /(?:нет\s*[,;:-]?\s*)?(?:давайте(?:\s+лучше)?|лучше|перенес\p{L}*|вместо)[^.!?]{0,55}(?:сегодня|завтра|послезавтра|после\s+\p{L}+|в\s+(?:\d{1,2}|\p{L}+)|\d{1,2}\s*-\s*(?:го|е|й)|\d{1,2}\s+(?:января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря))|(?:а\s*[,;:-]?\s*)?(?:ну\s+)?нет[^.!?]{0,35}(?:получается|тогда|точнее)[^.!?]{0,25}в\s+\d{1,2}(?::\d{2})?/iu.test(text);
 
 const hasExplicitAgreementChange = (text: string): boolean =>
   explicitAgreementCancellation(text) ||
@@ -89,7 +89,7 @@ const hasExplicitAgreementChange = (text: string): boolean =>
 export function isAgreedNextStepReaffirmation(text: string, state: ConversationState): boolean {
   if (!agreementIsConfirmed(state) || hasExplicitAgreementChange(text)) return false;
   const normalized = normalize(text);
-  const genericConfirmation = /^(?:хорошо\s*[,;:-]?\s*)?(?:да\s*[,;:-]?\s*)?(?:вс[её]\s+верно|договорились|так\s+и\s+остав(?:им|ляем|ляю)|после\s+семи|верно|хорошо)(?:\s*[,;:-]?\s*спасибо)?[.!]?$/iu.test(normalized);
+  const genericConfirmation = /^(?:хорошо\s*[,;:-]?\s*)?(?:да\s*[,;:-]?\s*)?(?:вс[её]\s+верно|договорились|так\s+и\s+остав(?:им|ляем|ляю)|в\s+это\s+же\s+(?:время|самое)|после\s+семи|верно|хорошо)(?:\s*[,;:-]?\s*спасибо)?[.!]?$/iu.test(normalized);
   const existingAgreementReference = /(?:мы\s+)?уже\s+(?:это\s+)?(?:договорились|согласовали)|я\s+же\s+сказал|придержива\p{L}*\s+договор[её]нност|так\s+и\s+остав(?:им|ляем|ляю)/iu.test(normalized);
   return genericConfirmation || existingAgreementReference;
 }
@@ -317,6 +317,7 @@ const CALLBACK_NUMBER_VALUES: Record<string, number> = {
 };
 
 const CALLBACK_NUMBER_PATTERN = String.raw`(?:\d{1,2}|один|одного|два|двух|три|тр[её]х|четыре|четыр[её]х|пять|пяти|шесть|шести|семь|семи|восемь|восьми|девять|девяти|десять|десяти|одиннадцать|одиннадцати|двенадцать|двенадцати)`;
+const CALLBACK_MONTH_PATTERN = String.raw`(?:января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)`;
 
 function parseCallbackNumber(value: string | null | undefined): number | null {
   if (!value) return null;
@@ -348,6 +349,18 @@ function extractCallbackDurationMinutes(text: string): number | null {
 
 function extractCallbackDateOrDay(text: string): string | null {
   const normalized = normalize(text);
+  const calendarDates = Array.from(normalized.matchAll(new RegExp(
+    String.raw`(?:^|[^\p{L}\p{N}])(\d{1,2})(?:\s*-\s*(?:го|е|й)|(?:го|е|й))?\s+(${CALLBACK_MONTH_PATTERN})(?=$|[^\p{L}\p{N}])`,
+    'giu',
+  )));
+  const calendarDate = calendarDates.at(-1);
+  if (calendarDate) return `${Number(calendarDate[1])} ${calendarDate[2]}`;
+
+  const bareOrdinal = Array.from(normalized.matchAll(
+    /(?:^|[^\p{L}\p{N}])(\d{1,2})\s*-\s*(?:го|е|й)(?=$|[^\p{L}\p{N}])/giu,
+  )).at(-1);
+  if (bareOrdinal) return `${Number(bareOrdinal[1])}-го`;
+
   const dayPattern = /(?:^|[^\p{L}\p{N}])(сегодня|завтра|послезавтра|понедельник|вторник|сред[ау]|четверг|пятниц[ау]|суббот[ау]|воскресенье|через\s+(?:день|два\s+дня|три\s+дня))(?=$|[^\p{L}\p{N}])/giu;
   const contrastClause = normalized.match(/(?:^|[^\p{L}\p{N}])а\s+(.+)$/iu)?.[1] || null;
   const contrastChoice = contrastClause ? Array.from(contrastClause.matchAll(dayPattern))[0]?.[1] : null;
@@ -357,8 +370,12 @@ function extractCallbackDateOrDay(text: string): string | null {
 }
 
 function normalizeContextualHour(rawHour: number, text: string): number {
-  const explicitMorning = /(?:утра|утром)/iu.test(text);
-  return !explicitMorning && rawHour >= 1 && rawHour <= 11 ? rawHour + 12 : rawHour;
+  const explicitMorningOrTimezone = /(?:утра|утром|по\s+москв(?:е|ы|скому\s+времени)|\bмск\b)/iu.test(text);
+  return !explicitMorningOrTimezone && rawHour >= 1 && rawHour <= 11 ? rawHour + 12 : rawHour;
+}
+
+function callbackTimezoneSuffix(text: string): string {
+  return /(?:по\s+москв(?:е|ы|скому\s+времени)|\bмск\b)/iu.test(text) ? ' по Москве' : '';
 }
 
 function extractConversationalCallbackTiming(text: string): { dateOrDay: string | null; time: string | null } | null {
@@ -400,7 +417,7 @@ function extractConversationalCallbackTiming(text: string): { dateOrDay: string 
       const hour = normalizeContextualHour(rawHour, normalized);
       return {
         dateOrDay: explicitDay,
-        time: `в ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`,
+        time: `в ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}${callbackTimezoneSuffix(normalized)}`,
       };
     }
   }
@@ -424,7 +441,8 @@ function isNextStepSchedulingTurn(text: string): boolean {
   if (NEXT_STEP_ACTION_PATTERN.test(normalized) || NEXT_STEP_FOLLOW_UP_PATTERN.test(normalized)) return true;
   const hasTiming = Boolean(extractConversationalCallbackTiming(normalized) || extractCallbackTime(normalized));
   const schedulingLanguage = /(?:тогда|предлагаю|планируем|согласуем|назначим|подойд[её]т|удобн\p{L}*|по\s+времени|свободн\p{L}*\s+время|во\s+сколько|в\s+какое\s+время)/iu.test(normalized);
-  return hasTiming && schedulingLanguage;
+  const explicitSlotProposal = /давайте[^.!?]{0,45}(?:сегодня|завтра|послезавтра|понедельник|вторник|сред[ау]|четверг|пятниц[ау]|суббот[ау]|воскресенье|\d{1,2})/iu.test(normalized);
+  return (hasTiming && (schedulingLanguage || explicitSlotProposal)) || /(?:во\s+сколько|в\s+какое\s+время)/iu.test(normalized);
 }
 
 function activeNextStepProposal(
@@ -452,22 +470,37 @@ function activeNextStepProposal(
 function normalizeMeetingDeadline(value: string | null | undefined): string | undefined {
   if (!value) return undefined;
   const normalized = value.replace(/\s+/g, ' ').trim();
-  const day = normalized.match(/(?:^|[^\p{L}\p{N}])(сегодня|завтра|послезавтра|понедельник|вторник|сред[ау]|четверг|пятниц[ау]|суббот[ау]|воскресенье)(?=$|[^\p{L}\p{N}])/iu)?.[1] || null;
+  const day = extractCallbackDateOrDay(normalized);
+  const timezone = callbackTimezoneSuffix(normalized);
   const after = normalized.match(/после\s+(\d{1,2})(?::(\d{2}))?/iu);
   if (after) {
-    const time = `после ${after[1].padStart(2, '0')}:${after[2] || '00'}`;
+    const time = `после ${after[1].padStart(2, '0')}:${after[2] || '00'}${timezone}`;
     return day ? `${day} ${time}` : time;
   }
   const range = normalized.match(/с\s+(\d{1,2}):(\d{2})\s+до\s+(\d{1,2}):(\d{2})/iu);
   if (range) {
-    const time = `с ${range[1].padStart(2, '0')}:${range[2]} до ${range[3].padStart(2, '0')}:${range[4]}`;
+    const time = `с ${range[1].padStart(2, '0')}:${range[2]} до ${range[3].padStart(2, '0')}:${range[4]}${timezone}`;
     return day ? `${day} ${time}` : time;
   }
   if (/утром/iu.test(normalized)) return day ? `${day} утром` : 'утром';
   if (/вечером/iu.test(normalized)) return day ? `${day} вечером` : 'вечером';
   const clock = extractClock(normalized);
-  if (day && clock) return `${day} ${clock}`;
-  return clock || day || normalized;
+  const clockWithTimezone = clock ? `${clock}${timezone}` : null;
+  if (day && clockWithTimezone) return `${day} ${clockWithTimezone}`;
+  return clockWithTimezone || day || normalized;
+}
+
+function mergeMeetingDate(previousDate: string | null, incomingDate: string | null): string | null {
+  if (!incomingDate) return previousDate;
+  const bareDay = incomingDate.match(/^(\d{1,2})-го$/u)?.[1];
+  const previousMonth = previousDate?.match(new RegExp(String.raw`(${CALLBACK_MONTH_PATTERN})`, 'iu'))?.[1];
+  return bareDay && previousMonth ? `${Number(bareDay)} ${previousMonth}` : incomingDate;
+}
+
+function inheritMeetingTimezone(previousTime: string | null, incomingTime: string | null): string | null {
+  if (!incomingTime) return previousTime;
+  if (callbackTimezoneSuffix(incomingTime) || !callbackTimezoneSuffix(previousTime || '')) return incomingTime;
+  return `${incomingTime} по Москве`;
 }
 
 function composeMeetingDeadline(dateOrDay: string | null, time: string | null): string | undefined {
@@ -689,10 +722,12 @@ function detectMeetingContract(
   const meetingContext =
     LEGACY_MEETING_CONTEXT_PATTERN.test(`${agentText} ${text}`) ||
     Boolean(activeProposal) ||
-    followUpPrompt;
+    followUpPrompt ||
+    (existingAgreement && (reschedule || durationChange || channelChange));
   if (!affirmative || !meetingContext) return null;
 
   const proposalTiming = extractConversationalCallbackTiming(activeProposal?.timingText || previousAgent?.text || '');
+  const previousTiming = extractConversationalCallbackTiming(state.nextStepAgreement?.timeOrDeadline || '');
   const explicitClientDay = extractCallbackDateOrDay(turn.text);
   const clientSlot = conversationalTiming
     ? [explicitClientDay || conversationalTiming.dateOrDay, conversationalTiming.time].filter(Boolean).join(' ')
@@ -701,12 +736,14 @@ function detectMeetingContract(
   const explicitPartialChange = durationChange || channelChange;
   const inheritedSingleAgentSlot = !clientSlot && !explicitPartialChange && agentSlots.length === 1 ? agentSlots[0] : null;
   const callbackSlot = clientSlot || inheritedSingleAgentSlot;
-  const time = conversationalTiming?.time || extractClock(callbackSlot) || (!clientSlot && agentSlots.length <= 1 ? proposalTiming?.time || null : null);
+  const incomingTime = conversationalTiming?.time || extractClock(callbackSlot) || (agentSlots.length <= 1 ? proposalTiming?.time || null : null);
+  const time = inheritMeetingTimezone(previousTiming?.time || null, incomingTime || previousTiming?.time || null);
   const clientDay = explicitClientDay || (conversationalTiming?.dateOrDay === 'сегодня' && proposalTiming?.dateOrDay
     ? proposalTiming.dateOrDay
     : conversationalTiming?.dateOrDay) || null;
   const inheritedDay = inheritedSingleAgentSlot?.match(/(?:^|[^\p{L}\p{N}])(сегодня|завтра|послезавтра|понедельник|вторник|сред[ау]|четверг|пятниц[ау]|суббот[ау]|воскресенье)(?=$|[^\p{L}\p{N}])/iu)?.[1] || null;
-  const dateOrDay = clientDay || inheritedDay || proposalTiming?.dateOrDay || null;
+  const incomingDate = clientDay || inheritedDay || proposalTiming?.dateOrDay || null;
+  const dateOrDay = mergeMeetingDate(previousTiming?.dateOrDay || null, incomingDate);
   const replacementChannel = channelChange
     ? text.match(/а\s+(видео\p{L}*|встреч\p{L}*|звонок|созвон)/iu)?.[1] || null
     : null;
@@ -1132,15 +1169,14 @@ export function applyConversationEvent(
   if (event.type === 'MEETING_CONTRACT' && event.meetingContract) {
     const contract = event.meetingContract;
     const previousAgreement = current.nextStepAgreement;
-    const proposedTime = composeMeetingDeadline(contract.dateOrDay, contract.time);
     const normalizedPreviousTime = normalizeMeetingDeadline(previousAgreement?.timeOrDeadline);
-    const previousHasClock = /\d{1,2}:\d{2}/u.test(normalizedPreviousTime || '');
-    const proposedHasClock = /\d{1,2}:\d{2}/u.test(proposedTime || '');
-    // A later generic “завтра созвонимся” must not erase the already agreed
-    // “завтра в 12:00”. Preserve the more specific confirmed contract.
-    const effectiveTime = previousHasClock && !proposedHasClock
-      ? normalizedPreviousTime
-      : normalizeMeetingDeadline(proposedTime || normalizedPreviousTime);
+    const previousTiming = extractConversationalCallbackTiming(normalizedPreviousTime || '');
+    const effectiveDate = mergeMeetingDate(previousTiming?.dateOrDay || null, contract.dateOrDay);
+    const effectiveClock = inheritMeetingTimezone(previousTiming?.time || null, contract.time);
+    // Date and time may arrive in separate client turns. Merge the two fields
+    // independently so a date-only or time-only correction cannot erase the
+    // other already confirmed part of the same contract.
+    const effectiveTime = composeMeetingDeadline(effectiveDate, effectiveClock);
     const incomingStatus = event.meetingConsentQuality === 'clear' ? 'agreed' as const : 'discussing' as const;
     const effectiveStatus = previousAgreement?.status === 'agreed' && incomingStatus === 'discussing'
       ? 'agreed' as const
