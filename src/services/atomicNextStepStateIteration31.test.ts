@@ -101,8 +101,10 @@ describe('FIX 31 atomic next-step state synchronization', () => {
     expect(result.state.nextStepAgreement?.status).toBe('agreed');
     expect(result.state.agreedNextStep.value).toMatch(/созвон/iu);
     expectAtomicNextStep(result.state);
-    expect(result.state.confirmedFacts.find((fact) => fact.value === 'Видеопоказ вариантов')?.lifecycleStatus)
-      .toMatch(/superseded|rejected/iu);
+    const historicalFalseVideo = result.state.confirmedFacts.find((fact) => fact.value === 'Видеопоказ вариантов');
+    if (historicalFalseVideo) {
+      expect(historicalFalseVideo.lifecycleStatus).toMatch(/superseded|rejected/iu);
+    }
   });
 
   it('synchronizes a new contextual agreement', () => {

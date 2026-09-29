@@ -710,11 +710,20 @@ function detectMeetingContract(
   const clientSchedulingVerb = /(?:давайте|созвон\p{L}*|позвон\p{L}*|перезвон\p{L}*|свяж\p{L}*|продолж\p{L}*)/iu.test(text);
   const contextualTimingResponse = Boolean(activeProposal && clientHasOwnTiming);
   const explicitAffirmative = /(?:^|[^\p{L}\p{N}])(?:да|давайте|согласен|согласна|подходит|удобно|удобнее|предпочту|выбираю|договорились|окей|хорошо)(?:$|[^\p{L}\p{N}])/iu.test(text);
+  const explicitCurrentCommitment =
+    (clientHasOwnTiming && explicitAffirmative) ||
+    /(?:давайте|договорились|согласен|согласна)[^.!?]{0,45}(?:видео\p{L}*|созвон\p{L}*|встреч\p{L}*|звонок|позвон\p{L}*)/iu.test(text);
+  const nonCurrentAffirmativeWithoutCommitment = !explicitCurrentCommitment && (
+    /(?:^|[^\p{L}\p{N}])(?:то|тогда)\s+да(?:$|[^\p{L}\p{N}])/iu.test(text) ||
+    /(?:^|[^\p{L}\p{N}])если\b[^.!?]{0,100}(?:\bда\b|устроит|подойд[её]т)/iu.test(text) ||
+    /(?:может\s+быть|возможно)[^.!?]{0,20}потом|потом[^.!?]{0,20}(?:можно|обратимся|созвонимся|по\s+видео)/iu.test(text) ||
+    /(?:пришл\p{L}*|отправ\p{L}*)[^.!?]{0,35}(?:информац\p{L}*|материал\p{L}*|вариант\p{L}*|презентац\p{L}*|планировк\p{L}*|цен\p{L}*)|(?:информац\p{L}*|материал\p{L}*|вариант\p{L}*|презентац\p{L}*|планировк\p{L}*|цен\p{L}*)[^.!?]{0,35}(?:пришл\p{L}*|отправ\p{L}*)/iu.test(text)
+  );
   const durationChange = existingAgreement && explicitAgreementDurationChange(turn.text);
   const channelChange = existingAgreement && explicitAgreementChannelChange(turn.text);
   const reschedule = existingAgreement && explicitAgreementReschedule(turn.text);
   const affirmative =
-    explicitAffirmative ||
+    (!nonCurrentAffirmativeWithoutCommitment && explicitAffirmative) ||
     contextualTimingResponse ||
     durationChange ||
     channelChange ||

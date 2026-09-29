@@ -803,8 +803,18 @@ export function extractDeterministicFacts(
     hasAnyWholeWord(clean, ['нельзя', 'неудобно']) ||
     (!isPoliteAgreement && hasAnyWholeWord(clean, ['нет']));
 
+  const explicitCurrentNextStepCommitment =
+    /(?:давайте|договорились|согласен|согласна)[^.!?]{0,45}(?:видео\p{L}*|созвон\p{L}*|встреч\p{L}*|звонок|позвон\p{L}*)/iu.test(lower) ||
+    /(?:^|[^\p{L}\p{N}])(?:да|хорошо)[^.!?]{0,45}(?:сегодня|завтра|послезавтра|в\s+\d{1,2}(?::\d{2})?)(?:$|[^\p{L}\p{N}])/iu.test(lower);
+  const nonCurrentAffirmativeWithoutCommitment = !explicitCurrentNextStepCommitment && (
+    /(?:^|[^\p{L}\p{N}])(?:то|тогда)\s+да(?:$|[^\p{L}\p{N}])/iu.test(lower) ||
+    /(?:^|[^\p{L}\p{N}])если\b[^.!?]{0,100}(?:\bда\b|устроит|подойд[её]т)/iu.test(lower) ||
+    /(?:может\s+быть|возможно)[^.!?]{0,20}потом|потом[^.!?]{0,20}(?:можно|обратимся|созвонимся|по\s+видео)/iu.test(lower) ||
+    /(?:пришл\p{L}*|отправ\p{L}*)[^.!?]{0,35}(?:информац\p{L}*|материал\p{L}*|вариант\p{L}*|презентац\p{L}*|планировк\p{L}*|цен\p{L}*)|(?:информац\p{L}*|материал\p{L}*|вариант\p{L}*|презентац\p{L}*|планировк\p{L}*|цен\p{L}*)[^.!?]{0,35}(?:пришл\p{L}*|отправ\p{L}*)/iu.test(lower)
+  );
   const isAffirmative =
     !isNegativeNextStep &&
+    !nonCurrentAffirmativeWithoutCommitment &&
     (isPoliteAgreement ||
       hasAnyWholeWord(clean, [
         'да',
