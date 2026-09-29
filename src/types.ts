@@ -60,6 +60,7 @@ export type FactLifecycleStatus =
 export type ConversationEventType =
   | 'COMPLIANCE_STOP'
   | 'CLIENT_STOP'
+  | 'NOT_ACTUAL'
   | 'TIME_CONSTRAINT'
   | 'TIME_CONTRACT'
   | 'TIME_CONTRACT_WARNING'
@@ -93,7 +94,8 @@ export type ClientBoundaryMode =
   | 'none'
   | 'limited_active_window'
   | 'defer'
-  | 'hard_stop';
+  | 'hard_stop'
+  | 'not_actual';
 
 export interface ConversationEventRecord {
   id: string;

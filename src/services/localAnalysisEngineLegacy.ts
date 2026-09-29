@@ -300,6 +300,17 @@ export function advanceLocalConversation(current: ConversationState, turn: Trans
       dialogueControl: { ...state.dialogueControl, clientBoundaryActive: false },
     };
   }
+  if (
+    turn.speaker === 'client' &&
+    state.dialogueControl?.boundaryMode === 'not_actual' &&
+    !['CLIENT_STOP', 'TIME_CONSTRAINT', 'COMPLIANCE_STOP', 'NOT_ACTUAL'].includes(String(event?.type || '')) &&
+    /(?:давайте\s+(?:посмотрим|рассмотрим|сравним)|(?:всё-таки|все\s+же|теперь)\s+(?:рассматрива|ищ|интересу))/iu.test(turn.text)
+  ) {
+    state = {
+      ...state,
+      dialogueControl: { ...state.dialogueControl, clientBoundaryActive: false, boundaryMode: 'none' },
+    };
+  }
 
   state = updateObjectionLifecycle(state, turn, clientIntent.type === 'objection' ? localObjection?.category : undefined, event?.nextStepTarget);
   if (turn.speaker === 'client') {
@@ -313,6 +324,7 @@ export function advanceLocalConversation(current: ConversationState, turn: Trans
         'MEETING_CONTRACT',
         'AMBIGUOUS_CONFIRMATION',
         'CLIENT_STOP',
+        'NOT_ACTUAL',
         'TIME_CONSTRAINT',
         'COMPLIANCE_STOP',
       ].includes(event.type)

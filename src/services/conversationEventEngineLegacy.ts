@@ -109,7 +109,7 @@ const hasBusinessTimeBoundary = (text: string): boolean => {
   const workLogistics = /(?:я\s+(?:сейчас\s+)?на\s+работе|(?:^|[.!?]\s*)на\s+работе[^.!?]{0,35}(?:коротко|быстро|по\s+делу)|у\s+меня\s+встреча\s+через\s+(?:\d+|пять|десять|пару)\s+минут)/iu.test(text);
   const brevityRequest = /(?:если\s+можно[^.!?]{0,20})?(?:давайте\s+)?(?:коротко(?:\s+и\s+по\s+делу)?|быстро\s+и\s+по\s+делу)|(?:лучше\s+)?ближе\s+к\s+сути/iu.test(text);
   const shortMeetingAgreement = /давайте\s+коротко\s+(?:созвон\p{L}*|посмотр\p{L}*|встрет\p{L}*)/iu.test(text);
-  const limitedAvailability = /(?:времени\s+(?:немного|мало)|я\s+(?:сейчас\s+)?занят[^.!?]{0,28}(?:пару\s+минут|немного\s+времени)|сейчас\s+долго\s+говорить\s+не\s+могу)/iu.test(text);
+  const limitedAvailability = /(?:времени\s+(?:не\s+очень\s+много|немного|мало)|я\s+(?:сейчас\s+)?занят[^.!?]{0,28}(?:пару\s+минут|немного\s+времени)|сейчас\s+долго\s+говорить\s+не\s+могу)/iu.test(text);
   return workLogistics || (brevityRequest && !shortMeetingAgreement) || limitedAvailability;
 };
 
@@ -118,10 +118,16 @@ export function classifyClientBoundaryMode(value: string): ClientBoundaryMode {
   const text = normalize(value);
   const shortMeetingAgreement = /давайте\s+коротко\s+(?:созвон\p{L}*|посмотр\p{L}*|встрет\p{L}*)/iu.test(text);
   const defer =
-    /перезвоните[^.!?]{0,45}(?:вечером|позже|завтра|после\s+\p{L}+|через\s+(?:\d+|\p{L}+)\s+(?:минут\p{L}*|час\p{L}*))|позвоните\s+(?:вечером|позже|завтра|после\s+\p{L}+|через\s+(?:\d+|\p{L}+)\s+(?:минут\p{L}*|час\p{L}*))|наберите[^.!?]{0,45}(?:вечером|позже|завтра|после\s+\p{L}+|через\s+(?:\d+|\p{L}+)\s+(?:минут\p{L}*|час\p{L}*))|давайте\s+(?:позже|потом|в\s+другой\s+раз)|сейчас\s+не\s+могу[^.!?]{0,50}(?:перезвон|позвон|набер|через)/iu.test(text);
+    /попробуйте\s+(?:позвонить|перезвонить|набрать)[^.!?]{0,45}(?:после\s+обеда|вечером|позже|завтра)/iu.test(text) ||
+    /перезвоните[^.!?]{0,45}(?:вечером|позже|завтра|после\s+\p{L}+|через\s+(?:\d+|\p{L}+)\s+(?:минут\p{L}*|час\p{L}*))|позвоните\s+(?:вечером|позже|завтра|после\s+(?:\p{L}+|\d+)|через\s+(?:\d+|\p{L}+)\s+(?:минут\p{L}*|час\p{L}*))|наберите[^.!?]{0,45}(?:вечером|позже|завтра|после\s+\p{L}+|через\s+(?:\d+|\p{L}+)\s+(?:минут\p{L}*|час\p{L}*))|давайте\s+(?:позже|потом|в\s+другой\s+раз)|сейчас\s+не\s+могу[^.!?]{0,50}(?:перезвон|позвон|набер|через)/iu.test(text);
   if (defer) return 'defer';
 
+  const shortActiveAvailability = /(?:есть|могу|давайте|у\s+меня)\s+(?:пару|две|три|пять|\d+)\s+минут(?:ы)?|(?:пару|две|три|пять|\d+)\s+минут(?:ы)?\s+(?:есть|могу)/iu.test(text) ||
+    /(?:пару|две|три|пять|\d+)\s+сейчас[^.!?]{0,35}(?:быстро|оперативно|коротко)/iu.test(text);
+  const limitedDuration = /(?:не\s+могу\s+так\s+долго\s+разговаривать|не\s+могу\s+долго\s+говорить|времени\s+(?:не\s+очень\s+много|немного|мало))/iu.test(text);
+  const briefPermission = /(?:(?:давайте|можно|если\s+можно|только)\s+(?:быстро|оперативно|коротко)(?=$|[,.!?]|\s+и\s+по\s+делу)|(?:коротко|быстро)\s+и\s+по\s+делу|^(?:коротко|быстро|оперативно)[,.!?]?$)/iu.test(text);
   const limitedWindow = !shortMeetingAgreement && (
+    shortActiveAvailability || limitedDuration || briefPermission ||
     /(?:у\s+меня\s+(?:правда\s+)?(?:сейчас\s+)?(?:есть\s+)?(?:буквально\s+)?|буквально\s+|есть\s+)(?:пару|две|три|\d+)\s+минут(?:ы)?(?:\s+(?:есть|могу|можно))?/iu.test(text) ||
     /могу\s+(?:говорить\s+)?(?:буквально\s+)?(?:пару|две|три|\d+)\s+минут(?:ы)?/iu.test(text) ||
     /сейчас\s+могу\s+говорить\s+минуты?\s+(?:две|три|\d+)/iu.test(text) ||
@@ -129,17 +135,27 @@ export function classifyClientBoundaryMode(value: string): ClientBoundaryMode {
     /(?:я\s+занят[^.!?]{0,25})?(?:но\s+)?пару\s+минут\s+есть/iu.test(text) ||
     /времени\s+(?:мало|немного)[^.!?]{0,35}(?:ближе\s+к\s+сути|коротко|быстро)/iu.test(text) ||
     /времени\s+(?:мало|немного)[^.!?]{0,35}(?:но\s+)?(?:пару|один|два|несколько)\s+вопрос\p{L}*\s+можно/iu.test(text) ||
-    /(?:я\s+(?:сейчас\s+)?на\s+работе[^.!?]{0,45})?(?:давайте\s+)?(?:коротко|быстро)(?:\s+и\s+по\s+делу)?/iu.test(text) ||
+    /я\s+(?:сейчас\s+)?на\s+работе[^.!?]{0,45}(?:коротко|быстро)(?=$|[,.!?]|\s+и\s+по\s+делу)/iu.test(text) ||
     /(?:если\s+можно[^.!?]{0,20})(?:коротко|быстро|по\s+делу)/iu.test(text)
   );
   if (limitedWindow) return 'limited_active_window';
 
   const hardStop =
-    /(?:^|[.!?]\s*)(?:не\s+могу\s+говорить|сейчас\s+(?:вообще\s+)?неудобно|мне\s+некогда|не\s+звоните\s+сейчас|я\s+занят[^.!?]{0,30}говорить\s+не\s+могу)(?:$|[.!?])/iu.test(text) ||
+    /(?:^|[.!?]\s*)(?:не\s+могу\s+говорить|сейчас\s+(?:вообще\s+|совсем\s+)?неудобно|сейчас\s+совсем\s+не\s+могу|мне\s+некогда|не\s+звоните\s+сейчас|я\s+занят[^.!?]{0,30}говорить\s+не\s+могу)(?:$|[.!?])/iu.test(text) ||
+    /мне\s+неудобно\s+говорить/iu.test(text) ||
     /(?:говорить\s+(?:совсем\s+)?неудобно|на\s+разговор\s+времени\s+нет)/iu.test(text);
   if (hardStop) return 'hard_stop';
 
   return 'none';
+}
+
+function hasNotActualIntent(value: string): boolean {
+  const text = normalize(value);
+  const currentlyInactive = /(?:уже|сейчас|теперь|пока|больше)?\s*не\s+актуально|неактуально|сейчас\s+не\s+(?:рассматриваю|интересует)|(?:нет[,\s]+)?передумал(?:и|а)?(?:\s+покупать)?/iu.test(text);
+  const scopedAlternative = /(?:ипотек|рассроч|видео|видеопоказ|планировк|район)[^.!?]{0,35}(?:не\s+актуально|неактуально|сейчас\s+не\s+(?:рассматриваю|интересует))|сейчас\s+не\s+(?:рассматриваю|интересует)[^.!?]{0,35}(?:ипотек|рассроч|видео|видеопоказ|планировк|район)/iu.test(text);
+  const explicitRenewal = /(?:но|зато)\s+(?:сейчас|теперь|снова|опять)\s+(?:рассматрива|интересу|ищ)/iu.test(text);
+  const changedPurpose = /передумал\p{L}*[^.!?]{0,70}(?:теперь|вместо|рассматрива|ищ|беру|покупа|квартир|апартамент|дом|для\s+жизни|для\s+себя|жить|инвест|аренд)/iu.test(text);
+  return currentlyInactive && !scopedAlternative && !explicitRenewal && !changedPurpose;
 }
 
 const allowsBriefContinuation = (text: string): boolean =>
@@ -953,7 +969,9 @@ export function detectConversationEvent(
     const boundaryMode = detectedBoundaryMode === 'none' ? 'defer' : detectedBoundaryMode;
     return configuredEvent(timeConstraint, turn, {
       actionType: timeConstraint.actionType,
-      suggestedReply: materialRequest
+      suggestedReply: boundaryMode === 'defer' && /после\s+обеда/iu.test(text)
+        ? 'Понял, позвоню после обеда. Сейчас не задерживаю.'
+        : materialRequest
         ? 'Понял, не отвлекаю. Отправлю запрошенный материал; к разговору вернёмся позже.'
         : callbackTime
         ? `Понял. Перезвоню ${callbackTime}. Не отвлекаю.`
@@ -965,6 +983,17 @@ export function detectConversationEvent(
         : timeConstraint.shortReason,
       boundaryMode,
     });
+  }
+
+  if (hasNotActualIntent(turn.text)) {
+    return {
+      type: 'NOT_ACTUAL', priority: 114, actionType: 'RESPECT_STOP',
+      ruleId: 'not_actual_current_interest',
+      suggestedReply: 'Понял, сейчас вопрос недвижимости не актуален. Не буду продолжать подбор. Если ситуация изменится, вернёмся к разговору по вашему сигналу.',
+      shortReason: 'Клиент сообщил, что текущий интерес закрыт; не продолжаем квалификацию.',
+      evidenceTurnId: turn.id, evidenceQuote: turn.text,
+      suppressesAnalysis: true, stage: 'diagnostics', boundaryMode: 'not_actual',
+    };
   }
 
   const previousAgent = lastAgentBefore(turn, recentTurns);
@@ -1135,11 +1164,11 @@ export function applyConversationEvent(
   control.lastEventType = event.type;
   control.lastEventTurnId = turn.id;
 
-  if (event.type === 'CLIENT_STOP' || event.type === 'TIME_CONSTRAINT' || event.type === 'COMPLIANCE_STOP') {
+  if (event.type === 'CLIENT_STOP' || event.type === 'TIME_CONSTRAINT' || event.type === 'COMPLIANCE_STOP' || event.type === 'NOT_ACTUAL') {
     control.clientBoundaryActive = true;
     control.boundaryMode = event.type === 'TIME_CONSTRAINT'
       ? event.boundaryMode || 'defer'
-      : 'hard_stop';
+      : event.type === 'NOT_ACTUAL' ? 'not_actual' : 'hard_stop';
   }
   if (event.type === 'SOFT_RESISTANCE') {
     if (!eventAlreadyRecorded) control.softResistanceCount += 1;
