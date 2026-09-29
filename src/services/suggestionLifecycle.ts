@@ -1,4 +1,4 @@
-import { ConversationState, DiagnosticsData, SuggestedReply, isMetricClosed } from '../types';
+import { ConversationState, DiagnosticsData, RecommendationOutcome, SuggestedReply, isMetricClosed } from '../types';
 import { extractDeterministicFacts } from './deterministicFacts';
 import {
   arbitrateRecommendationCandidates,
@@ -124,6 +124,23 @@ export function shouldReplaceSuggestion(
     asRecommendationCandidate(current, '__current__')
   );
   return arbitration.winner?.id === '__candidate__';
+}
+
+export function decideRecommendationOutcome(
+  current: SuggestedReply | null,
+  candidate: SuggestedReply | null,
+  now = Date.now()
+): RecommendationOutcome {
+  if (!candidate) {
+    if (!current) return 'NO_NEW_RECOMMENDATION';
+    const status = current.lifecycleStatus || 'shown';
+    const active = !['expired', 'superseded', 'suppressed'].includes(status) &&
+      now - current.createdAt <= (current.ttlMs ?? 15000);
+    return active ? 'KEEP_ACTIVE_RECOMMENDATION' : 'NO_NEW_RECOMMENDATION';
+  }
+  return shouldReplaceSuggestion(current, candidate, now)
+    ? 'NEW_RECOMMENDATION'
+    : 'KEEP_ACTIVE_RECOMMENDATION';
 }
 
 /** Branch constraints apply to both local and cloud candidates before display. */

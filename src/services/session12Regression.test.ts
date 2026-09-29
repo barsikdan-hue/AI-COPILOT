@@ -67,9 +67,9 @@ describe('session 12 field regression', () => {
       1
     );
     const event = detectConversationEvent(client, [client], createInitialState());
-    expect(event?.type).toBe('SOFT_RESISTANCE');
-    expect(event?.actionType).toBe('CLARIFY');
-    expect(event?.ruleId).toBe('soft_resistance_materials');
+    expect(event?.type).toBe('MATERIAL_REQUEST');
+    expect(event?.actionType).toBe('ANSWER');
+    expect(event?.ruleId).toBe('material_request');
     expect(event?.suggestedReply).toMatch(/отправлю|цен|локац|планиров/iu);
     expect(event?.suggestedReply).not.toMatch(/по конкретному объекту отвечу/iu);
   });

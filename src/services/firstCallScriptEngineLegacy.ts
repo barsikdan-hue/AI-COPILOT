@@ -1788,8 +1788,8 @@ export function evaluateFirstCallScript(
       : 'Не согласован',
     semanticReason:
       ppvStatus === 'confirmed'
-        ? 'Обязательный критерий ППВ выполнен: согласован видеопоказ на экране с экспертом застройщика в конкретный слот'
-        : 'Главный следующий шаг первого звонка — видеопоказ на 15 минут (не фото в мессенджер)',
+        ? 'Согласован видеопоказ на экране с экспертом застройщика в конкретный слот'
+        : 'Видеопоказ не согласован; это допустимый контекстный следующий шаг, но не обязательный исход первого звонка',
     confidence: ppvConfirmed ? 0.95 : 0.6,
     agentQuestionAsked: Boolean(agentAskedMetricMap['ppv']),
     agentQuestionQuote: agentAskedMetricMap['ppv']?.quote || null,
@@ -1809,19 +1809,15 @@ export function evaluateFirstCallScript(
   const mandatoryTrustPassed = trustStatus === 'confirmed';
   const mandatoryPpvPassed = ppvStatus === 'confirmed';
 
-  const isQualityCall = passedCoreCriteriaCount >= 7 && mandatoryTrustPassed && mandatoryPpvPassed;
+  const isQualityCall = passedCoreCriteriaCount >= 7 && mandatoryTrustPassed;
 
   let verdict: 'QUALITY' | 'NEEDS_WORK' = isQualityCall ? 'QUALITY' : 'NEEDS_WORK';
   let verdictReason = '';
 
   if (isQualityCall) {
-    verdictReason = `Качественный звонок: выполнено ${passedCoreCriteriaCount}/12 критериев, включая Доверие и ППВ.`;
-  } else if (!mandatoryTrustPassed && !mandatoryPpvPassed) {
-    verdictReason = `Не качественный звонок: отсутствуют обязательные критерии Доверие и ППВ (выполнено ${passedCoreCriteriaCount}/12).`;
+    verdictReason = `Качественный звонок: выполнено ${passedCoreCriteriaCount}/12 критериев, включая Доверие; следующий шаг выбран по контексту клиента.`;
   } else if (!mandatoryTrustPassed) {
     verdictReason = `Не качественный звонок: не выполнен обязательный критерий Доверие (выполнено ${passedCoreCriteriaCount}/12).`;
-  } else if (!mandatoryPpvPassed) {
-    verdictReason = `Не качественный звонок: не выполнен обязательный критерий ППВ — вывод на видеопрезентацию (выполнено ${passedCoreCriteriaCount}/12).`;
   } else {
     verdictReason = `Требует доработки: выполнено ${passedCoreCriteriaCount}/12 критериев (необходимо минимум 7).`;
   }
@@ -1895,14 +1891,10 @@ export function evaluateFirstCallScript(
     immediatePriorityMetric = 'ppi';
     immediatePriorityHint = 'Выяснить задачу по ипотеке и предложить короткую консультацию специалиста без давления';
     nextScriptStep = 'ППИ';
-  } else if (!state.dialogueControl?.blockedNextSteps?.includes('ppv') && !isMetricClosed(metrics['ppv'].status)) {
-    immediatePriorityMetric = 'ppv';
-    immediatePriorityHint = 'Предложить 15-минутный онлайн-показ со специалистом застройщика на выбор: сегодня или завтра';
-    nextScriptStep = 'Вывод на видеопоказ (ППВ)';
   } else {
-    immediatePriorityMetric = 'ppv';
-    immediatePriorityHint = 'Подтвердить дату, время и отправку ссылки в мессенджер';
-    nextScriptStep = 'Фиксация договорённости';
+    immediatePriorityMetric = 'nextStep';
+    immediatePriorityHint = 'Определить следующий шаг из текущего намерения клиента';
+    nextScriptStep = 'Контекстный следующий шаг';
   }
 
   if (state.dialogueControl?.blockedNextSteps?.includes(immediatePriorityMetric)) {
@@ -1927,8 +1919,6 @@ export function evaluateFirstCallScript(
     routeStage = 'objections';
   } else if (!state.dialogueControl?.blockedNextSteps?.includes('ppi') && !isMetricClosed(metrics['ppi'].status) && metrics['paymentMethod'].value?.toLowerCase().includes('ипотек')) {
     routeStage = 'ppi';
-  } else if (!state.dialogueControl?.blockedNextSteps?.includes('ppv') && !isMetricClosed(metrics['ppv'].status)) {
-    routeStage = 'ppv';
   } else {
     routeStage = 'next_step';
   }
@@ -2033,22 +2023,7 @@ export function getFirstCallSuggestion(
           lastClientText.includes('продаем свою')) &&
         !isMetricClosed(progress.metrics['downPaymentSource']?.status),
     },
-    // 3. Client objection: "Пришлите фото"
-    {
-      closesMetric: 'ppv',
-      closesMetricLabel: 'Вывод на видеопрезентацию (ППВ)',
-      immediatePriority: 'Отработка возражения: перевод с фото на 15-минутный видеопоказ',
-      suggestedReply: 'Фото я отправлю, но по ним сложно оценить локацию и планировку. Лучше на 15 минут подключим специалиста застройщика и посмотрим всё по видео. Вечером удобно?',
-      shortReason: 'Признание сомнения, изоляция возражения и вывод на видеопоказ со специалистом застройщика.',
-      recognizedMeaning: 'Клиент просит прислать фото в мессенджер вместо назначения следующего шага.',
-      expectedClientMeaning: 'Клиент соглашается уделить 15 минут на видеопоказ вместо поверхностных фото.',
-      condition: () =>
-        (lastClientText.includes('пришлите фото') ||
-          lastClientText.includes('скиньте фото') ||
-          lastClientText.includes('отправьте фото')) &&
-        !isMetricClosed(progress.metrics['ppv']?.status),
-    },
-    // 4. Missing Decision Maker (only if not already disclosed!)
+    // 3. Missing Decision Maker (only if not already disclosed!)
     {
       closesMetric: 'decisionMaker',
       closesMetricLabel: 'Лицо, принимающее решение (ЛПР)',
@@ -2061,7 +2036,7 @@ export function getFirstCallSuggestion(
         !isMetricClosed(progress.metrics['decisionMaker']?.status) &&
         isMetricClosed(progress.metrics['goal']?.status),
     },
-    // 5. Missing Down payment source
+    // 4. Missing Down payment source
     {
       closesMetric: 'downPaymentSource',
       closesMetricLabel: 'Источник первоначального взноса',
@@ -2074,18 +2049,20 @@ export function getFirstCallSuggestion(
         !isMetricClosed(progress.metrics['downPaymentSource']?.status) &&
         isMetricClosed(progress.metrics['downPayment']?.status),
     },
-    // 6. Propose PPV (Video Presentation)
+    // 5. Propose PPV only from current explicit video readiness.
     {
       closesMetric: 'ppv',
       closesMetricLabel: 'Вывод на видеопрезентацию (ППВ)',
       immediatePriority: 'Следующий приоритет: согласовать видеопрезентацию с экспертом',
       suggestedReply: 'Чтобы вы не тратили недели на поездки, лучше провести 15-минутный видеопоказ: выведем планировки, а специалист застройщика сразу ответит по условиям. Вам удобнее сегодня в 18:00 или завтра в 12:00?',
-      shortReason: 'ППВ — обязательный критерий звонка. Привязка к ценности, эксперт застройщика и вилка времени.',
-      recognizedMeaning: 'Потребность выявлена, требуется перевод диалога в целевой следующий шаг (видеопоказ).',
+      shortReason: 'Клиент сам обозначил готовность к видео; уточняем конкретный слот.',
+      recognizedMeaning: 'Текущий клиентский intent допускает видеопоказ как полезный следующий шаг.',
       expectedClientMeaning: 'Клиент выбирает удобный слот для короткого видеопоказа на экране.',
       condition: () =>
         !isMetricClosed(progress.metrics['ppv']?.status) &&
-        isMetricClosed(progress.metrics['goal']?.status),
+        isMetricClosed(progress.metrics['goal']?.status) &&
+        /(?:хочу|готов\p{L}*|можно|давайте|удобно)[^.!?]{0,35}(?:видео|видеопоказ|видеовстреч)|(?:видео|видеопоказ|видеовстреч)[^.!?]{0,35}(?:хочу|готов\p{L}*|можно|давайте|удобно)/iu.test(lastClientText) &&
+        !/(?:не\s+(?:хочу|готов\p{L}*|нужно)|сначала|если|потом|позже)/iu.test(lastClientText),
     },
   ];
 

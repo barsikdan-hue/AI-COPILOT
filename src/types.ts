@@ -70,11 +70,18 @@ export type ConversationEventType =
   | 'EXPLICIT_REJECTION'
   | 'MEETING_CONTRACT'
   | 'RESEARCH_MODE'
+  | 'MATERIAL_REQUEST'
+  | 'CLIENT_PREFERENCE'
   | 'SOFT_RESISTANCE'
   | 'NEXT_STEP_RESISTANCE'
   | 'NEXT_STEP_REOPENED'
   | 'FINANCE_VERIFY'
   | 'ASR_GATE';
+
+export type RecommendationOutcome =
+  | 'NEW_RECOMMENDATION'
+  | 'KEEP_ACTIVE_RECOMMENDATION'
+  | 'NO_NEW_RECOMMENDATION';
 
 export type MeetingConsentQuality =
   | 'none'
@@ -533,6 +540,7 @@ export interface AnalysisResponse {
   dealStage?: DealStage;
   conversationTask?: ConversationTask;
   clientIntent?: string;
+  recommendationOutcome?: RecommendationOutcome;
   actionType?: ActionType;
   suggestionMode?: SuggestionMode;
   agentAction?: AgentActionType;

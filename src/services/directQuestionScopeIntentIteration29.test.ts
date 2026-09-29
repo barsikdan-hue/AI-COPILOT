@@ -85,12 +85,18 @@ describe('FIX 29 direct-question scope and intent resolution', () => {
     ['Сколько стоит квартира?', 'direct_question_price'],
     ['Какие документы есть по объекту?', 'direct_question_documents'],
     ['Какая ставка по ипотеке?', 'direct_question_financing'],
-    ['Скиньте цены и планировки?', 'direct_question_materials_request'],
     ['Что реально интересного есть у моря?', 'direct_question_market_options'],
   ])('preserves neighboring intent %s', (text, ruleId) => {
     const event = eventFor(text);
     expect(event?.type).toBe('DIRECT_QUESTION');
     expect(event?.ruleId).toBe(ruleId);
+  });
+
+  it('keeps a requested delivery action distinct from a factual direct question', () => {
+    const event = eventFor('Скиньте цены и планировки?');
+    expect(event?.type).toBe('MATERIAL_REQUEST');
+    expect(event?.ruleId).toBe('material_request');
+    expect(event?.actionType).toBe('ANSWER');
   });
 
   it('preserves the dedicated next-step route', () => {

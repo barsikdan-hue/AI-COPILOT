@@ -28,7 +28,7 @@ describe('AI Copilot mass offline regression baseline', () => {
         "baseGoldenCases": 101,
         "clusters": [],
         "fail": 0,
-        "fingerprint": "a6cd457dd2f61c8415ebe450193b6d2644bc228090fa8d28cf1b2dfdc13adfc2",
+        "fingerprint": "492c0b724fecf4a1f9182fd0072b3259f832eaf9414ca990fcecb826aed809b4",
         "generatedScenarios": 3232,
         "pass": 12288,
         "passRate": 100,

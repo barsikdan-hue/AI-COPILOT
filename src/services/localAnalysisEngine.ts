@@ -754,6 +754,10 @@ export function buildLocalAnalysisResponse(
   }
 
   const researchMode = Boolean(input.currentState?.dialogueControl?.researchMode);
+  const explicitNoReplacement = [
+    'state_validator_no_replacement',
+    'intentional_no_new',
+  ].includes(String(result.candidateRuleId || ''));
   const protectedReply = Boolean(
     researchMode ||
     result.eventType ||
@@ -763,7 +767,7 @@ export function buildLocalAnalysisResponse(
   );
 
   let policyApplied = false;
-  if (!protectedReply && result.shouldSuggest && result.suggestedReply) {
+  if (!protectedReply && !explicitNoReplacement) {
     const policySelection = selectPolicyQualification(input, result, turns);
     const existingKey = semanticKey(result.suggestedReply);
     const qualificationLike =
@@ -797,7 +801,7 @@ export function buildLocalAnalysisResponse(
 
     if (
       policySelection &&
-      (qualificationLike || earlyTriggerBridge) &&
+      (!result.shouldSuggest || qualificationLike || earlyTriggerBridge) &&
       !policyAlreadyTargetsCurrent
     ) {
       applyContextualCard(result, policySelection, {
@@ -820,6 +824,11 @@ export function buildLocalAnalysisResponse(
     const selected = selectContextualQualification(input, result, turns);
     if (selected && selected.card.metric !== result.closesMetric) applyContextualCard(result, selected);
   }
+
+  result.shouldSuggest = Boolean(result.suggestedReply);
+  result.recommendationOutcome = result.shouldSuggest
+    ? 'NEW_RECOMMENDATION'
+    : 'NO_NEW_RECOMMENDATION';
 
   return result as AnalysisResponse;
 }

@@ -120,11 +120,8 @@ describe('session 5 semantic core regression', () => {
     expect(state.scriptProgress?.ppv.clientAgreed).toBe(true);
   });
 
-  it('does not go silent on substantive client turns and handles the active objection', () => {
+  it('handles active objections without forcing a card for every substantive turn', () => {
     const { hints } = replay(dialogue);
-    const substantive = hints.filter((item) => item.clientText.trim().length >= 18);
-    const silent = substantive.filter((item) => !item.text?.trim());
-    expect(silent).toEqual([]);
 
     const videoRefusal = hints.find((item) => item.clientText.includes('не готов час'));
     expect(videoRefusal?.text).toMatch(/15 минут|что именно|формат|видео/iu);

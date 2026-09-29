@@ -69,6 +69,7 @@ describe('P0 goal-deferred recommendation liveness', () => {
     });
 
     expect(response.shouldSuggest).toBe(true);
+    expect(response.recommendationOutcome).toBe('NEW_RECOMMENDATION');
     expect(response.suggestedReply).toBeTruthy();
     expect(response.closesMetric).toBe('experience');
     expect(response.candidateRuleId).toContain('dialogue_policy_experience_ask_experience');

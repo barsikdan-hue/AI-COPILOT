@@ -104,21 +104,44 @@
     "suppressesAnalysis": false
   },
   {
-    "id": "SOFT_RESISTANCE",
+    "id": "MATERIAL_REQUEST",
     "speaker": "client",
-    "priority": 85,
-    "ruleId": "soft_resistance_materials",
-    "actionType": "CLARIFY",
+    "priority": 107,
+    "ruleId": "material_request",
+    "actionType": "ANSWER",
     "phrases": [
       "просто пришлите",
       "пришлите информацию",
       "пришлите варианты",
-      "скиньте варианты",
+      "скиньте варианты"
+    ],
+    "suggestion": "Понял. Сначала отправлю запрошенные материалы без дополнительного опроса.",
+    "shortReason": "Клиент выбрал материалы как текущий следующий шаг. Это запрос, а не возражение.",
+    "suppressesAnalysis": true
+  },
+  {
+    "id": "CLIENT_PREFERENCE",
+    "speaker": "client",
+    "priority": 103,
+    "ruleId": "client_preference_self_service",
+    "actionType": "WAIT",
+    "phrases": [
       "я посмотрю",
       "я подумаю"
     ],
-    "suggestion": "Отправлю. Чтобы прислать не случайный набор, что вам важнее сравнить в первую очередь — цену, локацию или планировку?",
-    "shortReason": "Управляемая настойчивость: одна реакция и один вопрос, раскрывающий причину сопротивления.",
+    "suggestion": "Понял. Посмотрите в удобном темпе; если понадобится, помогу сравнить конкретные варианты.",
+    "shortReason": "Клиент выбрал самостоятельное изучение. Не превращаем предпочтение в возражение.",
+    "suppressesAnalysis": true
+  },
+  {
+    "id": "SOFT_RESISTANCE",
+    "speaker": "client",
+    "priority": 85,
+    "ruleId": "soft_resistance",
+    "actionType": "CLARIFY",
+    "phrases": [],
+    "suggestion": "Понял. Не буду углубляться без вашего сигнала.",
+    "shortReason": "Мягкая граница клиента без сопротивления конкретному активному шагу.",
     "suppressesAnalysis": false
   },
   {

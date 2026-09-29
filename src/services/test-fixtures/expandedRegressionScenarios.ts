@@ -275,7 +275,7 @@ add('goal', 'negated.self', 'INV_GOAL_NEGATION', client('Для себя не б
   ['send.selection', 'Соберите несколько вариантов и отправьте в мессенджер.'],
   ['send.range', 'Пришлите варианты до 24 миллионов рядом с пляжем.'],
   ['send.rooms', 'Скиньте планировки двухкомнатных и стоимость.'],
-].forEach(([id, text]) => add('material_request', String(id), 'INV_MATERIAL_REQUEST_ROUTING', client(String(text)), [{ kind: 'event', expected: String(text).endsWith('?') ? 'DIRECT_QUESTION' : 'SOFT_RESISTANCE' }, { kind: 'hint', required: true, notMatch: /видеовстреч|видеопоказ|созвон/iu, maxQuestions: 1 }], { semanticAction: 'route_material_request', factCategory: 'materials', productionLayer: 'conversation event routing', likelyFunctions: ['src/services/conversationEventEngine.ts::detectConversationEvent', 'src/services/conversationEventEngineLegacy.ts::classifyDirectQuestionIntent'], impact: ['next_action', 'recommendation'], severity: 'CRITICAL' }));
+].forEach(([id, text]) => add('material_request', String(id), 'INV_MATERIAL_REQUEST_ROUTING', client(String(text)), [{ kind: 'event', expected: 'MATERIAL_REQUEST' }, { kind: 'hint', required: true, notMatch: /видеовстреч|видеопоказ|созвон/iu, maxQuestions: 1 }], { semanticAction: 'route_material_request', factCategory: 'materials', productionLayer: 'conversation event routing', likelyFunctions: ['src/services/conversationEventEngine.ts::detectConversationEvent', 'src/services/conversationEventEngineLegacy.ts::hasMaterialRequestIntent'], impact: ['next_action', 'recommendation'], severity: 'CRITICAL' }));
 
 [
   ['question.cost', 'Подскажите, сколько стоит двухкомнатная?'],
@@ -285,11 +285,11 @@ add('goal', 'negated.self', 'INV_GOAL_NEGATION', client('Для себя не б
 ].forEach(([id, text]) => add('material_request', String(id), 'INV_DIRECT_QUESTION_ROUTING', client(String(text)), [{ kind: 'event', expected: 'DIRECT_QUESTION' }], { semanticAction: 'answer_direct_question', factCategory: 'materials', productionLayer: 'conversation event routing', likelyFunctions: ['src/services/conversationEventEngine.ts'], impact: ['next_action', 'recommendation'], severity: 'CRITICAL' }));
 
 [
-  ['resist.no-call', 'Только отправьте цены, созваниваться сейчас не буду.'],
-  ['resist.self', 'Планировки пришлите, дальше я сам разберусь.'],
-  ['resist.think', 'Скиньте подборку, мне нужно спокойно подумать.'],
-  ['resist.no-video', 'Каталог можно, видеопоказ пока не предлагайте.'],
-].forEach(([id, text]) => add('material_request', String(id), 'INV_MATERIAL_RESISTANCE_BOUNDARY', client(String(text)), [{ kind: 'event', expected: 'SOFT_RESISTANCE' }, { kind: 'hint', notMatch: /видеовстреч|видеопоказ|созвон/iu, maxQuestions: 1 }], { semanticAction: 'respect_material_boundary', factCategory: 'materials', productionLayer: 'conversation event routing', likelyFunctions: ['src/services/conversationEventEngineLegacy.ts'], impact: ['next_action', 'recommendation'], severity: 'CRITICAL' }));
+  ['preference.no-call', 'Только отправьте цены, созваниваться сейчас не буду.', 'MATERIAL_REQUEST'],
+  ['preference.self', 'Планировки пришлите, дальше я сам разберусь.', 'MATERIAL_REQUEST'],
+  ['preference.think', 'Скиньте подборку, мне нужно спокойно подумать.', 'MATERIAL_REQUEST'],
+  ['resist.no-video', 'Каталог можно, видеопоказ пока не предлагайте.', 'NEXT_STEP_RESISTANCE'],
+].forEach(([id, text, event]) => add('material_request', String(id), 'INV_MATERIAL_RESISTANCE_BOUNDARY', client(String(text)), [{ kind: 'event', expected: event as ConversationEventType }, { kind: 'hint', notMatch: /видеовстреч|видеопоказ|созвон/iu, maxQuestions: 1 }], { semanticAction: 'separate_material_preference_from_active_action_resistance', factCategory: 'materials', productionLayer: 'conversation event routing', likelyFunctions: ['src/services/conversationEventEngineLegacy.ts'], impact: ['next_action', 'recommendation'], severity: 'CRITICAL' }));
 
 // 8. Objections and explicit boundaries: 16 cases.
 [
@@ -406,14 +406,15 @@ negationSpecs.forEach(([id, text, target, forbidden]) => add('negation', id, 'IN
   ['context.layout', 'Не понимаю, где здесь разместить детскую.', /планиров|комнат|детск|критер/iu],
   ['context.risk', 'Боюсь, что дом не введут вовремя.', /срок|риск|застрой|документ/iu],
   ['context.mortgage', 'Ежемесячный платёж получается слишком большим.', /платеж|ипотек|взнос|финанс/iu],
-  ['context.material', 'Сначала отправьте схему этажей.', /отправ|этаж|важнее|сравн/iu],
 ].forEach(([id, text]) => add('next_action', String(id), 'INV_CONTEXT_NEXT_ACTION', client(String(text)), [{ kind: 'analysis', action: ['CLARIFY', 'OBJECTION_CLARIFICATION', 'DEEPEN'] }, { kind: 'evidence_latest' }, { kind: 'hint', required: true, maxQuestions: 1 }], { semanticAction: 'select_context_action', factCategory: 'dialogue_policy', productionLayer: 'dialogue policy and next-action selection', likelyFunctions: ['src/services/dialoguePolicyEngine.ts::chooseDialoguePolicyTarget', 'src/services/localAnalysisEngine.ts::buildLocalAnalysisResponse'], impact: ['next_action', 'recommendation'], severity: 'CRITICAL' }));
+
+add('next_action', 'context.material', 'INV_CONTEXT_NEXT_ACTION', client('Сначала отправьте схему этажей.'), [{ kind: 'analysis', action: 'ANSWER' }, { kind: 'evidence_latest' }, { kind: 'hint', required: true, maxQuestions: 1 }], { semanticAction: 'honor_material_intent_before_checklist', factCategory: 'materials', productionLayer: 'conversation event routing', likelyFunctions: ['src/services/conversationEventEngineLegacy.ts::hasMaterialRequestIntent', 'src/services/localAnalysisEngine.ts::buildLocalAnalysisResponse'], impact: ['next_action', 'recommendation'], severity: 'CRITICAL' });
 
 [
   ['boundary.stop', 'Заканчиваем, больше мне не звоните.', 'CLIENT_STOP'],
   ['boundary.busy', 'Сейчас говорить не могу, перезвоните вечером.', 'TIME_CONSTRAINT'],
   ['boundary.research', 'Я лишь изучаю рынок, не подгоняйте.', 'RESEARCH_MODE'],
-  ['boundary.material', 'Только прайс пришлите, встречу пока не назначаем.', 'SOFT_RESISTANCE'],
+  ['boundary.material', 'Только прайс пришлите, встречу пока не назначаем.', 'MATERIAL_REQUEST'],
 ].forEach(([id, text, event]) => add('next_action', String(id), 'INV_EVENT_OVERRIDES_GENERIC_ACTION', client(String(text)), [{ kind: 'event', expected: event as ConversationEventType }], { semanticAction: 'event_override', factCategory: 'dialogue_control', productionLayer: 'event priority and recommendation arbitration', likelyFunctions: ['src/services/conversationEventEngine.ts', 'src/services/localAnalysisEngine.ts'], impact: ['next_action', 'recommendation'], severity: 'CRITICAL' }));
 
 [

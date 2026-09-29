@@ -523,12 +523,12 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
       actionType: 'WAIT',
       suggestionMode: 'WAIT',
       agentAction: calculatedAgentAction,
-      selectedRuleId: null,
+      selectedRuleId: 'intentional_no_new',
       factsDelta,
       fact_updates: factsDelta,
       activeConcern: null,
       objection: null,
-      candidateRuleId: null,
+      candidateRuleId: 'intentional_no_new',
       suggestedReply: null,
       shortReason: agreementReaffirmation
         ? 'Клиент подтвердил уже согласованный следующий шаг. Канонический контракт сохраняем без новой подсказки.'
@@ -537,6 +537,7 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
       evidenceTurnIds: lastClientTurn ? [lastClientTurn.id] : [],
       missingCriticalField: scriptProgress.quality?.immediatePriorityMetric || null,
       shouldSuggest: false,
+      recommendationOutcome: 'NO_NEW_RECOMMENDATION',
       spinDelta: workingState.spin,
       hpb: null,
       scriptProgress,
@@ -742,7 +743,10 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
       stage: dominantEvent?.stage || workingState.stage,
     }, workingState) &&
     checkSemanticAntiRepeat(text, workingState, allTurns).accepted;
-  if ((!suggestedReply || !allowed(suggestedReply, closesMetric)) && !dominantEvent?.suppressesAnalysis) {
+  const candidateRejectedByValidator = Boolean(
+    suggestedReply && !allowed(suggestedReply, closesMetric)
+  );
+  if (!suggestedReply && !dominantEvent?.suppressesAnalysis) {
     const objectionAlternative = autoObjectionGuidance ? getActiveObjectionGuidance(workingState, 1) : null;
     if (objectionAlternative && allowed(objectionAlternative.text, 'objections')) {
       suggestedReply = objectionAlternative.text;
@@ -755,61 +759,19 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
       immediatePriority = objectionAlternative.title;
       expectedClientMeaning = objectionAlternative.goal;
       priority = 75;
-    } else {
-    const alternatives: Array<[string, string]> = [
-      ['goal', 'Для чего выбираете недвижимость: отдых, постоянная жизнь или инвестиции?'],
-      ['propertyType', 'Какой формат жилья вам подходит — квартира или апартаменты?'],
-      ['criteria', 'Если оставить только два критерия, по которым вы точно будете отсекать варианты, что это будет?'],
-      ['experience', 'Что из уже просмотренного оказалось ближе всего к вашей задаче, а что точно не подошло?'],
-      ['budget', 'До какой максимальной суммы рассматриваете покупку?'],
-      ['downPayment', 'Средства для первого платежа уже доступны или сумма зависит от выбранной схемы?'],
-      ['urgency', 'К какому сроку планируете определиться с покупкой?'],
-    ];
-    const alternative = alternatives.find(([metric, text]) => allowed(text, metric));
-    if (alternative) {
-      closesMetric = alternative[0];
-      closesMetricLabel = scriptProgress.metrics[alternative[0]]?.name || null;
-      suggestedReply = alternative[1];
-      shortReason = `Fallback по открытому смысловому intent: ${closesMetricLabel || alternative[0]}.`;
-      candidateRuleId = `qualification_fallback_${alternative[0]}`;
-      actionType = 'CLARIFY';
-      suggestionMode = 'WAIT';
-      immediatePriority = closesMetricLabel ? `Уточнить: ${closesMetricLabel}` : 'Уточнить недостающий факт';
-      expectedClientMeaning = null;
-      priority = 50;
-    } else suggestedReply = null;
     }
   }
 
-  // Final liveness invariant: every substantive final client turn should leave
-  // the agent with a useful next line unless the event explicitly suppresses
-  // conversation (hard stop/compliance). This prevents the “Суфлёр готов” blank
-  // state that appeared in RC4.1.
-  if (!suggestedReply && lastClientTurn && !dominantEvent?.suppressesAnalysis) {
-    const guidance = autoObjectionGuidance;
-    if (guidance) {
-      suggestedReply = guidance.text;
-      shortReason = guidance.reason;
-      candidateRuleId = 'liveness_active_objection';
-      actionType = 'OBJECTION_CLARIFICATION';
-      suggestionMode = 'OBJECTION_CLARIFICATION';
-      closesMetric = 'objections';
-      closesMetricLabel = 'Отработка возражений';
-      immediatePriority = guidance.title;
-      expectedClientMeaning = guidance.goal;
-      priority = 74;
-    } else {
-      suggestedReply = 'Понял. Тогда зафиксирую это как критерий и дальше буду сравнивать варианты именно через него.';
-      shortReason = 'Liveness fallback: содержательная реплика клиента не должна оставлять агента без следующей линии.';
-      candidateRuleId = 'semantic_ack_liveness';
-      actionType = 'SUMMARIZE';
-      suggestionMode = 'WAIT';
-      closesMetric = null;
-      closesMetricLabel = null;
-      immediatePriority = 'Сохранить текущий смысл клиента';
-      expectedClientMeaning = null;
-      priority = 45;
-    }
+  if (candidateRejectedByValidator) {
+    suggestedReply = null;
+    shortReason = 'Кандидат отклонён state validator; случайный checklist-вопрос не создаём.';
+    candidateRuleId = 'state_validator_no_replacement';
+    actionType = 'WAIT';
+    suggestionMode = 'WAIT';
+    closesMetric = null;
+    closesMetricLabel = null;
+    immediatePriority = null;
+    expectedClientMeaning = null;
   }
 
   return {
@@ -838,6 +800,7 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
         : [],
     missingCriticalField: scriptProgress.quality?.immediatePriorityMetric || null,
     shouldSuggest: Boolean(suggestedReply),
+    recommendationOutcome: suggestedReply ? 'NEW_RECOMMENDATION' : 'NO_NEW_RECOMMENDATION',
     spinDelta: spin?.updatedSpin,
     hpb: spin?.hpb || null,
     scriptProgress,

@@ -30,7 +30,7 @@ describe('suggestion liveness under client resistance', () => {
     expect(isSuggestionAllowedByState(candidate, state, 10)).toBe(false);
   });
 
-  it('repeated materials resistance still produces an automatic line', () => {
+  it('a material request followed by a real time boundary produces only boundary-safe guidance', () => {
     let state = createInitialState(); const turns: TranscriptTurn[] = [];
     for (const t of [
       turn(1, 'client', 'Просто скиньте цены и планировки, я подумаю.'),
@@ -39,7 +39,9 @@ describe('suggestion liveness under client resistance', () => {
     ]) { turns.push(t); state = advanceLocalConversation(state, t, turns).state; }
     expect(state.dialogueControl?.clientBoundaryActive).toBe(true);
     const result = buildLocalAnalysisResponse({ sessionId: 's', revision: 3, newTurns: [turns[2]], recentTurns: turns, currentState: state });
-    expect(result.shouldSuggest).toBe(true); expect(result.suggestedReply).toBeTruthy();
+    expect(result.shouldSuggest).toBe(true);
+    expect(result.suggestedReply).toMatch(/отправ|не задержива|вернуться|вечером|завтра/iu);
+    expect(result.suggestedReply).not.toMatch(/какой бюджет|какие критерии|видеопоказ/iu);
   });
 
   it('soft-resistance boundary reopens when client meaningfully re-engages', () => {

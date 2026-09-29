@@ -27,9 +27,9 @@ describe('material request routing regression', () => {
     const client = turn(text);
     const event = detectConversationEvent(client, [client], createInitialState());
 
-    expect(event?.type).toBe('SOFT_RESISTANCE');
-    expect(event?.actionType).toBe('CLARIFY');
-    expect(event?.ruleId).toBe('soft_resistance_materials');
+    expect(event?.type).toBe('MATERIAL_REQUEST');
+    expect(event?.actionType).toBe('ANSWER');
+    expect(event?.ruleId).toBe('material_request');
     expect(event?.suggestedReply).toBeTruthy();
     expect(event?.suggestedReply).not.toMatch(/^\s*(?:хорошо[,.:;]?\s*)?отправлю(?:\s+цены)?[.!]?\s*$/iu);
     expect(event?.suggestedReply).not.toMatch(/видеовстреч|видеопоказ|созвон/iu);
@@ -51,27 +51,27 @@ describe('material request routing regression', () => {
   it.each([
     'Просто скиньте цены, я сам посмотрю.',
     'Скиньте планировки, созваниваться не хочу.',
-  ])('preserves resistance semantics for %s', (text) => {
+  ])('preserves material-first semantics without inventing resistance for %s', (text) => {
     const client = turn(text);
     const initial = createInitialState();
     const event = detectConversationEvent(client, [client], initial);
 
-    expect(event?.type).toBe('SOFT_RESISTANCE');
-    expect(event?.actionType).toBe('CLARIFY');
+    expect(event?.type).toBe('MATERIAL_REQUEST');
+    expect(event?.actionType).toBe('ANSWER');
     expect(event?.suggestedReply).not.toMatch(/видеовстреч|видеопоказ|созвон/iu);
     expect(questionCount(event?.suggestedReply)).toBeLessThanOrEqual(1);
 
     const next = applyConversationEvent(initial, event!, client);
-    expect(next.dialogueControl?.softResistanceCount).toBe(1);
-    expect(next.dialogueControl?.lastEventType).toBe('SOFT_RESISTANCE');
+    expect(next.dialogueControl?.softResistanceCount).toBe(0);
+    expect(next.dialogueControl?.lastEventType).toBe('MATERIAL_REQUEST');
   });
 
   it('keeps material routing and facts from the same utterance aligned', () => {
     const client = turn('Пришлите варианты по 15–20 млн у моря.');
     const advanced = advanceLocalConversation(createInitialState(), client, [client]);
 
-    expect(advanced.event?.type).toBe('SOFT_RESISTANCE');
-    expect(advanced.event?.actionType).toBe('CLARIFY');
+    expect(advanced.event?.type).toBe('MATERIAL_REQUEST');
+    expect(advanced.event?.actionType).toBe('ANSWER');
     expect(advanced.state.budget.value).toMatch(/15.*20|20.*15/iu);
     expect(advanced.state.criteria.items.map((item) => item.text).join(' ')).toMatch(/мор/iu);
 

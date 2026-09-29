@@ -48,7 +48,7 @@ describe('ANDREI OS 4 deterministic core', () => {
   it('answers a direct client question before returning to SPIN', () => {
     const turn = makeTurn('question', 'client', 'Пришлите точную планировку и проект договора.', 1);
     const event = detectConversationEvent(turn, [turn], createInitialState());
-    expect(event?.type).toBe('DIRECT_QUESTION');
+    expect(event?.type).toBe('MATERIAL_REQUEST');
     expect(event?.actionType).toBe('ANSWER');
     expect(event?.priority).toBeGreaterThan(100);
   });
@@ -66,15 +66,15 @@ describe('ANDREI OS 4 deterministic core', () => {
     expect(event?.suggestedReply).toContain('какой именно вариант');
   });
 
-  it('routes a concrete material request through soft resistance and respects a later time boundary', () => {
+  it('routes a concrete material request without resistance and respects a later time boundary', () => {
     const first = makeTurn('soft_1', 'client', 'Просто пришлите варианты, цены и планировки, я посмотрю.', 1);
     const firstEvent = detectConversationEvent(first, [first], createInitialState())!;
     const afterFirst = applyConversationEvent(createInitialState(), firstEvent, first);
-    expect(firstEvent.type).toBe('SOFT_RESISTANCE');
-    expect(firstEvent.actionType).toBe('CLARIFY');
-    expect(firstEvent.ruleId).toBe('soft_resistance_materials');
-    expect(firstEvent.suppressesAnalysis).toBe(false);
-    expect(afterFirst.dialogueControl?.softResistanceCount).toBe(1);
+    expect(firstEvent.type).toBe('MATERIAL_REQUEST');
+    expect(firstEvent.actionType).toBe('ANSWER');
+    expect(firstEvent.ruleId).toBe('material_request');
+    expect(firstEvent.suppressesAnalysis).toBe(true);
+    expect(afterFirst.dialogueControl?.softResistanceCount).toBe(0);
     const second = makeTurn('soft_2', 'client', 'Мне сейчас некогда объяснять, просто пришлите, потом посмотрю.', 2);
     const secondEvent = detectConversationEvent(second, [first, second], afterFirst)!;
     const afterSecond = applyConversationEvent(afterFirst, secondEvent, second);

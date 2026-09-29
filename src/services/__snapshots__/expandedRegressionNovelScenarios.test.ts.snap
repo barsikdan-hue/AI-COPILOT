@@ -2,7 +2,7 @@
 
 exports[`expanded regression: novel scenarios > characterizes 8192 local deterministic executions and clusters unique failures 1`] = `
 {
-  "assertions": 32704,
+  "assertions": 32516,
   "baseScenarios": 256,
   "coverageByDomain": {
     "correction": 24,
@@ -21,18 +21,8 @@ exports[`expanded regression: novel scenarios > characterizes 8192 local determi
     "transcript_transport": 12,
   },
   "executionsPerScenario": 32,
-  "fail": 1267,
+  "fail": 1235,
   "failureClusters": [
-    {
-      "count": 32,
-      "eventType": "NEXT_STEP_RESISTANCE",
-      "factCategory": "materials",
-      "id": "1ca2cd48ea60",
-      "invariant": "INV_MATERIAL_RESISTANCE_BOUNDARY",
-      "productionLayer": "conversation event routing",
-      "semanticAction": "respect_material_boundary",
-      "severity": "CRITICAL",
-    },
     {
       "count": 448,
       "eventType": "none",
@@ -154,10 +144,10 @@ exports[`expanded regression: novel scenarios > characterizes 8192 local determi
       "severity": "HIGH",
     },
   ],
-  "fingerprint": "480cbaf1864c895b5ad11a80c8e00bc63065f2cfc6a608bf0e735cce46b99e21",
+  "fingerprint": "57d8ac57c04fe873740aed3d2c7cd659e34b91b084a31592b650f1a6dc1aec8c",
   "generatedExecutions": 8192,
-  "pass": 31437,
-  "passRate": 96.13,
+  "pass": 31281,
+  "passRate": 96.2,
   "seed": 2654435769,
 }
 `;

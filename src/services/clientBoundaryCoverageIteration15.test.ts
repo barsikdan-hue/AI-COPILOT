@@ -89,13 +89,13 @@ describe('FIX ITERATION 15: client boundary coverage', () => {
     'Я сам посмотрю.',
     'Я сам изучу.',
     'Сначала сам разберусь.',
-  ])('keeps %s as self-service resistance, not a hard stop', (text) => {
+  ])('keeps %s as a client preference, not resistance or a hard stop', (text) => {
     const { event, state, response } = analyze(text);
 
-    expect(event?.type).toBe('SOFT_RESISTANCE');
-    expect(event?.ruleId).toBe('soft_resistance_self_service');
+    expect(event?.type).toBe('CLIENT_PREFERENCE');
+    expect(event?.ruleId).toBe('client_preference_self_service');
     expect(state.dialogueControl?.clientBoundaryActive).toBe(false);
-    expect(response.eventType).toBe('SOFT_RESISTANCE');
+    expect(response.eventType).toBe('CLIENT_PREFERENCE');
     expect(response.suggestedReply).toMatch(/удобном\s+темпе|если\s+понадобится/iu);
     expect(response.suggestedReply).not.toContain('?');
   });
@@ -108,9 +108,9 @@ describe('FIX ITERATION 15: client boundary coverage', () => {
   ])('preserves material routing together with the boundary for %s', (text) => {
     const { event, response } = analyze(text);
 
-    expect(event?.type).toBe('SOFT_RESISTANCE');
-    expect(event?.ruleId).toBe('soft_resistance_materials');
-    expect(response.eventType).toBe('SOFT_RESISTANCE');
+    expect(event?.type).toBe('MATERIAL_REQUEST');
+    expect(event?.ruleId).toBe('material_request');
+    expect(response.eventType).toBe('MATERIAL_REQUEST');
     expect(response.suggestedReply).toMatch(/отправлю|пришл/iu);
     expect(response.suggestedReply).not.toMatch(/видеовстреч|видеопоказ|созвон/iu);
   });

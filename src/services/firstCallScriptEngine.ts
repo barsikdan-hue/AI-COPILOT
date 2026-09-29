@@ -277,7 +277,19 @@ function sanitizeTrustQuality(
 
   const metrics: Record<string, FirstCallMetric> = { ...progress.metrics, trust: nextMetric };
   const passedCoreCriteriaCount = legacy.CORE_12_CRITERIA_IDS.filter((id) => closed(metrics[id]?.status)).length;
-  let quality = { ...progress.quality, passedCoreCriteriaCount };
+  const isQualityCall = passedCoreCriteriaCount >= 7 && status === 'confirmed';
+  let quality = {
+    ...progress.quality,
+    passedCoreCriteriaCount,
+    mandatoryTrustPassed: status === 'confirmed',
+    isQualityCall,
+    verdict: isQualityCall ? 'QUALITY' as const : 'NEEDS_WORK' as const,
+    verdictReason: isQualityCall
+      ? `Качественный звонок: выполнено ${passedCoreCriteriaCount}/12 критериев, включая Доверие; следующий шаг выбран по контексту клиента.`
+      : status !== 'confirmed'
+        ? `Не качественный звонок: не выполнен обязательный критерий Доверие (выполнено ${passedCoreCriteriaCount}/12).`
+        : `Требует доработки: выполнено ${passedCoreCriteriaCount}/12 критериев (необходимо минимум 7).`,
+  };
 
   if (quality.immediatePriorityMetric === 'trust' && status === 'confirmed') {
     const nextOpen = legacy.FIRST_CALL_METRICS_LIST
@@ -317,6 +329,7 @@ export function evaluateFirstCallScript(
 
   const wasPpvCoreClosed = progress.metrics.ppv.isCoreCriteria;
   const passedCoreCriteriaCount = Math.max(0, progress.quality.passedCoreCriteriaCount - (wasPpvCoreClosed ? 1 : 0));
+  const isQualityCall = passedCoreCriteriaCount >= 7 && progress.quality.mandatoryTrustPassed;
   const ppvMetric = {
     ...progress.metrics.ppv,
     status: 'not_confirmed' as const,
@@ -337,11 +350,13 @@ export function evaluateFirstCallScript(
     },
     quality: {
       ...progress.quality,
-      isQualityCall: false,
+      isQualityCall,
       passedCoreCriteriaCount,
       mandatoryPpvPassed: false,
-      verdict: 'NEEDS_WORK',
-      verdictReason: `Видеопоказ не согласован: клиент попросил паузу. Выполнено ${passedCoreCriteriaCount}/12 критериев.`,
+      verdict: isQualityCall ? 'QUALITY' : 'NEEDS_WORK',
+      verdictReason: isQualityCall
+        ? `Качественный звонок: выполнено ${passedCoreCriteriaCount}/12 критериев; пауза клиента является допустимым non-video outcome.`
+        : `Требует доработки: выполнено ${passedCoreCriteriaCount}/12 критериев (необходимо минимум 7).`,
       immediatePriorityMetric: 'objections',
       immediatePriorityHint: 'Признать паузу, изолировать причину без повторного назначения встречи',
       nextScriptStep: 'Отработка сопротивления следующему шагу',

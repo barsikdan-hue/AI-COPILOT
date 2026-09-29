@@ -43,6 +43,7 @@ export interface ConversationEventDetection {
   rejectedBranch?: string | null;
   nextStepTarget?: NextStepTarget | null;
   meetingConsentQuality?: MeetingConsentQuality;
+  secondaryIntent?: 'MATERIAL_REQUEST' | null;
   meetingContract?: {
     dateOrDay: string | null;
     time: string | null;
@@ -160,6 +161,9 @@ const matchesSoftResistance = (text: string, rule: EventRuleConfig): boolean =>
 
 function hasMaterialRequestIntent(value: string): boolean {
   const text = normalize(value);
+  if (/(?:^|[^\p{L}\p{N}])(?:просто\s+)?(?:пришл(?:ите|и)|скин(?:ьте|ь)|отправ(?:ьте|ь))(?=$|[^\p{L}\p{N}])/iu.test(text)) {
+    return true;
+  }
   const delivery = text.match(
     /(?:(?:пришл(?:ите|и|ете)|прислать)|скин(?:ьте|ь|уть|ете)|отправ(?:ьте|ь|ить|ите)|покаж(?:ите|и|ем|ешь|ете)|дайте|предостав(?:ьте|ить)|перешл(?:ите|ать))/iu,
   );
@@ -260,6 +264,36 @@ const configuredSoftResistanceEvent = (
     suppressesAnalysis: repeated,
   });
 };
+
+const materialRequestEvent = (
+  turn: TranscriptTurn,
+): ConversationEventDetection => ({
+  type: 'MATERIAL_REQUEST',
+  priority: 107,
+  actionType: 'ANSWER',
+  ruleId: 'material_request',
+  suggestedReply: 'Понял. Сначала отправлю запрошенные материалы без дополнительного опроса. После просмотра вернёмся к разговору, если это будет полезно.',
+  shortReason: 'Клиент выбрал материалы как текущий следующий шаг. Это запрос, а не возражение.',
+  evidenceTurnId: turn.id,
+  evidenceQuote: turn.text,
+  suppressesAnalysis: true,
+  stage: 'diagnostics',
+});
+
+const clientPreferenceEvent = (
+  turn: TranscriptTurn,
+): ConversationEventDetection => ({
+  type: 'CLIENT_PREFERENCE',
+  priority: 103,
+  actionType: 'WAIT',
+  ruleId: 'client_preference_self_service',
+  suggestedReply: 'Понял. Посмотрите в удобном темпе; если понадобится, помогу сравнить конкретные варианты.',
+  shortReason: 'Клиент выбрал самостоятельное изучение. Не превращаем предпочтение в возражение и не продолжаем анкету.',
+  evidenceTurnId: turn.id,
+  evidenceQuote: turn.text,
+  suppressesAnalysis: true,
+  stage: 'diagnostics',
+});
 
 function extractCallbackTime(text: string): string | null {
   const match = text.match(
@@ -939,17 +973,29 @@ export function detectConversationEvent(
   if (resistance && (['ppv', 'ppi'].includes(resistance.target) || !hasDirectQuestion(turn.text))) {
     const recorded = state.dialogueControl?.nextStepResistanceHistory?.[resistance.target]?.lastEvidenceTurnId === turn.id;
     const count = resistance.count - (recorded ? 1 : 0);
+    const materialRequested = hasMaterialRequestIntent(turn.text);
     return {
       type: resistance.reopened ? 'NEXT_STEP_REOPENED' : 'NEXT_STEP_RESISTANCE',
       priority: count > 1 ? 97 : 88, actionType: 'CLARIFY',
       ruleId: `next_step_${resistance.reopened ? 'reopened' : 'resistance'}_${resistance.target}`,
       suggestedReply: resistance.reopened
         ? resistance.target === 'ppi' ? 'Хорошо, подключим специалиста и сравним условия по выбранным объектам.' : 'Хорошо, согласуем следующий шаг. Когда вам удобно?'
-        : nextStepResistanceReply(resistance.target, count > 1, turn.text),
-      shortReason: resistance.reopened ? 'Клиент сам вернулся к отложенному шагу.' : 'Клиент откладывает следующий шаг; уточняем причину без повторного предложения.',
+        : materialRequested && resistance.target === 'ppv'
+          ? 'Понял. Видео пока не фиксируем. Сначала отправлю запрошенные материалы; после просмотра вернёмся к формату только по вашему сигналу.'
+        : resistance.target === 'ppv' && count <= 1
+          ? /(?:час|долго|длительн|времен)/iu.test(turn.text)
+            ? 'Понял: предложенная длительность не подходит. Не возвращаемся к этому формату без вашего сигнала.'
+            : 'Понял, без давления. Что именно в предложенном формате сейчас не подходит?'
+          : nextStepResistanceReply(resistance.target, count > 1, turn.text),
+      shortReason: resistance.reopened
+        ? 'Клиент сам вернулся к отложенному шагу.'
+        : materialRequested
+          ? 'Два независимых смысла: клиент отклонил активный видео-шаг и отдельно запросил материалы.'
+          : 'Клиент откладывает следующий шаг; уточняем причину без повторного предложения.',
       evidenceTurnId: turn.id, evidenceQuote: turn.text,
       suppressesAnalysis: false, stage: resistance.reopened ? 'next_step_agreement' : 'objection_clarification',
       nextStepTarget: resistance.target,
+      secondaryIntent: materialRequested ? 'MATERIAL_REQUEST' : null,
     };
   }
 
@@ -971,13 +1017,16 @@ export function detectConversationEvent(
   const meeting = detectMeetingContract(turn, previousAgent, recentTurns, state);
   if (meeting) return meeting;
 
+  if (hasMaterialRequestIntent(turn.text)) {
+    return materialRequestEvent(turn);
+  }
+
+  if (/(?:^|[^\p{L}\p{N}])(?:(?:я\s+)(?:сначала\s+)?(?:сам\s+)?|(?:сначала\s+)?сам\s+)(?:посмотрю|изучу|разберусь|подумаю)(?=$|[^\p{L}\p{N}])/iu.test(text)) {
+    return clientPreferenceEvent(turn);
+  }
+
   if (hasDirectQuestion(turn.text) && !isBarrierQuestion(turn.text)) {
     const intent = classifyDirectQuestionIntent(turn.text, previousAgent?.text || null);
-    const materialRequest = intent === 'materials_request' ? findConfig('SOFT_RESISTANCE') : null;
-    const materialBoundaryQuestion = /(?:^|[^\p{L}\p{N}])сам\s+(?:посмотрю|изучу|разберусь)(?=$|[^\p{L}\p{N}])/iu.test(text);
-    if (materialRequest && (!turn.text.includes('?') || materialBoundaryQuestion || matchesSoftResistance(text, materialRequest))) {
-      return configuredSoftResistanceEvent(materialRequest, turn, state);
-    }
     return {
       type: 'DIRECT_QUESTION',
       priority: 105,

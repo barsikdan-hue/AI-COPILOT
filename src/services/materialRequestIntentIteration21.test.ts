@@ -32,27 +32,25 @@ function analyze(text: string) {
 
 describe('FIX ITERATION 21: material request intent lexicon', () => {
   it.each([
-    ['Пришлите прайс.', 'SOFT_RESISTANCE'],
-    ['Скиньте каталог.', 'SOFT_RESISTANCE'],
-    ['Отправьте презентацию.', 'SOFT_RESISTANCE'],
-    ['Пришлите фото.', 'SOFT_RESISTANCE'],
-    ['Скиньте подборку.', 'SOFT_RESISTANCE'],
-    ['Планировки отправьте.', 'SOFT_RESISTANCE'],
-    ['Цены можно прислать?', 'DIRECT_QUESTION'],
-    ['Прайс можете скинуть?', 'DIRECT_QUESTION'],
-    ['Каталог мне отправьте.', 'SOFT_RESISTANCE'],
-    ['Фото бы посмотреть.', 'SOFT_RESISTANCE'],
-    ['Подборку пришлите, пожалуйста.', 'SOFT_RESISTANCE'],
-    ['Можно просто получить варианты планировок?', 'DIRECT_QUESTION'],
-  ])('routes the explicit or reordered request: %s', (text, expectedType) => {
+    'Пришлите прайс.',
+    'Скиньте каталог.',
+    'Отправьте презентацию.',
+    'Пришлите фото.',
+    'Скиньте подборку.',
+    'Планировки отправьте.',
+    'Цены можно прислать?',
+    'Прайс можете скинуть?',
+    'Каталог мне отправьте.',
+    'Фото бы посмотреть.',
+    'Подборку пришлите, пожалуйста.',
+    'Можно просто получить варианты планировок?',
+  ])('routes the explicit or reordered request without objection semantics: %s', (text) => {
     const { event, response } = analyze(text);
 
-    expect(event?.type).toBe(expectedType);
-    expect(event?.ruleId).toBe(expectedType === 'SOFT_RESISTANCE'
-      ? 'soft_resistance_materials'
-      : 'direct_question_materials_request');
-    expect(event?.actionType).toBe(expectedType === 'SOFT_RESISTANCE' ? 'CLARIFY' : 'ANSWER');
-    expect(response.eventType).toBe(expectedType);
+    expect(event?.type).toBe('MATERIAL_REQUEST');
+    expect(event?.ruleId).toBe('material_request');
+    expect(event?.actionType).toBe('ANSWER');
+    expect(response.eventType).toBe('MATERIAL_REQUEST');
     expect(response.suggestedReply).toMatch(/отправ|пришл/iu);
     expect(response.suggestedReply).not.toMatch(/видеовстреч|видеопоказ|созвон|какой\s+бюджет/iu);
   });
@@ -63,9 +61,9 @@ describe('FIX ITERATION 21: material request intent lexicon', () => {
   ])('keeps material routing together with self-service: %s', (text) => {
     const { event, state, response } = analyze(text);
 
-    expect(event?.type).toBe('SOFT_RESISTANCE');
-    expect(event?.ruleId).toBe('soft_resistance_materials');
-    expect(state.dialogueControl?.softResistanceCount).toBe(1);
+    expect(event?.type).toBe('MATERIAL_REQUEST');
+    expect(event?.ruleId).toBe('material_request');
+    expect(state.dialogueControl?.softResistanceCount).toBe(0);
     expect(response.suggestedReply).toMatch(/отправ|пришл/iu);
     expect(response.suggestedReply).not.toMatch(/видеовстреч|видеопоказ|созвон/iu);
   });
