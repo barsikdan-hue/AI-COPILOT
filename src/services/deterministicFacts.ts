@@ -151,7 +151,8 @@ function extractPurchaseTimelineEvidence(text: string, previousAgentTurnText?: s
 export function extractDeterministicFacts(
   text: string,
   turnId: string,
-  previousAgentTurnText?: string | null
+  previousAgentTurnText?: string | null,
+  immediateAgentTurnText: string | null = previousAgentTurnText || null,
 ): ExtractedFactItem[] {
   const trimmed = (text || '').trim();
   const clean = trimmed.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'«»]/g, '').trim();
@@ -832,8 +833,12 @@ export function extractDeterministicFacts(
       ]) ||
       hasAnyPhrase(lower, ['предпочту', 'удобнее завтра', 'лучше завтра', 'да, завтра', 'тогда завтра']));
 
-  if (previousAgentTurnText) {
-    const prevLower = previousAgentTurnText.toLowerCase();
+  // Generic acknowledgements may confirm only the immediately preceding
+  // proposal. Other contextual extractors intentionally retain their broader
+  // meaningful-agent context, but carrying that context into agreements can
+  // resurrect a video proposal after materials, resistance or a newer topic.
+  if (immediateAgentTurnText) {
+    const prevLower = immediateAgentTurnText.toLowerCase();
     const hasNextStepProposal =
       prevLower.includes('видеопоказ') ||
       prevLower.includes('видео') ||

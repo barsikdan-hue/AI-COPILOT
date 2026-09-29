@@ -30,6 +30,12 @@ function previousMeaningfulAgentTurn(turn: TranscriptTurn, turns: TranscriptTurn
   return agents.at(-1);
 }
 
+function immediatePreviousAgentTurn(turn: TranscriptTurn, turns: TranscriptTurn[]): TranscriptTurn | undefined {
+  const idx = turns.findIndex((candidate) => candidate.id === turn.id);
+  const immediatePreviousTurn = turns.slice(0, idx < 0 ? turns.length : idx).at(-1);
+  return immediatePreviousTurn?.speaker === 'agent' ? immediatePreviousTurn : undefined;
+}
+
 function normalizeClientText(text: string): string {
   return (text || '')
     .toLocaleLowerCase('ru-RU')
@@ -230,6 +236,7 @@ export function restoreStateForAmendedTurn(beforeTurn: ConversationState, curren
 /** Deterministic state transition shared by live STT, simulator and replay tests. */
 export function advanceLocalConversation(current: ConversationState, turn: TranscriptTurn, turns: TranscriptTurn[]) {
   const previousAgent = previousMeaningfulAgentTurn(turn, turns);
+  const immediateAgent = immediatePreviousAgentTurn(turn, turns);
   const priorBoundaryEvent = current.dialogueControl?.lastEventType || null;
   let state = current;
   const acknowledgementOnly = turn.speaker === 'client' && isConversationalAcknowledgement(turn.text);
@@ -242,7 +249,7 @@ export function advanceLocalConversation(current: ConversationState, turn: Trans
       turn.id,
       sanitizeLiveFacts(
         turn.text,
-        extractDeterministicFacts(turn.text, turn.id, previousAgent?.text),
+        extractDeterministicFacts(turn.text, turn.id, previousAgent?.text, immediateAgent?.text || null),
         previousAgent?.text || null
       )
     ).filter((fact) => !agreementReaffirmation || !['agreedNextStep', 'agreed_next_step'].includes(fact.field));
@@ -450,11 +457,12 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
 
   const factsDelta = clientTurns.flatMap((turn) => {
     const previousAgent = previousMeaningfulAgentTurn(turn, allTurns);
+    const immediateAgent = immediatePreviousAgentTurn(turn, allTurns);
     return withEvidenceTurnId(
       turn.id,
       sanitizeLiveFacts(
         turn.text,
-        extractDeterministicFacts(turn.text, turn.id, previousAgent?.text || null),
+        extractDeterministicFacts(turn.text, turn.id, previousAgent?.text || null, immediateAgent?.text || null),
         previousAgent?.text || null
       )
     ).filter((fact) =>
