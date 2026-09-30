@@ -53,13 +53,14 @@ describe('FIX 26 agreed callback / next-step contract', () => {
     expect(result.next.nextStepAgreement?.status).toBe('agreed');
     expect(result.next.nextStepAgreement?.action).toMatch(/созвон|звонок/iu);
     expect(result.next.nextStepAgreement?.action).toMatch(/10\s*минут/iu);
-    expect(result.next.nextStepAgreement?.timeOrDeadline).toMatch(/сегодня.*после\s+19:00/iu);
+    expect(result.next.nextStepAgreement?.timeOrDeadline).toMatch(/после\s+19:00/iu);
+    expect(result.next.nextStepAgreement?.timeOrDeadline).not.toMatch(/сегодня/iu);
     expect(result.next.agreedNextStep?.value).toMatch(/созвон|звонок/iu);
     expect(result.next.agreedNextStep?.value).toMatch(/после\s+19:00/iu);
     expect(result.next.agreedNextStep?.evidenceTurnIds).toContain(result.client.id);
     expect(result.event?.suggestedReply).toMatch(/созвон|звонок|зафиксир/iu);
-    expect(result.event?.suggestedReply).toMatch(/после\s+19:00/iu);
-    expect(result.event?.suggestedReply).toMatch(/10\s*минут/iu);
+    expect(result.event?.suggestedReply).toMatch(/день|дат/iu);
+    expect(result.event?.suggestedReply).not.toMatch(/сегодня/iu);
     expect(result.event?.suggestedReply).not.toMatch(/критери|формат\s+жилья|важнее\s+всего/iu);
   });
 
@@ -117,16 +118,19 @@ describe('FIX 26 agreed callback / next-step contract', () => {
 
   it.each([
     ['сегодня вечером после семи', /сегодня.*после\s+19:00/iu],
-    ['Давайте после 19.', /сегодня.*после\s+19:00/iu],
-    ['Давайте после 19:00.', /сегодня.*после\s+19:00/iu],
-    ['Давайте часов после семи.', /сегодня.*после\s+19:00/iu],
-    ['После семи.', /сегодня.*после\s+19:00/iu],
+    ['Давайте после 19.', /после\s+19:00/iu],
+    ['Давайте после 19:00.', /после\s+19:00/iu],
+    ['Давайте часов после семи.', /после\s+19:00/iu],
+    ['После семи.', /после\s+19:00/iu],
   ])('normalizes contextual callback time: %s', (text, expected) => {
     const result = detectCallback(text);
 
     expect(result.event?.type, text).toBe('MEETING_CONTRACT');
     expect(result.next.nextStepAgreement?.status, text).toBe('agreed');
     expect(result.next.nextStepAgreement?.timeOrDeadline, text).toMatch(expected);
+    if (!/сегодня/iu.test(text)) {
+      expect(result.next.nextStepAgreement?.timeOrDeadline, text).not.toMatch(/сегодня/iu);
+    }
     expect(result.next.nextStepAgreement?.timeOrDeadline, text).not.toMatch(/07:00|07:10/iu);
   });
 
