@@ -1,0 +1,19 @@
+# Goal polarity / occasional use P0 — read-only root-cause investigation
+
+Checkpoint: `38eaa631b3e5909d0c023dea741b527804773d22`. Evidence: Nadezhda `transcript (18).txt`, current deterministic replay, focused goal tests and real-call benchmark cases. No code, tests, or oracle were changed.
+
+## Reproduction and first broken layer
+
+At client turn 7, «Для редкого пребывания. Не для постоянного проживания» expresses occasional personal use and explicitly rejects permanent residence. Current `semanticEvidence.ts::classifyGoalIntent` selects **permanent**. `deterministicFacts.ts` then creates a positive `goal=Постоянное личное проживание` with an evidence quote taken from the negated span («для постоянного проживания»); canonical `goal`/`primaryGoal` and the script goal metric inherit it, `secondaryUse` is null. Later self-visit detail at turn 27 (three or four visits per year) does not repair the false permanent goal. A later explicit investment turn at 35 can supersede the scalar goal, but does not preserve the earlier occasional self-use as `secondaryUse`. The expected interpretation is non-permanent personal/occasional use plus an explicit negative permanent-residence constraint; later investment must remain a distinct, later positive update.
+
+**First broken layer: semantic extraction and polarity scope**, not canonical merge. In `semanticEvidence.ts::classifyGoalIntent`, the positive permanent-residence match accepts a substring inside «не для постоянного проживания». `permanentRejected` covers certain negated verbs but not nominal «не для ...». Occasional/rare-stay wording is absent from the positive seasonal/self-use patterns. `deterministicFacts.ts` and `conversationStore.ts::mergeFactsDelta` receive and project an already-wrong positive fact; substring evidence checks do not establish polarity. `firstCallScriptEngineLegacy.ts` and dialogue policy consume the wrong canonical value.
+
+There is a parallel positive-substring risk in `objectionEngine.ts::detectLocalObjection` for P48/motive-living. Unlike static candidate-rule helpers, this function is reachable from client-turn intent classification. A P48 card for this specific replay is **not proven**; it is a protected diagnostic/control, not a second established visible failure.
+
+## Systemic subcluster, benchmark, and model boundary
+
+The mechanism is not confined to one phrase: a negated nominal residence label can be read as positive, especially alongside positive occasional-use evidence. Controls must distinguish «не для постоянного проживания» from true «для постоянного проживания»; «для себя на лето» from permanent relocation; current intent from historical intent; negated investment from positive self-use; mixed self-use/rental; and a later explicit investment update from a first assertion.
+
+Current-head targeted replay leaves real-call benchmark `RCB-V1-029` and `RCB-V1-031` failing in the broader goal family, but **neither is proven to share this exact nominal-negation root cause**. `029` is positive self-use plus rental reduced to investment (positive mixed-intent precedence); `031` is current visit intent buried in historical context (missing current-use evidence). Thus the count of currently demonstrated benchmark FAIL with the same nominal-negation mechanism is **0**; broader related goal FAIL is **2**, requiring separate proof before grouping. Stored V1 JSON/report results are historical, not a post-FIX35 aggregate.
+
+The current goal scalar can store a positive value, but `SemanticGoalIntent`/`FactEntry` do not define an independent negative-use constraint. Preventing the false permanent fact is a safe bounded classifier correction. Claiming this alone preserves «NOT permanent» across later updates or recovers occasional `secondaryUse` would overstate the fix and may require a domain contract. Do not rewrite generic supersede or treat a negative evidence quote as a positive goal value. **No implementation was performed.**
