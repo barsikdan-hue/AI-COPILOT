@@ -17,6 +17,8 @@ import { isSubstantiveClientTurn } from './objectionEngine';
 import { getContextualDopamineQuestion } from './dopamineQuestionEngine';
 import {
   classifyInvestmentIntent,
+  classifyMortgageDecision,
+  resolveMortgageDecision,
   classifyTrustQuestion,
   detectSearchExperience,
   isNoSearchExperienceValue,
@@ -1212,39 +1214,27 @@ export function evaluateFirstCallScript(
   let pmValue = state.paymentMethod?.value || null;
   let pmReason: string | null = null;
 
-  const mortgageNegationInClientText =
-    hasAnyPhrase(allClientText, [
-      'не нужна ипотека',
-      'ипотека не нужна',
-      'ипотека мне не нужна',
-      'ипотека нам не нужна',
-      'без ипотеки',
-      'не планирую ипотеку',
-      'не планируем ипотеку',
-      'не хочу ипотеку',
-      'не хотим ипотеку',
-      'не хотелось бы ипотеку',
-      'не рассматриваю ипотеку',
-      'не рассматриваем ипотеку',
-      'ипотека не подходит',
-      'ипотекой раньше не пользовался, но сейчас',
-      'ипотекой никогда не пользовался',
-      'ипотекой не пользовался',
-    ]) ||
-    (allClientText.includes('ипотек') && allClientText.includes('не нужн') && !allClientText.includes('хочу купить в ипотеку')) ||
-    (allClientText.includes('не хочу') && allClientText.includes('ипотек'));
+  const mortgageDecision = resolveMortgageDecision(turns);
+  const mortgageNegationInClientText = mortgageDecision.kind === 'rejected' ||
+    (mortgageDecision.kind !== 'allowed' && Boolean(state.dialogueControl?.rejectedBranches.includes('ипотеку')));
+  // Reopening removes a refusal; it cannot turn the old refusal into payment evidence.
+  const reopenedWithoutPayment = mortgageDecision.kind === 'allowed' && !state.paymentMethod?.value &&
+    !/ипотек/iu.test(mortgageDecision.evidenceQuote || '');
+  const mortgageClientText = reopenedWithoutPayment ? '' : clientTurns
+    .filter(turn => classifyMortgageDecision(turn.text).kind !== 'rejected')
+    .map(turn => turn.text.toLowerCase()).join(' ');
 
   const mortgageExplicitIntent =
     !mortgageNegationInClientText &&
-    (allClientText.includes('в ипотеку') ||
-      allClientText.includes('под ипотеку') ||
-      allClientText.includes('хочу купить в ипотеку') ||
-      allClientText.includes('буду в ипотеку') ||
-      allClientText.includes('покупать буду в ипотеку') ||
-      allClientText.includes('купим в ипотеку') ||
-      allClientText.includes('через ипотеку') ||
-      allClientText.includes('ипотечное кредитование') ||
-      allClientText.includes('одобрен'));
+    (mortgageClientText.includes('в ипотеку') ||
+      mortgageClientText.includes('под ипотеку') ||
+      mortgageClientText.includes('хочу купить в ипотеку') ||
+      mortgageClientText.includes('буду в ипотеку') ||
+      mortgageClientText.includes('покупать буду в ипотеку') ||
+      mortgageClientText.includes('купим в ипотеку') ||
+      mortgageClientText.includes('через ипотеку') ||
+      mortgageClientText.includes('ипотечное кредитование') ||
+      mortgageClientText.includes('одобрен'));
 
   const cashInClientText =
     allClientText.includes('наличн') ||
@@ -1271,7 +1261,7 @@ export function evaluateFirstCallScript(
     pmStatus = 'not_confirmed';
     pmValue = null;
     pmReason = 'Клиент не планирует использовать ипотеку; иной способ оплаты пока не подтверждён.';
-  } else if ((allClientText.includes('ипотек') || allClientText.includes('кредит')) && !mortgageNegationInClientText) {
+  } else if ((mortgageClientText.includes('ипотек') || mortgageClientText.includes('кредит')) && !mortgageNegationInClientText) {
     pmStatus = 'confirmed';
     pmValue = 'Ипотека';
     pmReason = 'Способ покупки подтверждён: ипотечное кредитование.';

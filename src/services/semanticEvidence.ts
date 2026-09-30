@@ -9,6 +9,79 @@
  */
 
 import { normalizeRussianText } from './textUtils';
+import type { TranscriptTurn } from '../types';
+
+export interface MortgageDecision {
+  kind: 'rejected' | 'allowed' | 'ambiguous' | 'unrelated';
+  evidenceQuote: string | null;
+}
+
+/** Mortgage admissibility only; this does not select a payment method or consent to PPI. */
+export function classifyMortgageDecision(text: string, previousText: string | null = null): MortgageDecision {
+  const lower = (text || '').toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').replace(/\s+/gu, ' ').trim();
+  const result = (kind: MortgageDecision['kind'], evidenceQuote: string | null = null): MortgageDecision => ({ kind, evidenceQuote });
+
+  // Only an immediate, unambiguous mortgage refusal can supply an omitted object.
+  if (/^(?:нет\s*[,—-]?\s*)?не\s+(?:совсем|полностью)\s+исключа\p{L}*[.!]*$/iu.test(lower)) {
+    const prior = previousText ? classifyMortgageDecision(previousText) : null;
+    const otherObject = /дом|коттедж|вилл\p{L}*|таунхаус|апартамент|квартир|рассроч|видео|сириус|полян/iu.test(previousText || '');
+    return prior?.kind === 'rejected' && !otherObject ? result('allowed', lower) : result('ambiguous');
+  }
+
+  const mentions = Array.from(lower.matchAll(/ипотек\p{L}*|ипотечн\p{L}*\s+(?:кредит\p{L}*|вариант\p{L}*)/giu));
+  let decision = result('unrelated');
+  for (const mention of mentions) {
+    const start = mention.index || 0;
+    const sentenceEnd = lower.slice(start).match(/[.!?]/u)?.[0];
+    if (sentenceEnd === '?') {
+      if (decision.kind === 'unrelated') decision = result('ambiguous', mention[0]);
+      continue;
+    }
+    const before = lower.slice(0, start).split(/[.!?;,:]|\s+(?:но|однако|зато|а)\s+/u).at(-1) || '';
+    const after = lower.slice(start + mention[0].length).split(/[.!?;,:]|\s+(?:но|однако|зато|а|и)\s+/u)[0] || '';
+    const modifiers = '(?:(?:мне|нам|я|мы|сейчас|пока|вообще|больше|совсем|уже|все-таки|точно)\\s+)*';
+    const end = '(?:\\s+(?:брать|оформлять|использовать|вообще|совсем|сейчас|пока|мне|нам))*\\s*(?:(?:из-за|потому\\s+что|так\\s+как|поскольку)\\s+[^.!?]*)?$';
+    const negatedExclusion = /(?:^|[^\p{L}])не\s+(?:(?:совсем|полностью)\s+)?исключа\p{L}*\s*$/iu.test(before) ||
+      new RegExp(`^\\s*${modifiers}не\\s+(?:(?:совсем|полностью)\\s+)?исключа\\p{L}*${end}`, 'iu').test(after);
+    const additive = /(?:^|[^\p{L}])не\s+только\s*$/iu.test(before);
+    const negativeBefore = new RegExp(`(?:^|[^\\p{L}])не\\s+(?:хоч\\p{L}*|хот\\p{L}*|рассматрива\\p{L}*|планиру\\p{L}*|собира\\p{L}*|буд\\p{L}*|нужн\\p{L}*|подходит|интересует|люблю)\\s+${modifiers}(?:(?:брать|оформлять|использовать|в)\\s+)*$`, 'iu').test(before);
+    const negativeAfter = new RegExp(`^\\s*${modifiers}(?:(?:брать|оформлять|использовать)\\s+)?не\\s+(?:хоч\\p{L}*|хот\\p{L}*|рассматрива\\p{L}*|планиру\\p{L}*|собира\\p{L}*|буд\\p{L}*|нужн\\p{L}*|интересн\\p{L}*|подход\\p{L}*|интересует)${end}`, 'iu').test(after);
+    const excluded = !negatedExclusion && (
+      /(?:^|[^\p{L}])исключа\p{L}*\s*$/iu.test(before) ||
+      new RegExp(`^\\s*${modifiers}(?:исключа\\p{L}*|отпал\\p{L}*)${end}`, 'iu').test(after)
+    );
+    const withoutMortgage = /(?:^|[^\p{L}])без\s*$/iu.test(before);
+    const cannotDoWithout = withoutMortgage && (
+      /^\s*не\s+обойтись\s*$/iu.test(after) ||
+      /(?:не\s+(?:могу|можем|смогу|сможем)\s+(?:обойтись\s+)?без|не\s+обойтись\s+без)\s*$/iu.test(before)
+    );
+    const notMortgage = /(?:^|[^\p{L}])не\s*$/iu.test(before);
+    if (!additive && !negatedExclusion && !cannotDoWithout && (negativeBefore || negativeAfter || excluded || withoutMortgage || notMortgage)) {
+      decision = result('rejected', `${before}${mention[0]}${after}`.trim());
+      continue;
+    }
+    const positiveBefore = /(?:рассматрива\p{L}*|рассмотр\p{L}*|оформ\p{L}*|бер\p{L}*|допуска\p{L}*)\s*(?:все-таки\s*)?$|(?:в|под|через)\s*$|(?:часть(?:\s+мож\p{L}*\s+взять\s+в)?|остальн\p{L}*)\s*$/iu.test(before);
+    const positiveAfter = new RegExp(`^\\s*${modifiers}(?:рассматрива\\p{L}*|рассмотр\\p{L}*|допустим\\p{L}*|возможн\\p{L}*|подходит|нужна|одобрен\\p{L}*)`, 'iu').test(after);
+    const simpleConditional = /^\s*если\s*$/iu.test(before) && /будет\s+прост\p{L}*[^.!?]*[,;]\s*рассмотр/iu.test(lower.slice(start + mention[0].length));
+    if (negatedExclusion || additive || cannotDoWithout || positiveBefore || positiveAfter || simpleConditional) {
+      decision = result('allowed', `${before}${mention[0]}${after}`.trim());
+    } else if (decision.kind === 'unrelated') {
+      decision = result('ambiguous', mention[0]);
+    }
+  }
+  return decision;
+}
+
+/** Latest client-owned decision; unrelated turns and agent statements cannot change it. */
+export function resolveMortgageDecision(turns: Pick<TranscriptTurn, 'speaker' | 'text'>[]): MortgageDecision {
+  let decision: MortgageDecision = { kind: 'unrelated', evidenceQuote: null };
+  for (let i = 0; i < turns.length; i += 1) {
+    if (turns[i].speaker !== 'client') continue;
+    const incoming = classifyMortgageDecision(turns[i].text, turns[i - 1]?.text || null);
+    if (incoming.kind === 'rejected' || incoming.kind === 'allowed') decision = incoming;
+  }
+  return decision;
+}
 
 export interface SemanticCriterion {
   key: string;

@@ -9,7 +9,7 @@ import { applyConversationEvent, detectConversationEvent, isAgreedNextStepReaffi
 import { createInitialState, mergeFactsDelta } from './conversationStore';
 import { classifyClientTurnIntent, detectLocalObjection, getActiveObjectionGuidance, updateObjectionLifecycle } from './objectionEngine';
 import { extractDeterministicFacts } from './deterministicFacts';
-import { extractSemanticCriteria } from './semanticEvidence';
+import { classifyMortgageDecision, extractSemanticCriteria } from './semanticEvidence';
 import { evaluateFirstCallScript, getFirstCallSuggestion } from './firstCallScriptEngine';
 import { checkSemanticAntiRepeat, extractSemanticKey } from './semanticAntiRepeat';
 import { isSuggestionAllowedByState } from './suggestionLifecycle';
@@ -254,8 +254,17 @@ export function advanceLocalConversation(current: ConversationState, turn: Trans
       )
     ).filter((fact) => !agreementReaffirmation || !['agreedNextStep', 'agreed_next_step'].includes(fact.field));
     state = mergeFactsDelta(state, extractedFacts, state.stage, undefined, turn.revision, lookup);
-    const lowerClient = turn.text.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
-    const rejectsMortgage = /(?:без\s+ипотек\w*|ипотек\w*[^.!?]{0,40}(?:не\s*(?:рассматрива\w*|собира\w*|хочу|нужн\w*))|не\s*(?:рассматрива\w*|собира\w*|хочу|нужн\w*)[^.!?]{0,30}ипотек\w*)/iu.test(lowerClient);
+    const turnIndex = turns.findIndex(candidate => candidate.id === turn.id);
+    const mortgageDecision = classifyMortgageDecision(turn.text, turnIndex > 0 ? turns[turnIndex - 1].text : null);
+    if (mortgageDecision.kind === 'allowed' && state.dialogueControl?.rejectedBranches.includes('ипотеку')) {
+      state = { ...state, dialogueControl: { ...state.dialogueControl,
+        rejectedBranches: state.dialogueControl.rejectedBranches.filter(branch => branch !== 'ипотеку') } };
+    }
+    const rejectsMortgage = mortgageDecision.kind === 'rejected';
+    if (rejectsMortgage && state.dialogueControl) {
+      state = { ...state, dialogueControl: { ...state.dialogueControl,
+        rejectedBranches: Array.from(new Set([...state.dialogueControl.rejectedBranches, 'ипотеку'])) } };
+    }
     if (rejectsMortgage && /ипотек/iu.test(state.paymentMethod?.value || '')) {
       state = {
         ...state,
