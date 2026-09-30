@@ -127,11 +127,43 @@ export function classifyGoalIntent(text: string): SemanticGoalIntent {
     /(?:рост\p{L}*\s+цен\p{L}*|роста\s+цены)[^.!?]{0,55}(?:перепродаж\p{L}*|перепродать)/iu,
   ]);
 
-  const permanentEvidenceQuote = firstSemanticMatch(lower, [
-    /для\s+постоянн\p{L}*\s+(?:жизн\p{L}*|проживан\p{L}*)/iu,
-    /(?:постоянно\s+(?:там\s+)?жить|жить(?:\s+сам\p{L}*)?\s+постоянно|переезжа\p{L}*|переезд\p{L}*|пмж)/iu,
-    /(?:основн\p{L}*\s+жиль\p{L}*|жиль\p{L}*\s+кругл\p{L}*\s+год)/iu,
-  ]);
+  const permanentPatterns = [
+    /для\s+постоянн\p{L}*\s+(?:жизн\p{L}*|проживан\p{L}*)/giu,
+    /(?:постоянно\s+(?:там\s+)?жить|жить(?:\s+(?:сам\p{L}*|там)){0,2}\s+постоянно|переезжа\p{L}*|переезд\p{L}*|пмж)/giu,
+    /(?:основн\p{L}*\s+жиль\p{L}*|жиль\p{L}*\s+кругл\p{L}*\s+год)/giu,
+  ];
+  const isNegatedPermanentSpan = (match: RegExpMatchArray): boolean => {
+    const start = match.index || 0;
+    const before = lower.slice(Math.max(0, start - 55), start).split(/[.!?;,:]/u).at(-1) || '';
+    const after = lower.slice(start + match[0].length, start + match[0].length + 55).split(/[.!?]/u)[0] || '';
+    const nominal = /^(?:для\s+постоянн|пмж)/iu.test(match[0]);
+    const postposedNegation = after.match(
+      /^\s*[,;:—-]?\s*(?:(?:там|здесь|тут|вообще|сейчас|пока|больше|я|мы|(?:в|на)\s+\p{L}+)\s+)*не\s+(?:планиру\p{L}*|собира\p{L}*|хоч\p{L}*|буд\p{L}*|рассматрива\p{L}*|подход\p{L}*)(.*)$/iu,
+    );
+    const precedingNegation = before.match(
+      /(?:^|[^\p{L}])не\s+(?:планиру\p{L}*|собира\p{L}*|хоч\p{L}*|буд\p{L}*|рассматрива\p{L}*|подход\p{L}*)(?:\s+(?:там|здесь|тут|вообще|сейчас|пока|больше|(?:в|на)\s+\p{L}+))*(?:\s+для)?\s*$/iu,
+    );
+    const precedingObject = precedingNegation ? before.slice(0, precedingNegation.index).trim() : '';
+    // A following explicit object ("не рассматриваю ипотеку") is not a rejection of this goal.
+    const followingObject = postposedNegation?.[1].split(/[,;:—-]/u)[0].trim() || '';
+    const rejectsThisGoal = Boolean(postposedNegation &&
+      /^(?:(?:пока|вообще|совсем|больше|сейчас)\s*)*$/iu.test(followingObject));
+    const rejectsThisGoalBefore = Boolean(precedingNegation &&
+      /^(?:(?:я|мы|сейчас|пока|вообще)\s*)*$/iu.test(precedingObject));
+    return (
+      (nominal && /(?:^|[^\p{L}])не\s+(?:для\s+)?$/iu.test(before)) ||
+      rejectsThisGoalBefore ||
+      rejectsThisGoal ||
+      (nominal && /^\s*(?:не\s+для\s+меня|исключа\p{L}*)/iu.test(after))
+    );
+  };
+  const latestPermanentMatch = permanentPatterns
+    .flatMap((pattern) => Array.from(lower.matchAll(pattern)))
+    .sort((a, b) => (a.index || 0) - (b.index || 0))
+    .at(-1);
+  const permanentEvidenceQuote = latestPermanentMatch && !isNegatedPermanentSpan(latestPermanentMatch)
+    ? latestPermanentMatch[0]
+    : null;
 
   const seasonalEvidenceQuote = firstSemanticMatch(lower, [
     /для\s+личн\p{L}*\s+поезд\p{L}*/iu,
@@ -177,10 +209,7 @@ export function classifyGoalIntent(text: string): SemanticGoalIntent {
       investmentEvidenceQuote: investmentEvidenceQuote || lower,
     };
   }
-  const permanentRejected =
-    /не\s+(?:планиру\p{L}*|собира\p{L}*|хоч\p{L}*|буд\p{L}*)[^.!?]{0,35}(?:переезжа\p{L}*|жить\s+постоянно|пмж)/iu.test(lower) ||
-    /(?:переезжа\p{L}*|пмж|постоянно\s+жить|жить\s+постоянно)[^.!?]{0,45}не\s+(?:планиру\p{L}*|собира\p{L}*|хоч\p{L}*|буд\p{L}*)/iu.test(lower);
-  if (permanentEvidenceQuote && !permanentRejected) {
+  if (permanentEvidenceQuote) {
     return { kind: 'permanent', evidenceQuote: permanentEvidenceQuote, personalEvidenceQuote: permanentEvidenceQuote, investmentEvidenceQuote };
   }
   if (seasonalEvidenceQuote) {
