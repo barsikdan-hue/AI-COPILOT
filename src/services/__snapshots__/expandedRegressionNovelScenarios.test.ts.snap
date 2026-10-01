@@ -21,7 +21,7 @@ exports[`expanded regression: novel scenarios > characterizes 8192 local determi
     "transcript_transport": 12,
   },
   "executionsPerScenario": 32,
-  "fail": 819,
+  "fail": 683,
   "failureClusters": [
     {
       "count": 192,
@@ -31,16 +31,6 @@ exports[`expanded regression: novel scenarios > characterizes 8192 local determi
       "invariant": "INV_DOWN_PAYMENT_READINESS",
       "productionLayer": "deterministic fact extraction and canonical projection",
       "semanticAction": "update_state",
-      "severity": "HIGH",
-    },
-    {
-      "count": 128,
-      "eventType": "none",
-      "factCategory": "budget",
-      "id": "fa1de6c36a87",
-      "invariant": "INV_TRUE_CORRECTION_SUPERSEDE",
-      "productionLayer": "canonical fact resolution and supersede",
-      "semanticAction": "supersede_fact",
       "severity": "HIGH",
     },
     {
@@ -74,7 +64,7 @@ exports[`expanded regression: novel scenarios > characterizes 8192 local determi
       "severity": "HIGH",
     },
     {
-      "count": 64,
+      "count": 56,
       "eventType": "none",
       "factCategory": "budget",
       "id": "00b31ad090a8",
@@ -134,10 +124,10 @@ exports[`expanded regression: novel scenarios > characterizes 8192 local determi
       "severity": "HIGH",
     },
   ],
-  "fingerprint": "3a8444fe1420cf09715ebae2ece4b6049d9a87676b7bd7998e6e56b831993323",
+  "fingerprint": "85f0bd770461a31763aca6c61a3ab71d6199bca44b47ed8ff439be97fc7efea1",
   "generatedExecutions": 8192,
-  "pass": 31697,
-  "passRate": 97.48,
+  "pass": 31833,
+  "passRate": 97.9,
   "seed": 2654435769,
 }
 `;

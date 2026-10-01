@@ -300,6 +300,62 @@ export function extractDeterministicFacts(
   );
   const matchBudgetSpan = (pattern: RegExp): RegExpMatchArray | null =>
     Array.from(lower.matchAll(new RegExp(pattern.source, `${pattern.flags}g`))).find(isBudgetMoneySpan) || null;
+  // Budget-only number grammar: DP and family eligibility keep their existing
+  // parsers. Normalize captured quantities without rewriting source offsets.
+  const budgetWordNumbers: Record<string, number> = {
+    ...spokenNumberMap,
+    одного: 1, одной: 1, двух: 2, трех: 3, трёх: 3, четырех: 4, четырёх: 4,
+    пяти: 5, шести: 6, семи: 7, восьми: 8, девяти: 9, десяти: 10,
+    одиннадцати: 11, двенадцати: 12, тринадцати: 13, четырнадцати: 14,
+    пятнадцати: 15, шестнадцати: 16, семнадцати: 17, восемнадцати: 18, девятнадцати: 19,
+    двадцати: 20, тридцати: 30, сорока: 40, пятидесяти: 50,
+    шестидесяти: 60, семидесяти: 70, восьмидесяти: 80, девяноста: 90,
+  };
+  const budgetWords = (predicate: (value: number) => boolean) => Object.keys(budgetWordNumbers)
+    .filter(word => predicate(budgetWordNumbers[word])).sort((a, b) => b.length - a.length).join('|');
+  const budgetOnes = budgetWords(value => value < 10);
+  const budgetTens = budgetWords(value => value >= 20 && value % 10 === 0);
+  const wordBudgetQuantity = String.raw`(?:(?:${budgetTens})\s+(?:${budgetOnes})|${budgetWords(() => true)})(?![\p{L}\p{N}])(?!\s+(?:${budgetOnes})(?=$|[^\p{L}\p{N}]))`;
+  const budgetQuantity = String.raw`(?:\d+(?:[.,]\d+)?(?![\p{L}\p{N}])|${wordBudgetQuantity})`;
+  const parseWordBudgetQuantity = (token: string): number => /^\d/u.test(token)
+    ? Number(token.replace(',', '.'))
+    : token.trim().split(/\s+/u).reduce((sum, word) => sum + budgetWordNumbers[word], 0);
+  const wordBudgetUnit = String.raw`(?:млн|миллион(?:а|ов)?|млрд|миллиард(?:а|ов)?|тыс|тысяч(?:а|и)?|к)(?=$|[^\p{L}\p{N}])`;
+  const normalizeWordBudgetUnit = (unit: string) => normalizedBudgetUnit(unit.startsWith('миллиард') ? 'млрд' : unit);
+  const isCurrentBudgetAllocation = (match: RegExpMatchArray): boolean => {
+    if (!isBudgetMoneySpan(match)) return false;
+    const before = lower.slice(Math.max(0, match.index! - 55), match.index);
+    const after = lower.slice(match.index! + match[0].length);
+    return !/не\s*$/iu.test(before) &&
+      !/(?:если\s+бы|допустим)[^.!?;]{0,45}$/iu.test(before) &&
+      !/у\s+(?:брата|сестры|друга|подруги|знаком\p{L}*)[^.!?;,]{0,25}$/iu.test(before) &&
+      !/^(?:\s*(?:руб(?:лей|ля)?|₽))?\s+(?:на|за)\s+(?:ремонт\p{L}*|парковк\p{L}*|мебель\p{L}*|машин\p{L}*|автомобил\p{L}*|отпуск\p{L}*|аренд\p{L}*)/iu.test(after) &&
+      !/^(?:\s*(?:руб(?:лей|ля)?|₽))?\s+(?:(?:в|за)\s+(?:месяц\p{L}*|год\p{L}*|недел\p{L}*|сутки)|ежемесячно|ежегодно)/iu.test(after) &&
+      !new RegExp(String.raw`^\s*,?\s*(?:[-–—]|(?:до|или|максимум)\s+)\s*${budgetQuantity}`, 'iu').test(after) &&
+      !/^\s*(?:%|процент\p{L}*|метр\p{L}*|лет|год\p{L}*|месяц\p{L}*|час\p{L}*|сообщени\p{L}*)(?=$|[^\p{L}\p{N}])/iu.test(after);
+  };
+  const wordBudgetPrefix = String.raw`(?:бюджет(?:ом|а)?|(?:могу|можем|готов\p{L}*)\s+потратить|(?:поднял\p{L}*|увеличил\p{L}*|изменил\p{L}*)\s+(?:бюджет|лимит))`;
+  const wordBudgetMatch = Array.from(lower.matchAll(new RegExp(
+    String.raw`(?<![\p{L}\p{N}])${wordBudgetPrefix}\s*[:–—-]?\s*(?:(до|от|максимум|не\s+больше|не\s+меньше|около|примерно)\s+)?(${wordBudgetQuantity})\s*(${wordBudgetUnit})`, 'giu',
+  ))).filter(isCurrentBudgetAllocation).at(-1);
+  const ceilingBudgetMatch = Array.from(lower.matchAll(new RegExp(
+    String.raw`(?<![\p{L}\p{N}])(?:бюджет|(?:ж[её]стк\p{L}*|финансов\p{L}*)\s+(?:потолок|лимит))\s+(?:теперь|сейчас)\s*[:–—-]?\s*(?:до\s+)?(${budgetQuantity})(?:\s*(${wordBudgetUnit}))?`, 'giu',
+  ))).filter(isCurrentBudgetAllocation).at(-1);
+  const wordBudgetRangeMatch = Array.from(lower.matchAll(new RegExp(
+    String.raw`(?<![\p{L}\p{N}])(?:бюджет(?:ом|а)?|(?:ж[её]стк\p{L}*|финансов\p{L}*)\s+потолок)\s+(?:(?:теперь|сейчас)\s+)?(?:от\s+)?(${budgetQuantity})(?:\s*(${wordBudgetUnit}))?\s*(?:до|[-–—])\s*(${budgetQuantity})\s*(${wordBudgetUnit})`, 'giu',
+  ))).filter(match => isCurrentBudgetAllocation(match) && /\p{L}/u.test(match[1] + match[3]) &&
+    (!match[2] || normalizeWordBudgetUnit(match[2]) === normalizeWordBudgetUnit(match[4]))).at(-1);
+  const scopedMatch = [wordBudgetMatch, ceilingBudgetMatch, wordBudgetRangeMatch]
+    .filter((match): match is RegExpExecArray => Boolean(match)).sort((a, b) => a.index! - b.index!).at(-1);
+  const scopedWordBudget = scopedMatch ? {
+    match: scopedMatch,
+    amount: scopedMatch === wordBudgetMatch ? scopedMatch[2] : scopedMatch[1],
+    unit: scopedMatch === wordBudgetRangeMatch ? scopedMatch[4] : scopedMatch === wordBudgetMatch ? scopedMatch[3] : scopedMatch[2] || 'млн',
+    bound: scopedMatch === ceilingBudgetMatch
+      ? /потолок|лимит|\sдо\s/iu.test(scopedMatch[0]) ? 'до' : ''
+      : scopedMatch === wordBudgetMatch ? scopedMatch[1] || '' : '',
+    upperAmount: scopedMatch === wordBudgetRangeMatch ? scopedMatch[3] : null,
+  } : null;
   const budgetRangeMatch = matchBudgetSpan(
     /(?:(?:бюджет|диапазон|рассматрива\p{L}*|смотр\p{L}*|где-то|примерно|около)[^\d]{0,20})?(?:от\s*)?(\d+(?:[.,]\d+)?)\s*(?:млн|миллион(?:а|ов)?|млрд|тысяч(?:и)?|тыс|к)?\s*(?:[-–—]|до)\s*(\d+(?:[.,]\d+)?)\s*(млн|миллион(?:а|ов)?|млрд|тысяч(?:и)?|тыс|к)(?=$|[^\p{L}\p{N}])/iu
   );
@@ -339,7 +395,7 @@ export function extractDeterministicFacts(
     }
     return null;
   })();
-  const correctionToken = '(?:\\d+(?:[.,]\\d+)?|один|одна|два|две|три|четыре|пять|шесть|семь|восемь|девять|десять|одиннадцать|двенадцать|тринадцать|четырнадцать|пятнадцать|шестнадцать|семнадцать|восемнадцать|девятнадцать|двадцать|тридцать|сорок|пятьдесят|шестьдесят|семьдесят|восемьдесят|девяносто)';
+  const correctionToken = budgetQuantity;
   const budgetCorrectionRegex = new RegExp(
     `(?:^|[^\\p{L}\\p{N}])не\\s+(${correctionToken})\\s*(млн|миллион(?:а|ов)?|млрд|тысяч(?:и)?|тыс|к)[^.!?]{0,28}(?:,\\s*|\\s+)а\\s+(${correctionToken})(?:\\s*(млн|миллион(?:а|ов)?|млрд|тысяч(?:и)?|тыс|к))?(?!\\s*(?:лет|год|месяц|%))`,
     'iu'
@@ -347,7 +403,7 @@ export function extractDeterministicFacts(
   const budgetCorrectionMatch = matchBudgetSpan(budgetCorrectionRegex);
   let explicitCorrectedBudget: { value: string; quote: string } | null = null;
   if (budgetCorrectionMatch) {
-    const correctedNumber = parseBudgetNumber(budgetCorrectionMatch[3]);
+    const correctedNumber = parseWordBudgetQuantity(budgetCorrectionMatch[3]);
     const correctedUnit = budgetCorrectionMatch[4] || budgetCorrectionMatch[2];
     if (correctedNumber != null) {
       const value = correctedUnit.startsWith('млрд')
@@ -373,6 +429,9 @@ export function extractDeterministicFacts(
   const unitlessStretchMatch = matchBudgetSpan(/(?:посмотр(?:ю|им)|готов[^.!?]{0,20}рассмотр|мож(?:но|ем)[^.!?]{0,20}рассмотр)[^0-9]{0,24}(\d{1,3}(?:[.,]\d+)?(?:\s*-\s*\d{1,3}(?:[.,]\d+)?)?)(?!\s*(?:лет|год|месяц|%))/iu);
   const explicitBudgetCorrection = Boolean(explicitCorrectedBudget);
   const contextualBudgetMatch = budgetMatches.find((match) => /бюджет|всего\s+рассчитыва/iu.test(match[0]));
+  const laterNumericBudgetMatch = scopedWordBudget ? budgetMatches.filter(match =>
+    match.index! > scopedWordBudget.match.index! && /бюджет|всего\s+рассчитыва/iu.test(match[0])
+  ).at(-1) : null;
   const hasStretchCue = /(?:^|[^\p{L}\p{N}])(?:если|но)(?=$|[^\p{L}\p{N}])|при\s+(?:сильн|интересн|стоящ)|посмотрю|рассмотр/iu.test(lower);
   const conditionalStretch = !explicitBudgetCorrection &&
     (budgetMatches.length >= 2 || (budgetMatches.length >= 1 && Boolean(unitlessStretchMatch))) &&
@@ -381,7 +440,7 @@ export function extractDeterministicFacts(
     ? (budgetMatches.at(-1) || null)
     : conditionalStretch
       ? budgetMatches[0]
-      : (contextualBudgetMatch || budgetMatches.at(-1) || null);
+      : (laterNumericBudgetMatch || contextualBudgetMatch || budgetMatches.at(-1) || null);
   const stretchMatch = conditionalStretch && budgetMatches.length >= 2 ? budgetMatches.at(-1)! : null;
   const isUnrealizedAssetGrowth =
     /(?:квартир|жиль|дом).{0,80}вырос\S*\s+(?:в\s+)?цен/iu.test(lower) &&
@@ -391,7 +450,35 @@ export function extractDeterministicFacts(
     /(?:(?:цена|стоимость)\s+(?:за\s+)?(?:квадратн\p{L}*\s+)?метр|доходност\p{L}*|(?:арендн\p{L}*\s+)?доход\s+(?:за|в)\s+|выручк\p{L}*)/iu.test(lower);
   const upperBoundMatch = !structuredBudget && !conditionalStretch && !hasStretchCue && matchBudgetSpan(/(?:^|[^\p{L}\p{N}])(до|максимум|не\s+больше)\s*(\d+(?:[.,]\d+)?)\s*(млн|миллион(?:а|ов)?|млрд|тысяч(?:и)?|тыс|к)(?=$|[^\p{L}\p{N}])/iu);
   const lowerBoundMatch = !structuredBudget && !conditionalStretch && !hasStretchCue && matchBudgetSpan(/(?:^|[^\p{L}\p{N}])(от|не\s+меньше)\s*(\d+(?:[.,]\d+)?)\s*(млн|миллион(?:а|ов)?|млрд|тысяч(?:и)?|тыс|к)(?=$|[^\p{L}\p{N}])/iu);
-  if (structuredBudget && !nonBudgetMoneyContext && (!agentAskedDownPayment || explicitlyBudgetContext || Boolean(unitlessCorrectionRangeMatch))) {
+  const structuredBudgetMatch = budgetRangeMatch || unitlessCorrectionRangeMatch || rawRublesMatch;
+  // Compare source positions only for the newly supported word/ceiling paths;
+  // retain the existing numeric parser's precedence everywhere else.
+  const laterBudgetContrast = budgetCorrectionMatch && explicitCorrectedBudget &&
+    !nonBudgetMoneyContext && (!agentAskedDownPayment || explicitlyBudgetContext) &&
+    (scopedWordBudget || /\p{L}/u.test(budgetCorrectionMatch[1] + budgetCorrectionMatch[3])) &&
+    (!scopedWordBudget || budgetCorrectionMatch.index! > scopedWordBudget.match.index!) &&
+    (!structuredBudgetMatch || budgetCorrectionMatch.index! > structuredBudgetMatch.index!);
+  if (laterBudgetContrast) {
+    addFact('budget', 'budget', explicitCorrectedBudget!.value, explicitCorrectedBudget!.quote, 0.99, {
+      isFlexible: false,
+      comment: 'Явная коррекция клиента: предыдущее значение бюджета отменено.',
+    });
+  } else if (scopedWordBudget && !laterNumericBudgetMatch &&
+    (!structuredBudgetMatch || scopedWordBudget.match.index! > structuredBudgetMatch.index!)) {
+    const amount = parseWordBudgetQuantity(scopedWordBudget.amount);
+    const unit = normalizeWordBudgetUnit(scopedWordBudget.unit);
+    const bound = scopedWordBudget.bound;
+    const approximate = /около|примерно/iu.test(bound);
+    const prefix = /до|максимум|не\s+больше/iu.test(bound) ? 'До '
+      : /от|не\s+меньше/iu.test(bound) ? 'От ' : approximate ? 'Около ' : '';
+    const value = scopedWordBudget.upperAmount
+      ? `${amount}–${parseWordBudgetQuantity(scopedWordBudget.upperAmount)} ${unit}`
+      : `${prefix}${amount} ${unit}`;
+    addFact('budget', 'budget', value, scopedWordBudget.match[0].trim(), 0.98, {
+      isFlexible: approximate,
+      comment: scopedWordBudget.match === ceilingBudgetMatch ? 'Клиент явно заменил финансовый потолок бюджета.' : 'Клиент явно назвал бюджет словесной суммой.',
+    });
+  } else if (structuredBudget && !nonBudgetMoneyContext && (!agentAskedDownPayment || explicitlyBudgetContext || Boolean(unitlessCorrectionRangeMatch))) {
     addFact('budget', 'budget', structuredBudget.value, structuredBudget.quote, 0.98, {
       isFlexible: structuredBudget.isFlexible,
       comment: structuredBudget.comment,
