@@ -326,9 +326,10 @@ export function extractDeterministicFacts(
     if (!isBudgetMoneySpan(match)) return false;
     const before = lower.slice(Math.max(0, match.index! - 55), match.index);
     const after = lower.slice(match.index! + match[0].length);
+    const explicitOwnBudget = /(?:^|[.!?;,]|\s(?:а|но|и))\s*(?:мой|наш|у\s+(?:меня|нас))\s*$/iu.test(before);
     return !/не\s*$/iu.test(before) &&
       !/(?:если\s+бы|допустим)[^.!?;]{0,45}$/iu.test(before) &&
-      !/у\s+(?:брата|сестры|друга|подруги|знаком\p{L}*)[^.!?;,]{0,25}$/iu.test(before) &&
+      !(/у\s+(?:(?:моего|моей)\s+)?(?:брата|сестры|друга|подруги|знаком\p{L}*)[^.!?;,]{0,25}$/iu.test(before) && !explicitOwnBudget) &&
       !/^(?:\s*(?:руб(?:лей|ля)?|₽))?\s+(?:на|за)\s+(?:ремонт\p{L}*|парковк\p{L}*|мебель\p{L}*|машин\p{L}*|автомобил\p{L}*|отпуск\p{L}*|аренд\p{L}*)/iu.test(after) &&
       !/^(?:\s*(?:руб(?:лей|ля)?|₽))?\s+(?:(?:в|за)\s+(?:месяц\p{L}*|год\p{L}*|недел\p{L}*|сутки)|ежемесячно|ежегодно)/iu.test(after) &&
       !new RegExp(String.raw`^\s*,?\s*(?:[-–—]|(?:до|или|максимум)\s+)\s*${budgetQuantity}`, 'iu').test(after) &&
