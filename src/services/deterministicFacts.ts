@@ -299,7 +299,8 @@ export function extractDeterministicFacts(
     span => match.index! < span.end && span.start < match.index! + match[0].length
   );
   const matchBudgetSpan = (pattern: RegExp): RegExpMatchArray | null =>
-    Array.from(lower.matchAll(new RegExp(pattern.source, `${pattern.flags}g`))).find(isBudgetMoneySpan) || null;
+    Array.from(lower.matchAll(new RegExp(pattern.source, `${pattern.flags}g`)))
+      .find(match => isBudgetMoneySpan(match) && isCurrentBudgetOwner(match)) || null;
   // Budget-only number grammar: DP and family eligibility keep their existing
   // parsers. Normalize captured quantities without rewriting source offsets.
   const budgetWordNumbers: Record<string, number> = {
@@ -322,14 +323,26 @@ export function extractDeterministicFacts(
     : token.trim().split(/\s+/u).reduce((sum, word) => sum + budgetWordNumbers[word], 0);
   const wordBudgetUnit = String.raw`(?:млн|миллион(?:а|ов)?|млрд|миллиард(?:а|ов)?|тыс|тысяч(?:а|и)?|к)(?=$|[^\p{L}\p{N}])`;
   const normalizeWordBudgetUnit = (unit: string) => normalizedBudgetUnit(unit.startsWith('миллиард') ? 'млрд' : unit);
+  const isCurrentBudgetOwner = (match: RegExpMatchArray): boolean => {
+    // A corrected numeric amount inherits the owner of the whole contrast,
+    // including "не 15, а 25 млн", where only the second amount has a unit.
+    // Overlapping prefixes let the nearest contrast win after an own-owner reset.
+    const contrastPrefix = Array.from(lower.slice(0, match.index).matchAll(new RegExp(
+      String.raw`(?=(?:^|[^\p{L}\p{N}])не\s+${budgetQuantity}(?:\s*${wordBudgetUnit})?[^.!?]{0,28}(?:,\s*|\s+)а\s*$)`, 'giu',
+    ))).at(-1);
+    const contrastStart = contrastPrefix?.index ?? match.index!;
+    const budgetPrefix = lower.slice(0, contrastStart).match(/бюджет(?:ом|а)?\s*$/iu);
+    const ownerIndex = budgetPrefix?.index ?? contrastStart;
+    const before = lower.slice(Math.max(0, ownerIndex - 55), ownerIndex);
+    const explicitOwnBudget = /(?:^|[.!?;,]|\s(?:а|но|и))\s*(?:мой|наш|у\s+(?:меня|нас))\s*$/iu.test(before);
+    return !(/у\s+(?:(?:моего|моей)\s+)?(?:брата|сестры|друга|подруги|знаком\p{L}*)[^.!?;,]{0,25}$/iu.test(before) && !explicitOwnBudget);
+  };
   const isCurrentBudgetAllocation = (match: RegExpMatchArray): boolean => {
-    if (!isBudgetMoneySpan(match)) return false;
+    if (!isBudgetMoneySpan(match) || !isCurrentBudgetOwner(match)) return false;
     const before = lower.slice(Math.max(0, match.index! - 55), match.index);
     const after = lower.slice(match.index! + match[0].length);
-    const explicitOwnBudget = /(?:^|[.!?;,]|\s(?:а|но|и))\s*(?:мой|наш|у\s+(?:меня|нас))\s*$/iu.test(before);
     return !/не\s*$/iu.test(before) &&
       !/(?:если\s+бы|допустим)[^.!?;]{0,45}$/iu.test(before) &&
-      !(/у\s+(?:(?:моего|моей)\s+)?(?:брата|сестры|друга|подруги|знаком\p{L}*)[^.!?;,]{0,25}$/iu.test(before) && !explicitOwnBudget) &&
       !/^(?:\s*(?:руб(?:лей|ля)?|₽))?\s+(?:на|за)\s+(?:ремонт\p{L}*|парковк\p{L}*|мебель\p{L}*|машин\p{L}*|автомобил\p{L}*|отпуск\p{L}*|аренд\p{L}*)/iu.test(after) &&
       !/^(?:\s*(?:руб(?:лей|ля)?|₽))?\s+(?:(?:в|за)\s+(?:месяц\p{L}*|год\p{L}*|недел\p{L}*|сутки)|ежемесячно|ежегодно)/iu.test(after) &&
       !new RegExp(String.raw`^\s*,?\s*(?:[-–—]|(?:до|или|максимум)\s+)\s*${budgetQuantity}`, 'iu').test(after) &&
@@ -423,7 +436,7 @@ export function extractDeterministicFacts(
     lower.matchAll(
       /(?:(?:бюджет(?:ом|а)?|всего\s+рассчитыва\p{L}*\s+на|до|около|примерно|в\s*районе)\s*)?(\d+(?:[.,]\d+)?(?:\s*-\s*\d+(?:[.,]\d+)?)?)\s*(млн|миллион(?:а|ов)?|млрд|тысяч(?:и)?|тыс|к)(?:[^\p{L}\p{N}]|$)/giu
     )
-  ).filter(isBudgetMoneySpan);
+  ).filter(match => isBudgetMoneySpan(match) && isCurrentBudgetOwner(match));
   // In corrections such as “not 10m, but 6m”, the last explicit value is current.
   // In flexible-budget phrases (“до 30, но 35–40 если стоящая история”) preserve
   // both the base target and the stretch ceiling instead of collapsing to one number.
