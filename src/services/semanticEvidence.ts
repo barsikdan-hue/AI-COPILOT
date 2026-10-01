@@ -740,7 +740,25 @@ export function detectFundsAvailability(
   const futureQuote = firstMatch(
     lower,
     /(?:первоначальн\p{L}*|перв\p{L}*)\s+взнос\p{L}*[^.!?]{0,24}(?:будет|появится|сформиру\p{L}*)[^.!?]{0,28}(?:через|к)\s+[^.!?]+/iu,
-  );
+  ) || (() => {
+    const explicitDp = String.raw`(?:первоначальн|перв|стартов)\p{L}*\s+взнос\p{L}*`;
+    const allocatedDp = String.raw`(?:(?:первоначальн|перв|стартов)\p{L}*\s+)?взнос\p{L}*`;
+    const arrivalHead = String.raw`(?:(?:деньги|средства)\s+(?:на|для)\s+${allocatedDp}|(?:на|для)\s+${allocatedDp}\s+(?:деньги|средства)|${explicitDp})\s+(?:поступ(?:ят|ит)|появ(?:ятся|ится))\s+после\s+`;
+    const match = lower.match(new RegExp(`${arrivalHead}[^.!?;]+`, 'iu'));
+    if (!match) return null;
+    const prefix = lower.slice(0, match.index).split(/[.!?;]/u).at(-1) || '';
+    const clause = lower.slice(match.index).split(/[.!;]/u)[0] || '';
+    if (/(?<!\p{L})не\s*$/iu.test(prefix) ||
+      /(?<!\p{L})(?:если(?!\s+точнее\s*[:,])|допустим|предположим|не\s+(?:факт|думаю|считаю|уверен\p{L}*))(?=$|[^\p{L}])/iu.test(prefix) ||
+      /(?<!\p{L})(?:у|для)\s+(?:(?:моего|моей|нашего|нашей)\s+)?(?:брата|сестры|друга|подруги|родителей)(?=$|[^\p{L}])/iu.test(`${prefix} ${clause}`) ||
+      /\?/u.test(clause)) return null;
+    // Remove every new arrival head before reusing the existing partial detector.
+    // The remaining text cannot enter this alternative again, and retains partial
+    // evidence in either clause order without duplicating FIX47's grammar.
+    const withoutArrivals = lower.replace(new RegExp(arrivalHead, 'giu'), '');
+    if (/доступна частично/iu.test(detectFundsAvailability(withoutArrivals, previousAgentTurnText, immediateAgentTurnText)?.value || '')) return null;
+    return match[0];
+  })();
   if (futureQuote) {
     return {
       value: 'Средства на первоначальный взнос будут доступны позже; сейчас готовность не подтверждена',

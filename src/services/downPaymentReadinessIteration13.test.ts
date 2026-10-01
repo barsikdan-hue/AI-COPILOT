@@ -275,3 +275,95 @@ describe('FIX47 explicit partial down-payment readiness', () => {
     expect(result.state.budget.value).toBe('20 млн руб');
   });
 });
+
+describe('FIX49 future down-payment funds after an event', () => {
+  const futureStatements = [
+    'Деньги на взнос поступят после закрытия вклада.',
+    'Средства на первоначальный взнос поступят после продажи квартиры.',
+    'На первый взнос деньги поступят после закрытия вклада.',
+    'Средства для первоначального взноса появятся после продажи квартиры.',
+    'Первоначальный взнос появится после закрытия вклада.',
+    'У меня деньги на взнос появятся после продажи квартиры.',
+    'Деньги на первый взнос поступят после выплаты премии.',
+    'Средства на стартовый взнос поступят после продажи квартиры.',
+    'Если точнее, деньги на взнос поступят после закрытия вклада.',
+  ];
+
+  it.each(futureStatements)('extracts future availability without claiming current funds: %s', text => {
+    const funds = detectFundsAvailability(text);
+    expect(funds).not.toBeNull();
+    expect(funds?.value).toMatch(/будут доступны позже; сейчас готовность не подтверждена/iu);
+    expect(funds?.value).not.toMatch(/\d/u);
+    expect(funds?.needsClarification).toBe(true);
+    expect(funds?.cancelsDownPayment).not.toBe(true);
+    expect(text.toLowerCase().replace(/ё/gu, 'е')).toContain(funds!.evidenceQuote);
+    expect(extractDeterministicFacts(text, 'future').filter(fact => fact.field === 'downPayment')).toEqual([
+      expect.objectContaining({ needsClarification: true, evidenceTurnId: 'future', value: expect.stringMatching(/будут доступны позже/iu) }),
+    ]);
+  });
+
+  it.each(futureStatements)('keeps canonical state, ledger, metric and analysis future: %s', text => {
+    for (const question of [null, 'Средства на первоначальный взнос уже доступны?']) {
+      const { result, client, turns, beforeClient } = replay(question, text);
+      const state = result.state;
+      expect(state.downPayment?.value).toEqual(expect.any(String));
+      expect(state.downPayment?.value).toMatch(/будут доступны позже; сейчас готовность не подтверждена/iu);
+      expect(state.downPayment?.value).not.toMatch(/\d/u);
+      expect(state.downPayment?.needsClarification).toBe(true);
+      expect(state.scriptProgress?.metrics.downPayment.status).toBe('partially_confirmed');
+      expect(state.scriptProgress?.metrics.downPayment.value).toMatch(/будут доступны позже/iu);
+      expect(activeDownPaymentFacts(state)).toEqual([expect.objectContaining({
+        turnId: client.id, needsClarification: true, lifecycleStatus: 'needs_verification',
+      })]);
+      expect(state.budget.value).toBeNull();
+      const analysis = buildLocalAnalysisResponse({
+        sessionId: client.sessionId, revision: client.revision!, newTurns: [client], recentTurns: turns, currentState: beforeClient,
+      });
+      expect(analysis.factsDelta.filter(fact => fact.field === 'downPayment')).toEqual([
+        expect.objectContaining({ needsClarification: true, value: expect.stringMatching(/будут доступны позже/iu) }),
+      ]);
+    }
+  });
+
+  it.each([
+    'Деньги поступят после закрытия вклада.',
+    'Деньги на ремонт поступят после закрытия вклада.',
+    'Средства на покупку поступят после продажи квартиры.',
+    'Бюджет будет после продажи квартиры.',
+    'Взнос в кооператив поступит после продажи квартиры.',
+    'Деньги на взнос в кооператив поступят после закрытия вклада.',
+    'Деньги на взнос по кредиту поступят после выплаты премии.',
+    'У брата деньги на взнос поступят после закрытия вклада.',
+    'Деньги на взнос поступят после закрытия вклада у брата.',
+    'У нашего брата деньги на взнос поступят после закрытия вклада.',
+    'Если деньги на взнос поступят после закрытия вклада, выберу квартиру.',
+    'Деньги на взнос не поступят после закрытия вклада.',
+    'Деньги на взнос могут поступить после закрытия вклада.',
+    'Деньги на взнос поступили после закрытия вклада.',
+    'Не факт, что деньги на взнос поступят после закрытия вклада.',
+    'Деньги на взнос поступят после закрытия вклада?',
+    'Деньги на взнос поступят после закрытия вклада или продажи квартиры?',
+    'Была бы сумма на взнос после закрытия вклада.',
+    'Не деньги на взнос поступят после закрытия вклада, а средства на ремонт.',
+    'Не думаю, что деньги на взнос поступят после закрытия вклада.',
+  ])('does not create future DP readiness from unrelated funds or non-assertions: %s', text => {
+    expect(detectFundsAvailability(text)?.value || '').not.toMatch(/будут доступны позже/iu);
+    expect(extractDeterministicFacts(text, 'control').filter(fact => fact.field === 'downPayment')
+      .some(fact => /будут доступны позже/iu.test(fact.value))).toBe(false);
+  });
+
+  it.each([
+    'Собрана часть первоначального взноса, остальные деньги на взнос поступят после закрытия вклада.',
+    'Собрана лишь часть первоначального взноса, деньги на взнос поступят после закрытия вклада.',
+    'Собрана часть первоначального взноса. Остальные деньги на взнос поступят после закрытия вклада.',
+    'Деньги на взнос поступят после закрытия вклада, пока собрана часть первоначального взноса.',
+  ])('preserves known partial funds when a later clause describes the future remainder: %s', text => {
+    expect(detectFundsAvailability(text)?.value).toMatch(/доступна частично/iu);
+    const { result } = replay(null, text);
+    expect(result.state.downPayment?.value).toMatch(/доступна частично/iu);
+    expect(result.state.scriptProgress?.metrics.downPayment.value).toMatch(/доступна частично/iu);
+    expect(activeDownPaymentFacts(result.state)).toEqual([
+      expect.objectContaining({ value: expect.stringMatching(/доступна частично/iu), needsClarification: true }),
+    ]);
+  });
+});

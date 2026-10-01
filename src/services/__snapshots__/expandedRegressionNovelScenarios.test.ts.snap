@@ -21,7 +21,7 @@ exports[`expanded regression: novel scenarios > characterizes 8192 local determi
     "transcript_transport": 12,
   },
   "executionsPerScenario": 32,
-  "fail": 555,
+  "fail": 491,
   "failureClusters": [
     {
       "count": 112,
@@ -51,16 +51,6 @@ exports[`expanded regression: novel scenarios > characterizes 8192 local determi
       "invariant": "INV_TRUE_CORRECTION_SUPERSEDE",
       "productionLayer": "canonical fact resolution and supersede",
       "semanticAction": "supersede_fact",
-      "severity": "HIGH",
-    },
-    {
-      "count": 64,
-      "eventType": "none",
-      "factCategory": "downPayment",
-      "id": "f058d65d45cc",
-      "invariant": "INV_DOWN_PAYMENT_READINESS",
-      "productionLayer": "deterministic fact extraction and canonical projection",
-      "semanticAction": "update_state",
       "severity": "HIGH",
     },
     {
@@ -124,10 +114,10 @@ exports[`expanded regression: novel scenarios > characterizes 8192 local determi
       "severity": "HIGH",
     },
   ],
-  "fingerprint": "d282931e4fbdbe8e60f07e602c28780ec402fe4aac1e2960173ebf48df1f0ad2",
+  "fingerprint": "d00575407f7f9070f820166f3ce7b194e47344a82310cf1bc92cb02988de0974",
   "generatedExecutions": 8192,
-  "pass": 31961,
-  "passRate": 98.29,
+  "pass": 32025,
+  "passRate": 98.49,
   "seed": 2654435769,
 }
 `;
