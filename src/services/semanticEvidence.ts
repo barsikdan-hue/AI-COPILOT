@@ -766,13 +766,35 @@ export function detectFundsAvailability(
     lower,
     /(?:первоначальн\p{L}*|перв\p{L}*)\s+взнос\p{L}*[^.!?]{0,24}(?:уже\s+)?(?:есть|доступен\p{L}*|сформирован\p{L}*|готов\p{L}*)|на\s+(?:первоначальн\p{L}*|перв\p{L}*)\s+взнос\p{L}*[^.!?]{0,24}(?:деньг\p{L}*|средств\p{L}*)[^.!?]{0,18}(?:есть|доступн\p{L}*|на\s+руках)|(?:деньг\p{L}*|средств\p{L}*)[^.!?]{0,24}(?:есть|доступн\p{L}*|на\s+руках)[^.!?]{0,60}(?:на\s+)?(?:первоначальн\p{L}*|перв\p{L}*)\s+взнос\p{L}*/iu,
   );
+  // Current readiness can name the allocated funds instead of a numeric DP.
+  // Keep this grammar separate from cancellation, amount and future/partial
+  // extraction, and require the readiness predicate next to its DP subject.
+  const currentDpLabel = String.raw`(?:первоначальн\p{L}*|перв\p{L}*|стартов\p{L}*)\s+взнос\p{L}*`;
+  const currentDpPredicate = String.raw`(?:есть|доступ(?:ен|на|но|ны)|сформирован(?:а|о|ы)?|подготовлен(?:а|о|ы)?|готов(?:а|о|ы)?|лежат\s+на\s+(?:счет\p{L}*|руках))`;
+  const currentQuote = explicitQuote || firstMatch(lower, new RegExp(
+    String.raw`${currentDpLabel}\s+(?:(?:деньг\p{L}*|средств\p{L}*)\s+)?(?:(?:уже|сейчас|у\s+(?:меня|нас))\s+)*${currentDpPredicate}(?=$|[^\p{L}])`, 'iu',
+  ));
+  const currentStart = currentQuote ? lower.indexOf(currentQuote) : 0;
+  const currentPrefix = lower.slice(0, currentStart).split(/[.!?;]/u).at(-1) || '';
+  const currentSuffix = lower.slice(currentStart + (currentQuote?.length || 0)).split(/[.!?;]/u)[0] || '';
+  const currentReadyQuote = currentQuote &&
+    !/(?<!\p{L})(?:часть|части|частью|частичн\p{L}*)\s+(?:(?:денег|средств)\s+(?:на|для)\s+)?$/iu.test(currentPrefix) &&
+    !/(?<!\p{L})(?:часть|части|частью|частичн\p{L}*|не|будут|будет)(?=$|[^\p{L}])/iu.test(currentQuote) &&
+    !/^\s*,?\s*(?:но\s+)?(?:(?:только|лишь)\s+част|не\s+(?:все|полностью))/iu.test(currentSuffix) &&
+    !/(?<!\p{L})(?:только|лишь)\s+(?:часть|половин\p{L}*)|(?<!\p{L})остальн\p{L}*\s+(?:(?:деньг|средств|сумм)\p{L}*\s+)?буд(?:ет|ут)/iu.test(currentSuffix) &&
+    (explicitQuote || (
+      !/(?<!\p{L})(?:если(?!\s+точнее\s*[:,])|допустим|предположим|скоро|не)(?=$|[^\p{L}])|(?<!\p{L})(?:у|для)\s+(?:брата|сестры|друга|подруги|родителей)(?=$|[^\p{L}])/iu.test(currentPrefix) &&
+      !/^\s*(?:через|после|к\s+|\d)/iu.test(currentSuffix) &&
+      !/^\s*,?\s*(?:если|при\s+условии|(?:только\s+)?у\s+(?:брата|сестры|друга|подруги|родителей))(?=$|[^\p{L}])/iu.test(currentSuffix) &&
+      !/^\s*\?/u.test(lower.slice(currentStart + currentQuote.length))
+    )) ? currentQuote : null;
   const contextualQuote = asksReadiness
     ? firstMatch(lower, /^(?:да[,.]?\s*)?(?:в\s+целом\s+)?(?:уже\s+)?(?:есть|доступн(?:ы|а|о)|сформирован(?:ы|а|о)?)(?:\s*,\s*но[^.!?]{0,70})?[.!]?$/iu)
     : null;
   const sourceQuote = asksFundsSource
     ? firstMatch(lower, /(?:это\s+)?уже\s+на\s+руках|деньг\p{L}*[^.!?]{0,18}(?:есть|лежат|на\s+руках)|средств\p{L}*[^.!?]{0,18}(?:есть|на\s+руках)|продавать\s+ничего\s+не\s+планирую/iu)
     : null;
-  const quote = explicitQuote || contextualQuote || sourceQuote;
+  const quote = currentReadyQuote || contextualQuote || sourceQuote;
   if (!quote) return null;
   return {
     value: 'Средства доступны на первоначальный взнос; точный размер не назван',

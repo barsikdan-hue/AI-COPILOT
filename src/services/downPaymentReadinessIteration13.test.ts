@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ConversationState, SpeakerRole, TranscriptTurn } from '../types';
 import { createInitialState } from './conversationStore';
 import { advanceLocalConversation, buildLocalAnalysisResponse } from './localAnalysisEngine';
+import { detectFundsAvailability } from './semanticEvidence';
 
 function turn(id: string, speaker: SpeakerRole, text: string, revision: number): TranscriptTurn {
   return {
@@ -35,6 +36,69 @@ const activeDownPaymentFacts = (state: ConversationState) => state.confirmedFact
 );
 
 describe('FIX ITERATION 13 down-payment readiness', () => {
+  it.each([
+    'Средства на стартовый взнос уже лежат на счёте.',
+    'Деньги на стартовый взнос уже есть.',
+    'Деньги на стартовый взнос лежат на счёте.',
+    'Средства на первоначальный взнос подготовлены.',
+    'Стартовый взнос уже подготовлен.',
+    'На первый взнос деньги уже лежат на счёте.',
+    'Деньги мне на стартовый взнос уже есть.',
+    'Средства на стартовый взнос уже есть, участок выбираю у моря.',
+    'К счастью, первоначальный взнос уже есть.',
+    'Первоначальный взнос уже есть, квартиру хочу в частном доме.',
+    'Если точнее, Средства на стартовый взнос уже лежат на счёте.',
+  ])('FIX46 recognizes current allocated funds without inventing their amount: %s', text => {
+    const funds = detectFundsAvailability(text);
+    expect(funds?.value).toMatch(/^Средства доступны на первоначальный взнос/iu);
+    expect(text.toLowerCase().replace(/ё/gu, 'е')).toContain(funds!.evidenceQuote);
+    const { result } = replay(null, text);
+    expect(result.state.downPayment?.value).toBe(funds?.value);
+    expect(result.state.downPayment?.value).not.toMatch(/\d/u);
+    expect(activeDownPaymentFacts(result.state)).toHaveLength(1);
+    // Readiness is known, but the amount still needs clarification under the
+    // existing amountless-DP contract; FIX46 does not change metric semantics.
+    expect(result.state.scriptProgress?.metrics.downPayment.status).toBe('partially_confirmed');
+    expect(result.state.scriptProgress?.metrics.downPayment.value).toBe(funds?.value);
+    expect(result.state.budget.value).toBeNull();
+  });
+
+  it('FIX46 keeps an unrelated partial budget clause outside the readiness qualifier', () => {
+    expect(detectFundsAvailability('Деньги на первоначальный взнос уже есть, часть бюджета пойдёт на ремонт.')?.value)
+      .toMatch(/^Средства доступны на первоначальный взнос/iu);
+  });
+
+  it.each([
+    'Деньги на первый взнос будут через месяц.',
+    'Деньги на стартовый взнос будут через месяц.',
+    'Средства на стартовый взнос будут подготовлены через месяц.',
+    'Деньги на первый взнос будут готовы через месяц.',
+    'Часть первого взноса уже есть.',
+    'Часть средств на стартовый взнос уже есть.',
+    'Деньги на стартовый взнос уже есть, но только часть.',
+    'Стартовый взнос частично подготовлен.',
+    'Первоначального взноса пока нет.',
+    'Средства на стартовый взнос не подготовлены.',
+    'Средства на первоначальный взнос не подготовлены.',
+    'У брата средства на стартовый взнос уже есть.',
+    'Если средства на стартовый взнос подготовлены, можно выбирать.',
+    'Деньги уже лежат на счёте.',
+    'Стартовый взнос готовится.',
+    'Средства на стартовый взнос подготовлены не полностью.',
+    'Деньги на стартовый взнос уже есть, но не все.',
+    'Деньги на стартовый взнос уже есть, если продам квартиру.',
+    'Деньги на стартовый взнос уже есть только у брата.',
+    'Деньги на стартовый взнос уже есть, у меня лишь часть, остальное у брата.',
+    'Стартовый взнос готов, но на счёте пока только половина суммы.',
+    'Деньги на стартовый взнос уже есть, остальные будут через месяц.',
+    'Деньги на стартовый взнос уже есть?',
+  ])('FIX46 does not promote future, partial, absent or unrelated funds to current readiness: %s', text => {
+    expect(detectFundsAvailability(text)?.value || '').not.toMatch(/^Средства доступны на первоначальный взнос/iu);
+    const { result } = replay(null, text);
+    expect(result.state.downPayment?.value || '').not.toMatch(/^Средства доступны на первоначальный взнос/iu);
+    expect(result.state.scriptProgress?.metrics.downPayment.status).not.toBe('confirmed');
+  });
+
   it('A: records explicit readiness without inventing an amount or repeating readiness', () => {
     const scenario = replay(
       'Средства на первоначальный взнос уже доступны?',
