@@ -1029,17 +1029,38 @@ export function evaluateFirstCallScript(
     allClientText.includes('нет детей до 7') ||
     allClientText.includes('нет детей до семи');
 
+  // Use the extractor's existing owner vocabulary locally. Owners and child
+  // markers must belong to the same client turn and evidence context.
+  const childOwnerPattern = 'у\\s+(меня|нас|(?:(?:моего|моей|нашего|нашей)\\s+)?(?:брата|сестры|друга|подруги|друзей|родителей))(?=$|[^\\p{L}\\p{N}])';
+  const hasClientChildEvidence = (pattern: RegExp): boolean => clientTurns.some((turn) => {
+    const text = turn.text.toLowerCase();
+    for (const match of text.matchAll(new RegExp(pattern.source, `${pattern.flags}g`))) {
+      // An explicit own-child possessive at this match outranks an earlier
+      // relative clause, including when only raw fallback recognizes the age.
+      if (/(?:^|[^\p{L}\p{N}])(?:моему|нашему)\s+$/iu.test(text.slice(0, match.index))) return true;
+      const end = match.index + match[0].length;
+      const prefix = text.slice(0, end).split(/[.!?;]/u).at(-1) || '';
+      const precedingOwner = Array.from(prefix.matchAll(
+        new RegExp(`(?:^|[^\\p{L}\\p{N}])${childOwnerPattern}`, 'giu')
+      )).at(-1)?.[1];
+      const followingOwner = text.slice(end).match(
+        new RegExp(`^\\s+${childOwnerPattern}`, 'iu')
+      )?.[1];
+      const owner = precedingOwner || followingOwner;
+      if (!owner || /^(?:меня|нас)$/iu.test(owner)) return true;
+    }
+    return false;
+  });
+
   const under7PositiveMarkers =
     !noChildUnder7Markers &&
-    Boolean(
-      allClientText.match(
+    hasClientChildEvidence(
         /(?:(?:реб[её]нк(?:у|а)?|дет(?:ям|ей|и)|сыну|дочер(?:и|ь)|дочк(?:е|а|у))\s*(?:до\s*7\s*(?:лет|года)?|[1-6]\s*(?:год(?:а)?|лет))|(?:до\s*7\s*(?:лет|года)?|[1-6]\s*(?:год(?:а)?|лет))\s*(?:реб[её]нк(?:у|а)?|дет(?:ям|ей|и)|сыну|дочер(?:и|ь)|дочк(?:е|а|у))|маленьк(?:ие|их)\s*дет(?:и|ей)|малыш|(?:есть\s+)?(?:реб[её]нок|дети)\s+до\s*7\s*(?:лет|года)?)/iu
-      )
     );
 
   const hypotheticalChildReference = /(?:возможн\p{L}*|может\s+быть)[^.!?]{0,70}(?:покуп\p{L}*|оформ\p{L}*)[^.!?]{0,35}на\s+(?:дочь|сына|реб[её]нка)|(?:покуп\p{L}*|оформ\p{L}*)[^.!?]{0,35}на\s+(?:дочь|сына|реб[её]нка)[^.!?]{0,55}пока\s+не\s+решил\p{L}*/iu.test(allClientText);
-  const genericChildrenMarkers = !hypotheticalChildReference && Boolean(
-    allClientText.match(/(?:есть\s+(?:реб[её]нок|дети)|реб[её]нок|реб[её]нка|реб[её]нку|дет(?:и|ей)|сыну|дочери|сын|дочь)/iu)
+  const genericChildrenMarkers = !hypotheticalChildReference && hasClientChildEvidence(
+    /(?:есть\s+(?:реб[её]нок|дети)|реб[её]нок|реб[её]нка|реб[её]нку|дет(?:и|ей)|сыну|дочери|сын|дочь)/iu
   );
 
   const noChildrenMarkers =
