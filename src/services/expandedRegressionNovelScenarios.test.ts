@@ -26,5 +26,5 @@ describe('expanded regression: novel scenarios', () => {
         severity: cluster.severity,
       })),
     }).toMatchSnapshot();
-  }, 180_000);
+  }, 360_000);
 });

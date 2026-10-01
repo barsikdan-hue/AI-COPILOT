@@ -213,15 +213,53 @@ export function extractDeterministicFacts(
     if (unit.startsWith('тыс') || unit === 'к') return 'тыс руб';
     return 'млн руб';
   };
+  // Normalize only quantities explicitly bound to DP, keeping original offsets
+  // and quotes for budget span isolation and cancellation chronology.
+  const dpLabel = String.raw`(?:первоначальн\p{L}*|перв\p{L}*)\s+(?:взнос\p{L}*|плат[её]ж\p{L}*)`;
+  const dpTens = 'двадцать|тридцать|сорок|пятьдесят|шестьдесят|семьдесят|восемьдесят|девяносто';
+  const dpOnes = 'один|одна|два|две|три|четыре|пять|шесть|семь|восемь|девять';
+  const dpWords = Object.keys(spokenNumberMap).sort((a, b) => b.length - a.length).join('|');
+  const dpNumber = String.raw`(?:\d{1,3}(?:\s+\d{3})+|\d+(?:[.,]\d+)?|(?:${dpTens})\s+(?:${dpOnes})|${dpWords})`;
+  const dpUnit = String.raw`(?:млн|миллион(?:а|ов)?|тысяч(?:и)?|тыс|%|процент(?:а|ов)?|руб(?:лей|ля)?)`;
+  const dpQuantity = String.raw`(${dpNumber})\s*(${dpUnit})(?=$|[^\p{L}\p{N}])`;
+  const dpPredicate = String.raw`(?:(?:составля\p{L}*|будет|примерно|около|выделено|есть|в\s+размере)\s*)?`;
   const downPaymentAmountMatches = [
-    ...lower.matchAll(
-      /(?:первоначальн\p{L}*|перв\p{L}*)\s+(?:взнос\p{L}*|плат[её]ж\p{L}*)\s*(?:[:–—-]\s*)?(?:(?:составля\p{L}*|будет|примерно|около|в\s+размере)\s*)?(\d+(?:[.,]\d+)?)\s*(млн|миллион(?:а|ов)?|тысяч(?:и)?|тыс|%|руб(?:лей|ля)?)/giu
-    ),
-    ...lower.matchAll(
-      /(\d+(?:[.,]\d+)?)\s*(млн|миллион(?:а|ов)?|тысяч(?:и)?|тыс|%|руб(?:лей|ля)?)\s+(?:на|для)\s+(?:первоначальн\p{L}*|перв\p{L}*)\s+(?:взнос\p{L}*|плат[её]ж\p{L}*)/giu
-    ),
-  ];
-  const explicitDownPaymentMatch = downPaymentAmountMatches[0];
+    ...lower.matchAll(new RegExp(String.raw`${dpLabel}\s*(?:[:–—-]\s*)?${dpPredicate}${dpQuantity}`, 'giu')),
+    ...lower.matchAll(new RegExp(String.raw`${dpQuantity}\s+(?:на|для)\s+${dpLabel}`, 'giu')),
+    ...lower.matchAll(new RegExp(String.raw`на\s+${dpLabel}\s+(?:выделено|есть)\s+${dpQuantity}`, 'giu')),
+    ...lower.matchAll(new RegExp(String.raw`первоначально\s+(?:готов\p{L}*|могу|можем)\s+внести\s+${dpQuantity}`, 'giu')),
+    ...lower.matchAll(new RegExp(String.raw`(?:могу|можем|готов\p{L}*)\s+внести\s+${dpQuantity}\s+первоначально`, 'giu')),
+    ...lower.matchAll(new RegExp(String.raw`на\s+взнос\s+есть\s+${dpQuantity}`, 'giu')),
+    ...Array.from(lower.matchAll(new RegExp(String.raw`из\s+них\s+(${dpNumber})\s*[-–—:]\s*${dpLabel}`, 'giu'))).flatMap(match => {
+      // Unit inheritance is permitted only from the immediately preceding
+      // explicit total, never from unrelated money elsewhere in the turn.
+      const total = lower.slice(0, match.index).match(
+        /(?:общий\s+)?бюджет\s+\d+(?:[.,]\d+)?\s*(млн|миллион(?:а|ов)?|тыс|тысяч(?:и)?)(?:\s*руб(?:лей|ля)?)?\s*,\s*$/iu,
+      );
+      if (!total) return [];
+      match[2] = total[1];
+      return [match];
+    }),
+  ].filter(match => {
+    const before = lower.slice(Math.max(0, match.index! - 16), match.index);
+    const after = lower.slice(match.index! + match[0].length);
+    const unrelatedAllocation = /^(?:\s*(?:руб(?:лей|ля)?|₽))?\s+(?:на|за)\s+(?:ремонт\p{L}*|парковк\p{L}*|мебель\p{L}*|машин\p{L}*|автомобил\p{L}*|отпуск\p{L}*|аренд\p{L}*)/iu.test(after);
+    return !/не\s+(?:(?:на|для)\s+)?$/iu.test(before) && !unrelatedAllocation;
+  }).map(match => {
+    const token = match[1].replace(/\s+/gu, ' ').trim();
+    const amount = /^\d/u.test(token)
+      ? Number(token.replace(/\s/gu, '').replace(',', '.'))
+      : token.split(' ').reduce((sum, word) => sum + spokenNumberMap[word], 0);
+    match[1] = String(amount);
+    match[2] = match[2].startsWith('процент') ? '%' : match[2];
+    return match;
+  });
+  const dpCorrection = Array.from(lower.matchAll(/(?:точнее|поправлю|на самом деле)\s*[,—-]?\s*/giu)).at(-1);
+  const correctedDownPaymentMatch = dpCorrection && downPaymentAmountMatches.find(match =>
+    match.index! >= dpCorrection.index! + dpCorrection[0].length &&
+    lower.slice(dpCorrection.index! + dpCorrection[0].length, match.index).trim() === '',
+  );
+  const explicitDownPaymentMatch = correctedDownPaymentMatch || downPaymentAmountMatches[0];
   const explicitDownPaymentAmount = explicitDownPaymentMatch
     ? { amount: explicitDownPaymentMatch[1], unit: explicitDownPaymentMatch[2], quote: explicitDownPaymentMatch[0].trim() }
     : null;
@@ -832,7 +870,7 @@ export function extractDeterministicFacts(
     currentDownPaymentAmount = null;
     // An explicit same-turn correction may reopen DP after cancelling it.
     // Money spans above remain unchanged; only current DP emission is selected.
-    const correction = Array.from(lower.matchAll(/(?:точнее|поправлю|на самом деле)\s*[,—-]?\s*/giu)).at(-1);
+    const correction = dpCorrection;
     const correctedAmount = correction && downPaymentAmountMatches.find(match =>
       lower.slice(correction.index! + correction[0].length, match.index).trim() === '' &&
       match.index! >= correction.index! + correction[0].length,
@@ -849,7 +887,7 @@ export function extractDeterministicFacts(
       : rawUnit.startsWith('тыс')
         ? `${amount} тыс руб`
         : rawUnit.startsWith('руб')
-          ? `${amount} руб`
+          ? Number(amount) >= 1_000_000 ? `${Number(amount) / 1_000_000} млн руб` : `${amount} руб`
           : `${amount} млн руб`;
     addFact('downPayment', 'downPayment', value, currentDownPaymentAmount.quote, 0.98, {
       comment: 'Клиент явно назвал сумму первоначального взноса.',
