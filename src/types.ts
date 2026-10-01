@@ -460,7 +460,7 @@ export interface ConversationState {
   trustEvaluation?: TrustEvaluation;
   qualityResult?: QualityControlResult;
   purchaseDependency?: string | null;
-  downPayment?: FactEntry;
+  downPayment?: FactEntry & { explicitlyUnavailable?: boolean };
   downPaymentSource?: FactEntry;
   familyMortgage?: FactEntry;
   propertyType?: FactEntry;
@@ -613,6 +613,7 @@ export interface AnalysisResponse {
     semanticReason?: string;
     confidence?: number;
     needsClarification?: boolean;
+    cancelsDownPayment?: boolean;
     isFlexible?: boolean;
     comment?: string;
   }>;

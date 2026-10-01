@@ -163,13 +163,15 @@ function sanitizeExplicitSeasonalGoal(
 function sanitizeDownPaymentWithoutAmount(
   progress: ReturnType<typeof legacy.evaluateFirstCallScript>,
   turns: TranscriptTurn[],
+  state: ConversationState,
 ): ReturnType<typeof legacy.evaluateFirstCallScript> {
   const metric = progress.metrics?.downPayment;
-  if (!metric) return progress;
+  if (!metric || state.downPayment?.explicitlyUnavailable) return progress;
   let evidence: TranscriptTurn | null = null;
 
   for (const turn of turns) {
     if (turn.speaker !== 'client') continue;
+    if (state.downPayment?.turnId && turn.id !== state.downPayment.turnId) continue;
     const text = norm(turn.text);
     if (!/(?:первоначальн\p{L}*|перв\p{L}*)\s+взнос/iu.test(text)) continue;
     const hasAmount = /\d+(?:[.,]\d+)?\s*(?:млн|миллион\p{L}*|тыс\p{L}*|%|руб)/iu.test(text);
@@ -304,7 +306,7 @@ export function evaluateFirstCallScript(
   progress = sanitizeInfrastructure(progress, turns);
   progress = sanitizePaymentMethodUncertainty(progress, turns, state);
   progress = sanitizeExplicitSeasonalGoal(progress, turns);
-  progress = sanitizeDownPaymentWithoutAmount(progress, turns);
+  progress = sanitizeDownPaymentWithoutAmount(progress, turns, state);
   progress = sanitizeTrustQuality(progress, state);
 
   const deferral = latestVideoDeferral(turns);

@@ -125,6 +125,7 @@ export function mergeFactsDelta(
     status?: any;
     semanticReason?: string;
     needsClarification?: boolean;
+    cancelsDownPayment?: boolean;
     isFlexible?: boolean;
     comment?: string;
   }>,
@@ -268,6 +269,33 @@ export function mergeFactsDelta(
 
     const turnText = turnTextLookup ? turnTextLookup[evidenceTurnId] : undefined;
     if (turnTextLookup && !turnText) continue;
+    if ((field === 'downPayment' || field === 'down_payment') &&
+        next.downPayment?.turnId && next.downPayment.turnId !== evidenceTurnId) {
+      const turnOrder = Object.keys(turnTextLookup || {});
+      const incomingIndex = turnOrder.indexOf(evidenceTurnId);
+      const currentIndex = turnOrder.indexOf(next.downPayment.turnId);
+      if (next.downPayment.evidenceTurnIds.includes(evidenceTurnId) ||
+          (incomingIndex >= 0 && currentIndex >= 0 && incomingIndex < currentIndex)) continue;
+    }
+    // Only an explicit DP cancellation bypasses ordinary null/clarification
+    // guards. Canonical state and every active DP ledger record change together.
+    if (item.cancelsDownPayment && (field === 'downPayment' || field === 'down_payment')) {
+      if (!turnText || !evidenceQuote || !validateEvidenceQuote(turnText, evidenceQuote)) continue;
+      next.downPayment = {
+        value: null,
+        explicitlyUnavailable: true,
+        evidenceTurnIds: Array.from(new Set([...(next.downPayment?.evidenceTurnIds || []), evidenceTurnId])),
+        evidenceQuote,
+        turnId: evidenceTurnId,
+      };
+      for (const fact of next.confirmedFacts) {
+        if (['downPayment', 'down_payment'].includes(fact.category) &&
+            !['superseded', 'rejected'].includes(fact.lifecycleStatus || '')) {
+          fact.lifecycleStatus = 'superseded';
+        }
+      }
+      continue;
+    }
     // Specific confirmed facts cannot be weakened by a later generic mention.
     const canonical = (next as any)[field];
     if (canonical?.value && !canonical.needsClarification && needsClarification &&
@@ -644,6 +672,7 @@ export function mergeFactsDelta(
       case 'down_payment':
         next.downPayment = {
           value: sanitizedVal,
+          turnId: evidenceTurnId,
           evidenceTurnIds: Array.from(
             new Set([...(next.downPayment?.evidenceTurnIds || []), evidenceTurnId])
           ),

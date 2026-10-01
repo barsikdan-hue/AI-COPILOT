@@ -221,7 +221,7 @@ function sanitizeLiveState(
     fact.turnId === turn.id &&
     !['superseded', 'rejected'].includes(fact.lifecycleStatus || '')
   );
-  const downPaymentAvailable = !hasActiveCurrentTurnDownPayment && hasAvailableDownPaymentWithoutAmount(turn.text);
+  const downPaymentAvailable = !state.downPayment?.explicitlyUnavailable && !hasActiveCurrentTurnDownPayment && hasAvailableDownPaymentWithoutAmount(turn.text);
   if (downPaymentAvailable) {
     state = {
       ...state,

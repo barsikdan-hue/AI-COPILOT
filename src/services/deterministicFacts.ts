@@ -33,6 +33,7 @@ export interface ExtractedFactItem {
   isFlexible?: boolean;
   comment?: string;
   needsClarification?: boolean;
+  cancelsDownPayment?: boolean;
 }
 
 interface PurchaseTimelineEvidence {
@@ -508,11 +509,12 @@ export function extractDeterministicFacts(
     addFact('searchExperience', 'searchExperience', searchExperience.value, searchExperience.evidenceQuote, 0.94);
   }
 
-  const fundsAvailability = detectFundsAvailability(trimmed, previousAgentTurnText || '');
+  const fundsAvailability = detectFundsAvailability(trimmed, previousAgentTurnText || '', immediateAgentTurnText || '');
   if (fundsAvailability) {
     addFact('downPayment', 'downPayment', fundsAvailability.value, fundsAvailability.evidenceQuote, 0.94, {
       needsClarification: fundsAvailability.needsClarification,
       comment: fundsAvailability.comment,
+      cancelsDownPayment: fundsAvailability.cancelsDownPayment,
     });
   }
 
@@ -591,7 +593,7 @@ export function extractDeterministicFacts(
 
   // Contextual initial payment: a short client answer like "15 миллионов" or "30%"
   // counts only when Andrei has just asked about the down payment.
-  if (agentAskedDownPayment && !explicitDownPaymentAmount) {
+  if (agentAskedDownPayment && !explicitDownPaymentAmount && !fundsAvailability?.cancelsDownPayment) {
     const downPaymentMoneyMatch = lower.match(
       /(\d+(?:[.,]\d+)?)\s*(млн|миллион(?:а|ов)?|тысяч(?:и)?|тыс)(?:\s*(?:руб(?:лей|ля)?|₽))?/iu
     );
@@ -825,9 +827,23 @@ export function extractDeterministicFacts(
     });
   }
 
-  if (explicitDownPaymentAmount) {
-    const amount = explicitDownPaymentAmount.amount.replace(',', '.');
-    const rawUnit = explicitDownPaymentAmount.unit;
+  let currentDownPaymentAmount = explicitDownPaymentAmount;
+  if (fundsAvailability?.cancelsDownPayment) {
+    currentDownPaymentAmount = null;
+    // An explicit same-turn correction may reopen DP after cancelling it.
+    // Money spans above remain unchanged; only current DP emission is selected.
+    const correction = Array.from(lower.matchAll(/(?:точнее|поправлю|на самом деле)\s*[,—-]?\s*/giu)).at(-1);
+    const correctedAmount = correction && downPaymentAmountMatches.find(match =>
+      lower.slice(correction.index! + correction[0].length, match.index).trim() === '' &&
+      match.index! >= correction.index! + correction[0].length,
+    );
+    if (correctedAmount && !detectFundsAvailability(lower.slice(correction!.index!), '', '')?.cancelsDownPayment) {
+      currentDownPaymentAmount = { amount: correctedAmount[1], unit: correctedAmount[2], quote: correctedAmount[0].trim() };
+    }
+  }
+  if (currentDownPaymentAmount) {
+    const amount = currentDownPaymentAmount.amount.replace(',', '.');
+    const rawUnit = currentDownPaymentAmount.unit;
     const value = rawUnit === '%'
       ? `${amount}%`
       : rawUnit.startsWith('тыс')
@@ -835,7 +851,7 @@ export function extractDeterministicFacts(
         : rawUnit.startsWith('руб')
           ? `${amount} руб`
           : `${amount} млн руб`;
-    addFact('downPayment', 'downPayment', value, explicitDownPaymentAmount.quote, 0.98, {
+    addFact('downPayment', 'downPayment', value, currentDownPaymentAmount.quote, 0.98, {
       comment: 'Клиент явно назвал сумму первоначального взноса.',
     });
   }

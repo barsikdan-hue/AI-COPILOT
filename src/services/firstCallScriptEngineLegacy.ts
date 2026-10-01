@@ -1146,7 +1146,9 @@ export function evaluateFirstCallScript(
   let dpNeedsClarification = false;
 
   const dpFact = state.confirmedFacts.filter(f => f.lifecycleStatus !== 'superseded' && f.lifecycleStatus !== 'rejected').find((f) => f.category === 'downPayment' || f.category === 'down_payment');
-  if (state.downPayment?.value) {
+  if (state.downPayment?.explicitlyUnavailable) {
+    dpReason = 'Клиент явно сообщил об отсутствии первоначального взноса; историческая сумма больше не подтверждена.';
+  } else if (state.downPayment?.value) {
     dpStatus = state.downPayment.needsClarification ? 'partially_confirmed' : 'confirmed';
     dpValue = state.downPayment.value;
     dpReason = 'Готовность средств / первоначального платежа подтверждена в каноническом состоянии.';

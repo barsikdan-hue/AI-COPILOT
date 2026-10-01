@@ -689,7 +689,8 @@ export function detectSearchExperience(text: string): SemanticSearchExperience |
 export function detectFundsAvailability(
   text: string,
   previousAgentTurnText = '',
-): { value: string; evidenceQuote: string; needsClarification: boolean; comment: string } | null {
+  immediateAgentTurnText = previousAgentTurnText,
+): { value: string; evidenceQuote: string; needsClarification: boolean; comment: string; cancelsDownPayment?: boolean } | null {
   const raw = (text || '').trim();
   if (!raw) return null;
   const lower = raw.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
@@ -697,6 +698,32 @@ export function detectFundsAvailability(
   const mentionsDownPayment = /(?:первоначальн\p{L}*|перв\p{L}*)\s+взнос\p{L}*|первого\s+платежа/iu;
   const asksReadiness = mentionsDownPayment.test(prev) && /(?:есть|доступн\p{L}*|сформирован\p{L}*|на\s+руках)/iu.test(prev);
   const asksFundsSource = /(?:средств\p{L}*|деньг\p{L}*)[^.!?]{0,36}(?:на\s+руках|продаж\p{L}*|вклад\p{L}*|актив\p{L}*)|(?:источник|откуда)[^.!?]{0,28}(?:средств\p{L}*|денег)/iu.test(prev);
+
+  // Absence is a DP cancellation, not missing evidence. Keep the predicate
+  // bound to DP itself so an unrelated "документов нет" cannot clear it.
+  const dpLabel = String.raw`(?:первоначальн\p{L}*|перв\p{L}*)\s+(?:взнос\p{L}*|плат[её]ж\p{L}*)`;
+  const timing = String.raw`(?:(?:сейчас|пока|ещ[её]|уже|больше|теперь|у\s+(?:меня|нас))\s+)*`;
+  const amount = String.raw`(?:\d+(?:[.,]\d+)?\s*(?:млн|миллион\p{L}*|тыс\p{L}*|%|руб\p{L}*)\s*)?`;
+  const absence = String.raw`(?:нет|не\s+(?:сформирован\p{L}*|готов(?:а|о|ы)?|доступ(?:ен|на|но|ны)))`;
+  const immediate = (immediateAgentTurnText || '').toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
+  const immediateReadiness = new RegExp(dpLabel, 'iu').test(immediate) && /(?:есть|доступн\p{L}*|сформирован\p{L}*|на\s+руках)/iu.test(immediate);
+  const cancellationMatch = lower.match(new RegExp(
+    String.raw`${dpLabel}\s+${amount}${timing}${absence}(?=$|[^\p{L}])|нет\s+${timing}(?:денег|средств)\s+(?:на|для)\s+${dpLabel}|(?:денег|средств)\s+(?:на|для)\s+${dpLabel}\s+${timing}${absence}(?=$|[^\p{L}])`,
+    'iu',
+  ));
+  const cancellationPrefix = cancellationMatch ? lower.slice(0, cancellationMatch.index).split(/[.!?;]/u).at(-1) || '' : '';
+  const nonClientAssertion = /(?:если|допустим|предположим)(?=$|[^\p{L}])|(?:у|для)\s+(?:(?:моего|моей|нашего|нашей)\s+)?(?:брата|сестры|друга|подруги|родителей)(?=$|[^\p{L}])/iu.test(cancellationPrefix);
+  const cancelsDownPayment = Boolean(cancellationMatch && !nonClientAssertion) ||
+    (immediateReadiness && /^(?:нет|пока\s+нет|не\s+сформирован\p{L}*)[.!]?$/iu.test(lower));
+  if (cancelsDownPayment) {
+    return {
+      value: 'Средства на первоначальный взнос сейчас отсутствуют',
+      evidenceQuote: raw,
+      needsClarification: false,
+      comment: 'Клиент явно отменил текущую готовность первоначального взноса.',
+      cancelsDownPayment: true,
+    };
+  }
 
   // A concrete amount is handled by the amount extractor. Do not also emit a
   // generic readiness fact for the same evidence.
