@@ -583,31 +583,60 @@ export function extractDeterministicFacts(
   }
 
   // 5. Family & Children (Family Mortgage eligibility check)
-  const adultChildren = detectAdultChildren(trimmed);
+  // Reject relative evidence per match, so an earlier relative clause does not
+  // veto a later explicit statement about the client's own children.
+  const childOwnerPattern = 'у\\s+(меня|нас|(?:(?:моего|моей|нашего|нашей)\\s+)?(?:брата|сестры|друга|подруги|друзей|родителей))(?=$|[^\\p{L}\\p{N}])';
+  const isClientChildEvidence = (index: number, length: number): boolean => {
+    const prefix = lower.slice(0, index + length).split(/[.!?;]/u).at(-1) || '';
+    const precedingOwner = Array.from(prefix.matchAll(
+      new RegExp(`(?:^|[^\\p{L}\\p{N}])${childOwnerPattern}`, 'giu')
+    )).at(-1)?.[1];
+    const followingOwner = lower.slice(index + length).match(
+      new RegExp(`^\\s+${childOwnerPattern}`, 'iu')
+    )?.[1];
+    const owner = precedingOwner || followingOwner;
+    return !owner || /^(?:меня|нас)$/iu.test(owner);
+  };
+  const matchClientChildEvidence = (pattern: RegExp): RegExpMatchArray | null => {
+    for (const match of lower.matchAll(new RegExp(pattern.source, `${pattern.flags}g`))) {
+      if (isClientChildEvidence(match.index, match[0].length)) return match;
+    }
+    return null;
+  };
+  let adultChildrenOffset = 0;
+  let adultChildren = detectAdultChildren(trimmed);
+  while (adultChildren) {
+    const index = lower.replace(/ё/g, 'е').indexOf(
+      adultChildren.evidenceQuote.toLowerCase().replace(/ё/g, 'е'), adultChildrenOffset
+    );
+    if (index >= 0 && isClientChildEvidence(index, adultChildren.evidenceQuote.length)) break;
+    adultChildrenOffset = index >= 0 ? index + adultChildren.evidenceQuote.length : trimmed.length;
+    adultChildren = detectAdultChildren(trimmed.slice(adultChildrenOffset));
+  }
   const childAgeToken = '(?:1[0-7]|[0-9]|семнадцать|шестнадцать|пятнадцать|четырнадцать|тринадцать|двенадцать|одиннадцать|десять|девять|восемь|семь|шесть|пять|четыре|три|два|две|один|одна)';
-  const childAgeMatch = lower.match(new RegExp(
+  const childAgeMatch = matchClientChildEvidence(new RegExp(
     `(?:(?:реб[её]н(?:ок|ку|ка|ком)|сын(?:у|а)?|дочер(?:и|ь)|дочк(?:е|а|у))(?:(?:[^.!?]{0,24}?(?:ему|ей)\\s*(?:уже\\s*)?(${childAgeToken})(?=$|[^\\p{L}\\p{N}]))|(?:\\s+(?:уже\\s*)?(${childAgeToken})\\s*(?:год(?:а)?|лет)))|(?:оговорил(?:ся|ась)|поправлю|точнее)[^.!?]{0,30}?(?:ему|ей)\\s*(?:уже\\s*)?(${childAgeToken})(?=$|[^\\p{L}\\p{N}]))`,
     'iu'
   ));
   const childAgeRaw = childAgeMatch?.[1] || childAgeMatch?.[2] || childAgeMatch?.[3] || null;
-  const childAgeIsRange = /(?:реб[её]н(?:ок|ку|ка)|дети|сыну|дочери).{0,20}(?:меньше|младше|до|еще нет|ещё нет)\s*(?:7|семи)(?:\s*лет)?/iu.test(lower);
+  const childAgeIsRange = Boolean(matchClientChildEvidence(/(?:реб[её]н(?:ок|ку|ка)|дети|сыну|дочери).{0,20}(?:меньше|младше|до|еще нет|ещё нет)\s*(?:7|семи)(?:\s*лет)?/iu));
   const childAge = childAgeRaw && !childAgeIsRange ? parseBudgetNumber(childAgeRaw) : null;
   const hypotheticalChildReference = /(?:возможн\p{L}*|может\s+быть)[^.!?]{0,70}(?:покуп\p{L}*|оформ\p{L}*)[^.!?]{0,35}на\s+(?:дочь|сына|реб[её]нка)|(?:покуп\p{L}*|оформ\p{L}*)[^.!?]{0,35}на\s+(?:дочь|сына|реб[её]нка)[^.!?]{0,55}пока\s+не\s+решил\p{L}*/iu.test(lower);
   // Scoped negation: "детей до 7 лет нет" is specific to the under-7 eligibility, not proof of having no kids at all
-  const noChildUnder7Match = lower.match(
+  const noChildUnder7Match = matchClientChildEvidence(
     /(?:(?:нет|нету|без)\s*(?:маленьких\s*)?детей\s*(?:до\s*(?:7|семи)\s*(?:лет|года)?)|детей\s*(?:до\s*(?:7|семи)\s*(?:лет|года)?)\s*(?:у\s*нас\s*)?(?:пока\s*)?нет)/iu
   );
   // General negation: client explicitly has no children
-  const noChildrenMatch = !noChildUnder7Match && lower.match(
-    /(?:(?:нет|нету|без)\s*детей|детей\s*(?:у\s*нас\s*)?(?:пока\s*)?нет|нет\s*реб[её]нка|без\s*реб[её]нка)/iu
+  const noChildrenMatch = !noChildUnder7Match && matchClientChildEvidence(
+    /(?<![\p{L}\p{N}])(?:(?:нет|нету|без)\s*детей|детей\s*(?:пока\s*)?(?:у\s*(?:меня|нас)\s*)?(?:пока\s*)?нет(?:у)?|нет\s*реб[её]нка|без\s*реб[её]нка)(?=$|[^\p{L}\p{N}])/iu
   );
   // Explicit positive evidence of child under 7: must be bound to child words, not loan terms like "рассрочка до 7 лет" or infrastructure like "детский сад"
-  const childAgeRangeMatch = lower.match(/(?:реб[её]н(?:ок|ку|ка)|дети|сыну|дочери).{0,20}(?:меньше|младше|до|еще нет|ещё нет)\s*(?:7|семи)(?:\s*лет)?/iu);
-  const childUnder7Match = !noChildUnder7Match && !noChildrenMatch && lower.match(
+  const childAgeRangeMatch = matchClientChildEvidence(/(?:реб[её]н(?:ок|ку|ка)|дети|сыну|дочери).{0,20}(?:меньше|младше|до|еще нет|ещё нет)\s*(?:7|семи)(?:\s*лет)?/iu);
+  const childUnder7Match = !noChildUnder7Match && !noChildrenMatch && matchClientChildEvidence(
     /(?:(?:реб[её]нк(?:у|а)?|дет(?:ям|ей|и)|сыну|дочер(?:и|ь)|дочк(?:е|а|у))\s*(?:до\s*7\s*(?:лет|года)?|[1-6]\s*(?:год(?:а)?|лет))|(?:до\s*7\s*(?:лет|года)?|[1-6]\s*(?:год(?:а)?|лет))\s*(?:реб[её]нк(?:у|а)?|дет(?:ям|ей|и)|сыну|дочер(?:и|ь)|дочк(?:е|а|у))|маленьк(?:ие|их)\s*дет(?:и|ей)|малыш|(?:есть\s+)?(?:реб[её]нок|дети)\s+до\s*7\s*(?:лет|года)?)/iu
   );
   // Generic children mentioned (without verified age)
-  const childGenericMatch = !hypotheticalChildReference && !noChildUnder7Match && !noChildrenMatch && childAge == null && !childUnder7Match && lower.match(
+  const childGenericMatch = !hypotheticalChildReference && !noChildUnder7Match && !noChildrenMatch && childAge == null && !childUnder7Match && matchClientChildEvidence(
     /(?:есть\s+(?:реб[её]нок|дети)|реб[её]нок|реб[её]нка|реб[её]нку|дет(?:и|ей)|сыну|дочери|сын|дочь)/iu
   );
 

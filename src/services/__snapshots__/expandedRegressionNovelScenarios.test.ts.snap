@@ -21,7 +21,7 @@ exports[`expanded regression: novel scenarios > characterizes 8192 local determi
     "transcript_transport": 12,
   },
   "executionsPerScenario": 32,
-  "fail": 1235,
+  "fail": 1171,
   "failureClusters": [
     {
       "count": 448,
@@ -48,16 +48,6 @@ exports[`expanded regression: novel scenarios > characterizes 8192 local determi
       "eventType": "none",
       "factCategory": "familyMortgage",
       "id": "ed2d233076f3",
-      "invariant": "INV_TRUE_CORRECTION_SUPERSEDE",
-      "productionLayer": "canonical fact resolution and supersede",
-      "semanticAction": "supersede_fact",
-      "severity": "HIGH",
-    },
-    {
-      "count": 108,
-      "eventType": "none",
-      "factCategory": "familyMortgage",
-      "id": "1a630930cf2e",
       "invariant": "INV_TRUE_CORRECTION_SUPERSEDE",
       "productionLayer": "canonical fact resolution and supersede",
       "semanticAction": "supersede_fact",
@@ -106,6 +96,16 @@ exports[`expanded regression: novel scenarios > characterizes 8192 local determi
     {
       "count": 54,
       "eventType": "none",
+      "factCategory": "familyMortgage",
+      "id": "1a630930cf2e",
+      "invariant": "INV_TRUE_CORRECTION_SUPERSEDE",
+      "productionLayer": "canonical fact resolution and supersede",
+      "semanticAction": "supersede_fact",
+      "severity": "HIGH",
+    },
+    {
+      "count": 54,
+      "eventType": "none",
       "factCategory": "property_type",
       "id": "d0a78a72c69e",
       "invariant": "INV_TRUE_CORRECTION_SUPERSEDE",
@@ -124,7 +124,7 @@ exports[`expanded regression: novel scenarios > characterizes 8192 local determi
       "severity": "HIGH",
     },
     {
-      "count": 25,
+      "count": 15,
       "eventType": "FACT_CORRECTION",
       "factCategory": "familyMortgage",
       "id": "501a80c3f955",
@@ -144,10 +144,10 @@ exports[`expanded regression: novel scenarios > characterizes 8192 local determi
       "severity": "HIGH",
     },
   ],
-  "fingerprint": "57d8ac57c04fe873740aed3d2c7cd659e34b91b084a31592b650f1a6dc1aec8c",
+  "fingerprint": "b8a1f59e9169d5ad4dd40e31053c7f3ea86a233299b300b16f56642ae8f9e5bb",
   "generatedExecutions": 8192,
-  "pass": 31281,
-  "passRate": 96.2,
+  "pass": 31345,
+  "passRate": 96.4,
   "seed": 2654435769,
 }
 `;
