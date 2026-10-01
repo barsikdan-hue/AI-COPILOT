@@ -83,6 +83,124 @@ export function resolveMortgageDecision(turns: Pick<TranscriptTurn, 'speaker' | 
   return decision;
 }
 
+const paymentProperty = '(?:размер\\p{L}*|сумм\\p{L}*|ставк\\p{L}*|процент\\p{L}*|услов\\p{L}*|платеж\\p{L}*|взнос\\p{L}*|срок\\p{L}*|программ\\p{L}*|район\\p{L}*|локац\\p{L}*|объект\\p{L}*|квартир\\p{L}*)';
+const mortgageProperty = '(?:размер\\p{L}*|сумм\\p{L}*|ставк\\p{L}*|процент\\p{L}*|услов\\p{L}*|платеж\\p{L}*|взнос\\p{L}*|срок\\p{L}*|программ\\p{L}*)';
+const paymentMortgage = '(?:ипотек\\p{L}*|ипотечн\\p{L}*\\s+кредит\\p{L}*)';
+
+function paymentChoiceClauses(text: string): string[] {
+  const lower = (text || '').toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').replace(/\s+/gu, ' ').trim();
+  const cue = '(?:не\\s+(?:знаю|решил\\p{L}*|выбрал\\p{L}*|определил\\p{L}*)|под\\s+вопросом)';
+  return lower.split(/[.!?;]|\s+(?:но|однако|зато)\s+/u).map(clause => clause
+    .replace(new RegExp(`(?:^|[\\s,])${paymentProperty}[^,;.!?]{0,55}${cue}`, 'giu'), ' ')
+    .replace(new RegExp(`(?:возможн\\p{L}*|может\\s+быть)\\s+(?:под|по|на)\\s+(?:семейн\\p{L}*\\s+)?${paymentProperty}[^,;.!?]*`, 'giu'), ' ')
+    .replace(new RegExp(`(?:возможн\\p{L}*|может\\s+быть)\\s+${mortgageProperty}[^,;.!?]*`, 'giu'), ' ')
+    .replace(new RegExp(`${paymentProperty}(?:\\s+по)?\\s+${paymentMortgage}`, 'giu'), ' '));
+}
+
+/** A property-owned mortgage mention is not new evidence of a payment choice. */
+export function hasPaymentMethodScope(text: string): boolean {
+  if (!new RegExp(paymentMortgage, 'iu').test(text)) return true;
+  const lower = text.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
+  return orderedPaymentStatements(lower).filter(statement => !isPaymentPropertyQuestion(statement) && !hasOtherPaymentRecipient(statement))
+    .some(statement => paymentChoiceClauses(statement).some(clause =>
+      /ипотек|ипотечн\p{L}*\s+кредит|рассроч|способ\s+оплат|схем\p{L}*\s+(?:покупк|оплат)|(?:куп\p{L}*|опла\p{L}*|покуп\p{L}*|запла\p{L}*)[^.!?]{0,35}(?:за\s+свои|собственн\p{L}*\s+средств|наличн)|(?:полностью|100%)[^.!?]{0,30}(?:сво\p{L}*|собственн\p{L}*\s+средств)/iu.test(clause)));
+}
+
+const paymentDoubt = /не\s+(?:(?:совсем\s+)?уверен\p{L}*|знаю|решил\p{L}*|выбрал\p{L}*|определил\p{L}*)|сомнева\p{L}*|под\s+вопросом/iu;
+const paymentCondition = /(?:^|[^\p{L}])(?:если|в\s+случае|при\s+условии)(?:$|[^\p{L}])/iu;
+const paymentOtherProperty = new RegExp(paymentProperty, 'iu');
+
+/** A which/how-much complement owns a property, unlike a whether-to-use payment choice. */
+function isPaymentPropertyQuestion(statement: string): boolean {
+  const text = statement.replace(/[,:]/gu, ' ').replace(/\s+/gu, ' ').trim();
+  const question = text.match(/(?:^|\s)(?:как\p{L}+|сколько)\s+[^.!?;]*/iu);
+  if (!question || /способ\s+оплат|схем\p{L}*\s+(?:покупк|оплат)/iu.test(question[0])) return false;
+  // A later property question cannot own an already expressed payment choice.
+  if (new RegExp(paymentMortgage, 'iu').test(text.slice(0, question.index))) return false;
+  return paymentOtherProperty.test(question[0]) || /(?:по|у)\s+ипотек/iu.test(question[0]);
+}
+
+/** A named non-client recipient in a whether-needed complement owns a different payment choice. */
+function hasOtherPaymentRecipient(statement: string): boolean {
+  const recipient = statement.match(/(?:нуж(?:н\p{L}*|ен)|надо)\s+ли\s+(\p{L}+)\s+(?:ипотек\p{L}*|он|она|ее|это)(?:$|[^\p{L}])/iu)?.[1];
+  return Boolean(recipient && !/^(?:мне|нам)$/iu.test(recipient) && /(?:[аяиы]м|ему|ей)$|^тебе$/iu.test(recipient));
+}
+
+/** Keep complements and conditional antecedent/consequence together; split independently owned statements. */
+function orderedPaymentStatements(text: string): string[] {
+  // Normalize the existing financing lexeme, not its owner, decision or original evidence.
+  const paymentText = text.replace(/ипотечн\p{L}*\s+кредит\p{L}*/gu, 'ипотека');
+  return paymentText.split(/[.!?;]|(?:,\s*|\s+)(?:но|однако|зато|хотя)[,\s]+/u).flatMap(rawSentence => {
+    // Discourse stance is not a financing antecedent; normalize it before classifying decisions.
+    const sentence = rawSentence.replace(/^\s*(?:ну|слушайте|вообще|смотрите|в\s+целом|если\s+(?:честно|откровенно|точнее))\s*,\s*/u, '');
+    if (/^(?:если|в\s+случае|при\s+условии)\s/iu.test(sentence.trim())) return [sentence];
+    const statements: string[] = [];
+    let start = 0;
+    for (const comma of sentence.matchAll(/,\s*/gu)) {
+      const next = sentence.slice(comma.index! + comma[0].length);
+      const prefix = sentence.slice(start, comma.index);
+      if (/^(?:если|в\s+случае|при\s+условии)\s/iu.test(prefix.trim())) continue;
+      const newOwner = new RegExp(`^(?:(?:возможно|может\\s+быть)\\s+)?${paymentProperty}`, 'iu').test(next);
+      const newDecision = /^(?:(?:теперь|пока|еще)\s+)*(?:не\s+уверен\p{L}*|сомнева\p{L}*|решил\p{L}*|если|да(?:\s|,)|точно\s+возьм|буд(?:у|ем)\s+брать)/iu.test(next);
+      const explicitMortgage = /^ипотек/iu.test(next) && (/ипотек/iu.test(prefix) || paymentOtherProperty.test(prefix));
+      const priorOwner = /ипотек/iu.test(prefix) || paymentOtherProperty.test(prefix);
+      if (newOwner || (newDecision && priorOwner) || explicitMortgage) {
+        statements.push(prefix);
+        start = comma.index! + comma[0].length;
+      }
+    }
+    statements.push(sentence.slice(start));
+    return statements;
+  }).map(statement => statement.trim()).filter(Boolean);
+}
+
+/** Local classification only; these kinds are not conversation-state statuses. */
+function paymentStatementKind(statement: string, mortgageContext: boolean): {
+  kind: 'confirmation' | 'uncertainty' | 'conditional' | 'property' | 'none'; mortgageContext: boolean;
+} {
+  if (isPaymentPropertyQuestion(statement)) return { kind: 'property', mortgageContext: false };
+  if (hasOtherPaymentRecipient(statement)) return { kind: 'none', mortgageContext: false };
+  const scoped = paymentChoiceClauses(statement)[0].replace(/[,:]/gu, ' ').replace(/\s+/gu, ' ').trim();
+  const explicit = /ипотек|способ\s+оплат|схем\p{L}*\s+(?:покупк|оплат)/iu.test(scoped);
+  const echo = scoped.replace(/^(?:(?:да|я|мы|теперь|пока|еще|окончательно)\s+)*/u, '');
+  const uncertainEcho = new RegExp(`^(?:${paymentDoubt.source})(?:\\s+(?:нуж(?:н\\p{L}*|ен)|надо|брать|использовать)\\s+ли\\s+(?:(?:мне|нам)\\s+)?(?:он|она|ее|это))?$`, 'iu').test(echo) ||
+    /^(?:может\s+быть|возможно)\s+(?:все-таки\s+)?без\s+нее$/u.test(echo);
+  const confirmedEcho = /^точно\s+нуж(?:на|ен)$/u.test(echo);
+  const ownsEcho = mortgageContext && !paymentOtherProperty.test(statement) && (uncertainEcho || confirmedEcho);
+  const context = (explicit && /ипотек/iu.test(scoped) && !paymentOtherProperty.test(statement)) || ownsEcho;
+  const result = (kind: 'confirmation' | 'uncertainty' | 'conditional' | 'property' | 'none') => ({ kind, mortgageContext: context });
+  if (!explicit && !ownsEcho) return result(paymentOtherProperty.test(statement) ? 'property' : 'none');
+  // Ownership is decided before polarity: a hypothetical action is never an affirmative reset.
+  if (paymentCondition.test(scoped)) return result('conditional');
+  const choice = /(?:способ\s+оплаты|схем\p{L}*|вариант\p{L}*)[^.!?]{0,45}не\s+(?:выбран\p{L}*|определен\p{L}*|решил\p{L}*|выбрал\p{L}*)|(?:сравнива\p{L}*|выбира\p{L}*)[^.!?]{0,60}ипотек[^.!?]{0,45}рассроч|ипотек[^.!?]{0,45}(?:или|либо)[^.!?]{0,35}рассроч/iu.test(scoped);
+  const possible = /(?:возможн\p{L}*|может\s+быть|скорее\s+всего)[^.!?]{0,35}ипотек\p{L}*|ипотек\p{L}*[^.!?]{0,35}(?:возможн\p{L}*|может\s+быть)/iu.test(scoped);
+  const unresolvedChoice = /(?:нуж(?:н\p{L}*|ен)|надо|стоит\s+брать)\s+ли[^.!?]{0,40}ипотек|ипотек\p{L}*[^.!?]{0,45}или\s+не\s+(?:надо|нужно|брать|использовать)/iu.test(scoped);
+  if (paymentDoubt.test(scoped) || choice || possible || unresolvedChoice || (ownsEcho && uncertainEcho)) return result('uncertainty');
+  const affirmative = /(?:беру|берем|буд(?:у|ем)\s+брать|решил\p{L}*)[^.!?]{0,35}ипотек|ипотек\p{L}*\s+(?:точно\s+)?(?:нуж(?:на|ен)|подходит|одобрен\p{L}*)|часть[^.!?]{0,35}сво\p{L}*[^.!?]{0,45}ипотек/iu.test(scoped) ||
+    /^(?:да\s+)?(?:(?:я|мы)\s+)?(?:часть\s+)?(?:точно\s+возьм(?:у|ем)|будем\s+брать)\s+(?:в\s+)?ипотек\p{L}*$/iu.test(scoped);
+  return result(affirmative || (ownsEcho && confirmedEcho) ? 'confirmation' : 'none');
+}
+
+/** Ordered payment choice: only unconditional confirmation can clear uncertainty. */
+export function isPaymentMethodUncertain(text: string, previousAgentText: string | null = null): boolean {
+  const lower = (text || '').toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').replace(/\s+/gu, ' ').trim();
+  const undecidedAnswer = /^(?:(?:я|мы|пока|еще|окончательно|с этим)\s+)*(?:не\s+(?:знаю|решил\p{L}*|выбрал\p{L}*|определил\p{L}*)|под\s+вопросом|может\s+быть)[.!]*$/iu.test(lower);
+  const paymentQuestion = (new RegExp(paymentMortgage, 'iu').test(previousAgentText || '') ||
+    /рассроч|способ\s+(?:покупк|оплат)|схем\p{L}*\s+(?:покупк|оплат)/iu.test(previousAgentText || '')) &&
+    (!new RegExp(paymentProperty, 'iu').test(previousAgentText || '') || /способ|схем/iu.test(previousAgentText || ''));
+  if (undecidedAnswer && paymentQuestion) return true;
+
+  let uncertain = false;
+  let mortgageContext = false;
+  for (const statement of orderedPaymentStatements(lower)) {
+    const decision = paymentStatementKind(statement, mortgageContext);
+    mortgageContext = decision.mortgageContext;
+    if (decision.kind === 'uncertainty' || decision.kind === 'conditional') uncertain = true;
+    else if (decision.kind === 'confirmation') uncertain = false;
+  }
+  return uncertain;
+}
+
 export interface SemanticCriterion {
   key: string;
   label: string;

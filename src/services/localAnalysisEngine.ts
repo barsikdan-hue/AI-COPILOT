@@ -64,16 +64,6 @@ function isPassiveMarketComparison(text: string): boolean {
   return mentionsComparison && !realBarrier;
 }
 
-function isMortgageUncertain(text: string): boolean {
-  const lower = normalize(text);
-  if (!/ипотек/iu.test(lower)) return false;
-  const explicitUncertainty = /(?:не\s+(?:знаю|решил\p{L}*|определил\p{L}*)|сомнева\p{L}*|дума\p{L}*[^.!?]{0,45}(?:надо|нужно)\s+ли|(?:надо|нужно)\s+ли[^.!?]{0,40}ипотек|ипотек\p{L}*[^.!?]{0,45}или\s+не\s+(?:надо|нужно|брать|использовать))/iu.test(lower);
-  const schemeNotChosen = /(?:схем\p{L}*|вариант\p{L}*)[^.!?]{0,45}(?:пока\s+)?не\s+(?:выбран\p{L}*|определен\p{L}*|определён\p{L}*)|(?:окончательн\p{L}*|пока)[^.!?]{0,35}(?:схем\p{L}*|вариант\p{L}*)[^.!?]{0,35}не\s+(?:выбран\p{L}*|определен\p{L}*|определён\p{L}*)/iu.test(lower);
-  const alternativeChoice = /(?:либо|или)[^.!?]{0,35}ипотек\p{L}*[^.!?]{0,45}(?:либо|или)[^.!?]{0,35}рассроч\p{L}*|ипотек\p{L}*[^.!?]{0,45}(?:либо|или)[^.!?]{0,35}рассроч\p{L}*/iu.test(lower);
-  const possibleMortgage = /(?:возможн\p{L}*|может\s+быть)[^.!?]{0,35}ипотек\p{L}*|ипотек\p{L}*[^.!?]{0,35}(?:возможн\p{L}*|может\s+быть)/iu.test(lower);
-  return explicitUncertainty || schemeNotChosen || possibleMortgage || (alternativeChoice && /(?:возможн\p{L}*|рассматрива\p{L}*|пока|схем\p{L}*|вариант\p{L}*)/iu.test(lower));
-}
-
 function hasAvailableDownPaymentWithoutAmount(text: string): boolean {
   const lower = normalize(text);
   if (!/перв\p{L}*\s+взнос\p{L}*/iu.test(lower)) return false;
@@ -222,54 +212,6 @@ function sanitizeLiveState(
         ...state,
         objections: current.objections,
         activeObjection: current.activeObjection,
-      };
-    }
-  }
-
-  const mortgageUncertain = isMortgageUncertain(turn.text);
-  if (mortgageUncertain) {
-    state = {
-      ...state,
-      paymentMethod: {
-        value: null,
-        evidenceTurnIds: Array.from(new Set([...(state.paymentMethod?.evidenceTurnIds || []), turn.id])),
-        needsClarification: true,
-      },
-      confirmedFacts: (state.confirmedFacts || []).map((fact: any) =>
-        fact.category === 'paymentMethod' && fact.turnId === turn.id
-          ? { ...fact, lifecycleStatus: 'superseded' as const }
-          : fact
-      ),
-    };
-    if (state.scriptProgress?.metrics) {
-      state = {
-        ...state,
-        scriptProgress: {
-          ...state.scriptProgress,
-          metrics: {
-            ...state.scriptProgress.metrics,
-            paymentMethod: {
-              ...state.scriptProgress.metrics.paymentMethod,
-              status: 'needs_clarification',
-              value: 'Ипотека / рассрочка (схема не выбрана)',
-              evidenceQuote: turn.text,
-              evidenceTurnId: turn.id,
-              semanticReason: 'Клиент рассматривает ипотеку и рассрочку как альтернативы и не выбрал окончательную схему.',
-              confidence: 0.98,
-              needsClarification: true,
-            },
-            ppi: {
-              ...state.scriptProgress.metrics.ppi,
-              status: 'not_confirmed',
-              value: null,
-              semanticReason: 'Ипотека не подтверждена и не исключена.',
-              confidence: 0.8,
-            },
-          },
-          ppi: state.scriptProgress.ppi
-            ? { ...state.scriptProgress.ppi, status: 'not_confirmed' }
-            : state.scriptProgress.ppi,
-        },
       };
     }
   }

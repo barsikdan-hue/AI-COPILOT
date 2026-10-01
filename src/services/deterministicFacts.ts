@@ -19,6 +19,7 @@ import {
   detectFundsAvailability,
   detectSearchExperience,
   extractSemanticCriteria,
+  isPaymentMethodUncertain,
 } from './semanticEvidence';
 
 export interface ExtractedFactItem {
@@ -484,7 +485,7 @@ export function extractDeterministicFacts(
   const mortgageMention = lower.match(/(?:ипотек\p{L}*|ипотечн\p{L}*\s+кредит\p{L}*)/iu);
   const installmentMatch = lower.match(/(?:рассрочк\p{L}*|в\s*рассрочку)/iu);
   const downPaymentOwnFundsContext = /(?:первоначальн\p{L}*|перв\p{L}*)\s+(?:взнос\p{L}*|плат[её]ж\p{L}*)/iu.test(lower);
-  const paymentUndecided = /(?:способ\s+оплаты|схем\p{L}*|вариант\p{L}*)[^.!?]{0,45}(?:ещ[её]\s+|пока\s+)?не\s+(?:решил\p{L}*|выбрал\p{L}*|определил\p{L}*)|(?:возможн\p{L}*|может\s+быть)[^.!?]{0,25}ипотек\p{L}*|ипотек\p{L}*[^.!?]{0,35}(?:пока\s+)?не\s+решил\p{L}*/iu.test(lower);
+  const paymentUndecided = isPaymentMethodUncertain(trimmed, immediateAgentTurnText);
   const cashMatch = lower.match(
     /(?:наличн\p{L}*|расч[её]т\s*наличными|100%\s*оплат\p{L}*|сво(?:и|их|ими)\s+(?:средств\p{L}*|деньг\p{L}*)|собственн\p{L}*\s+средств\p{L}*|со\s+своего\s+сч[её]та|банковск\p{L}*\s+перевод\p{L}*|деньг\p{L}*\s+на\s+покупк\p{L}*\s+есть|заплач\p{L}*\s+сразу|без\s+кредит\p{L}*|(?:куп\p{L}*|покуп\p{L}*|оплат\p{L}*|бер\p{L}*)[^.!?]{0,32}за\s+свои(?:\s+(?:средств\p{L}*|деньг\p{L}*))?)/iu
   );

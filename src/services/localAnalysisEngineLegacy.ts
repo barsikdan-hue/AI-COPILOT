@@ -9,7 +9,8 @@ import { applyConversationEvent, detectConversationEvent, isAgreedNextStepReaffi
 import { createInitialState, mergeFactsDelta } from './conversationStore';
 import { classifyClientTurnIntent, detectLocalObjection, getActiveObjectionGuidance, updateObjectionLifecycle } from './objectionEngine';
 import { extractDeterministicFacts } from './deterministicFacts';
-import { classifyMortgageDecision, extractSemanticCriteria } from './semanticEvidence';
+import { classifyMortgageDecision, extractSemanticCriteria, hasPaymentMethodScope, isPaymentMethodUncertain } from './semanticEvidence';
+import { applyPaymentUncertainty, latestPaymentUncertainty } from './paymentUncertainty';
 import { evaluateFirstCallScript, getFirstCallSuggestion } from './firstCallScriptEngine';
 import { checkSemanticAntiRepeat, extractSemanticKey } from './semanticAntiRepeat';
 import { isSuggestionAllowedByState } from './suggestionLifecycle';
@@ -252,7 +253,8 @@ export function advanceLocalConversation(current: ConversationState, turn: Trans
         extractDeterministicFacts(turn.text, turn.id, previousAgent?.text, immediateAgent?.text || null),
         previousAgent?.text || null
       )
-    ).filter((fact) => !agreementReaffirmation || !['agreedNextStep', 'agreed_next_step'].includes(fact.field));
+    ).filter((fact) => !agreementReaffirmation || !['agreedNextStep', 'agreed_next_step'].includes(fact.field))
+      .filter((fact) => fact.field !== 'paymentMethod' || hasPaymentMethodScope(turn.text));
     state = mergeFactsDelta(state, extractedFacts, state.stage, undefined, turn.revision, lookup);
     const turnIndex = turns.findIndex(candidate => candidate.id === turn.id);
     const mortgageDecision = classifyMortgageDecision(turn.text, turnIndex > 0 ? turns[turnIndex - 1].text : null);
@@ -276,6 +278,8 @@ export function advanceLocalConversation(current: ConversationState, turn: Trans
         ),
       };
     }
+    const paymentUncertainty = latestPaymentUncertainty(turns, current);
+    if (paymentUncertainty) state = applyPaymentUncertainty(state, paymentUncertainty);
   } else if (turn.speaker === 'agent' && turn.text.includes('?')) {
     state = { ...state, askedQuestions: Array.from(new Set([...state.askedQuestions, turn.text])) };
   }
@@ -489,10 +493,12 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
     ).filter((fact) =>
       !isAgreedNextStepReaffirmation(turn.text, normalizedState) ||
       !['agreedNextStep', 'agreed_next_step'].includes(fact.field)
+    ).filter((fact) =>
+      fact.field !== 'paymentMethod' || (hasPaymentMethodScope(turn.text) && !isPaymentMethodUncertain(turn.text, immediateAgent?.text || null))
     );
   });
   const clientTurnLookup = Object.fromEntries(allTurns.filter(turn => turn.speaker === 'client').map(turn => [turn.id, turn.text]));
-  const workingState = mergeFactsDelta(
+  let workingState = mergeFactsDelta(
     normalizedState,
     factsDelta,
     normalizedState.stage,
@@ -500,6 +506,8 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
     input.revision,
     clientTurnLookup
   );
+  const paymentUncertainty = latestPaymentUncertainty(allTurns, normalizedState);
+  if (paymentUncertainty) workingState = applyPaymentUncertainty(workingState, paymentUncertainty);
 
   const events = clientTurns
     .map((turn) => {

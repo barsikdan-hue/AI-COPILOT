@@ -1,6 +1,6 @@
 import * as legacy from './firstCallScriptEngineLegacy';
 import type { ConversationState, FirstCallMetric, TranscriptTurn } from '../types';
-import { classifyMortgageDecision } from './semanticEvidence';
+import { latestPaymentUncertainty, paymentUncertaintyDetails } from './paymentUncertainty';
 
 export * from './firstCallScriptEngineLegacy';
 
@@ -74,30 +74,11 @@ function sanitizeInfrastructure(progress: ReturnType<typeof legacy.evaluateFirst
 function sanitizePaymentMethodUncertainty(
   progress: ReturnType<typeof legacy.evaluateFirstCallScript>,
   turns: TranscriptTurn[],
+  state: ConversationState,
 ): ReturnType<typeof legacy.evaluateFirstCallScript> {
-  let lastDecision: 'uncertain' | 'mortgage' | 'reject_mortgage' | null = null;
-  let evidence: TranscriptTurn | null = null;
-
-  for (const turn of turns) {
-    if (turn.speaker !== 'client') continue;
-    const text = norm(turn.text);
-    if (!/ипотек/iu.test(text)) continue;
-
-    const explicitUncertainty = /(?:не\s+(?:знаю|решил\p{L}*|определил\p{L}*)|сомнева\p{L}*|дума\p{L}*[^.!?]{0,40}(?:надо|нужно)\s+ли|(?:надо|нужно)\s+ли[^.!?]{0,35}ипотек|ипотек\p{L}*[^.!?]{0,45}или\s+не\s+(?:надо|нужно|брать|использовать))/iu.test(text);
-    const schemeNotChosen = /(?:схем\p{L}*|вариант\p{L}*)[^.!?]{0,45}(?:пока\s+)?не\s+(?:выбран\p{L}*|определен\p{L}*|определён\p{L}*)|(?:окончательн\p{L}*|пока)[^.!?]{0,35}(?:схем\p{L}*|вариант\p{L}*)[^.!?]{0,35}не\s+(?:выбран\p{L}*|определен\p{L}*|определён\p{L}*)/iu.test(text);
-    const alternativeChoice = /(?:либо|или)[^.!?]{0,35}ипотек\p{L}*[^.!?]{0,45}(?:либо|или)[^.!?]{0,35}рассроч\p{L}*|ипотек\p{L}*[^.!?]{0,45}(?:либо|или)[^.!?]{0,35}рассроч\p{L}*/iu.test(text);
-    const uncertain = explicitUncertainty || schemeNotChosen || (alternativeChoice && /(?:возможн\p{L}*|рассматрива\p{L}*|пока|схем\p{L}*|вариант\p{L}*)/iu.test(text));
-    const reject = classifyMortgageDecision(text).kind === 'rejected';
-    const confirm = /(?:хочу|буду|планиру\p{L}*|решил\p{L}*)[^.!?]{0,30}(?:брать\s+)?ипотек|(?:беру|берем|берём)\s+ипотек/iu.test(text);
-
-    if (uncertain) lastDecision = 'uncertain';
-    else if (reject) lastDecision = 'reject_mortgage';
-    else if (confirm) lastDecision = 'mortgage';
-    else continue;
-    evidence = turn;
-  }
-
-  if (lastDecision !== 'uncertain' || !evidence) return progress;
+  const evidence = latestPaymentUncertainty(turns, state);
+  if (!evidence || progress.metrics.ppi.status === 'not_applicable') return progress;
+  const details = paymentUncertaintyDetails(evidence);
 
   const paymentMethod = progress.metrics?.paymentMethod;
   const ppi = progress.metrics?.ppi;
@@ -108,10 +89,10 @@ function sanitizePaymentMethodUncertainty(
       paymentMethod: paymentMethod ? {
         ...paymentMethod,
         status: 'needs_clarification',
-        value: 'Ипотека / рассрочка (схема не выбрана)',
+        value: details.value,
         evidenceQuote: evidence.text,
         evidenceTurnId: evidence.id,
-        semanticReason: 'Клиент рассматривает ипотеку и рассрочку как альтернативы и прямо не выбрал окончательную схему.',
+        semanticReason: details.semanticReason,
         confidence: 0.98,
         needsClarification: true,
       } : paymentMethod,
@@ -126,6 +107,7 @@ function sanitizePaymentMethodUncertainty(
     ppi: progress.ppi ? {
       ...progress.ppi,
       status: 'not_confirmed',
+      paymentMethodDisclosed: false,
     } : progress.ppi,
   };
 }
@@ -320,7 +302,7 @@ export function evaluateFirstCallScript(
 ): ReturnType<typeof legacy.evaluateFirstCallScript> {
   let progress = legacy.evaluateFirstCallScript(turns, state);
   progress = sanitizeInfrastructure(progress, turns);
-  progress = sanitizePaymentMethodUncertainty(progress, turns);
+  progress = sanitizePaymentMethodUncertainty(progress, turns, state);
   progress = sanitizeExplicitSeasonalGoal(progress, turns);
   progress = sanitizeDownPaymentWithoutAmount(progress, turns);
   progress = sanitizeTrustQuality(progress, state);

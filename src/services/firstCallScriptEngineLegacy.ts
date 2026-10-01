@@ -13,11 +13,13 @@ import {
 } from '../types';
 
 export { isMetricClosed };
+import { latestPaymentUncertainty, paymentUncertaintyDetails } from './paymentUncertainty';
 import { isSubstantiveClientTurn } from './objectionEngine';
 import { getContextualDopamineQuestion } from './dopamineQuestionEngine';
 import {
   classifyInvestmentIntent,
   classifyMortgageDecision,
+  hasPaymentMethodScope,
   resolveMortgageDecision,
   classifyTrustQuestion,
   detectSearchExperience,
@@ -1220,8 +1222,10 @@ export function evaluateFirstCallScript(
   // Reopening removes a refusal; it cannot turn the old refusal into payment evidence.
   const reopenedWithoutPayment = mortgageDecision.kind === 'allowed' && !state.paymentMethod?.value &&
     !/ипотек/iu.test(mortgageDecision.evidenceQuote || '');
+  const paymentClientText = clientTurns.filter(turn => hasPaymentMethodScope(turn.text))
+    .map(turn => turn.text.toLowerCase()).join(' ');
   const mortgageClientText = reopenedWithoutPayment ? '' : clientTurns
-    .filter(turn => classifyMortgageDecision(turn.text).kind !== 'rejected')
+    .filter(turn => hasPaymentMethodScope(turn.text) && classifyMortgageDecision(turn.text).kind !== 'rejected')
     .map(turn => turn.text.toLowerCase()).join(' ');
 
   const mortgageExplicitIntent =
@@ -1237,17 +1241,17 @@ export function evaluateFirstCallScript(
       mortgageClientText.includes('одобрен'));
 
   const cashInClientText =
-    allClientText.includes('наличн') ||
-    allClientText.includes('100%') ||
-    allClientText.includes('свои средства') ||
-    allClientText.includes('собственные средства') ||
-    allClientText.includes('без ипотеки');
+    paymentClientText.includes('наличн') ||
+    paymentClientText.includes('100%') ||
+    paymentClientText.includes('свои средства') ||
+    paymentClientText.includes('собственные средства') ||
+    paymentClientText.includes('без ипотеки');
 
   if (mortgageExplicitIntent) {
     pmStatus = 'confirmed';
     pmValue = allClientText.includes('одобрен') ? 'Ипотека (есть одобрение банка)' : 'Ипотека';
     pmReason = 'Способ покупки подтверждён: ипотечное кредитование.';
-  } else if (allClientText.includes('рассрочк')) {
+  } else if (paymentClientText.includes('рассрочк')) {
     pmStatus = 'confirmed';
     pmValue = 'Рассрочка от застройщика';
     pmReason = 'Способ покупки подтверждён: рассрочка.';
@@ -1280,6 +1284,13 @@ export function evaluateFirstCallScript(
     pmStatus = 'not_confirmed';
     pmReason = 'Ипотека явно отвергнута клиентом; способ покупки требуется уточнить без возврата к ипотечной ветке.';
   }
+  const paymentUncertainty = latestPaymentUncertainty(turns, state);
+  if (paymentUncertainty && !mortgageNegationInClientText) {
+    const details = paymentUncertaintyDetails(paymentUncertainty);
+    pmValue = details.value;
+    pmStatus = 'needs_clarification';
+    pmReason = details.semanticReason;
+  }
   metrics['paymentMethod'] = {
     id: 'paymentMethod',
     field: 'paymentMethod',
@@ -1292,6 +1303,9 @@ export function evaluateFirstCallScript(
     confidence: pmStatus === 'confirmed' ? 0.9 : 0.5,
     agentQuestionAsked: Boolean(agentAskedMetricMap['paymentMethod']),
     agentQuestionQuote: agentAskedMetricMap['paymentMethod']?.quote || null,
+    ...(paymentUncertainty && !mortgageNegationInClientText ? {
+      needsClarification: true, evidenceQuote: paymentUncertainty.text, evidenceTurnId: paymentUncertainty.id,
+    } : {}),
   };
 
   // -------------------------------------------------------------
