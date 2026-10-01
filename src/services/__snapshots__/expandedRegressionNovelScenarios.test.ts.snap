@@ -21,10 +21,10 @@ exports[`expanded regression: novel scenarios > characterizes 8192 local determi
     "transcript_transport": 12,
   },
   "executionsPerScenario": 32,
-  "fail": 1171,
+  "fail": 1107,
   "failureClusters": [
     {
-      "count": 448,
+      "count": 384,
       "eventType": "none",
       "factCategory": "downPayment",
       "id": "f058d65d45cc",
@@ -144,10 +144,10 @@ exports[`expanded regression: novel scenarios > characterizes 8192 local determi
       "severity": "HIGH",
     },
   ],
-  "fingerprint": "b8a1f59e9169d5ad4dd40e31053c7f3ea86a233299b300b16f56642ae8f9e5bb",
+  "fingerprint": "0dd1f311f8d057b542fd9aaf035714b1d403805df7d339daf44fae13948f70bb",
   "generatedExecutions": 8192,
-  "pass": 31345,
-  "passRate": 96.4,
+  "pass": 31409,
+  "passRate": 96.6,
   "seed": 2654435769,
 }
 `;

@@ -212,13 +212,62 @@ export function extractDeterministicFacts(
     if (unit.startsWith('тыс') || unit === 'к') return 'тыс руб';
     return 'млн руб';
   };
-  const budgetRangeMatch = lower.match(
+  const downPaymentAmountMatches = [
+    ...lower.matchAll(
+      /(?:первоначальн\p{L}*|перв\p{L}*)\s+(?:взнос\p{L}*|плат[её]ж\p{L}*)\s*(?:[:–—-]\s*)?(?:(?:составля\p{L}*|будет|примерно|около|в\s+размере)\s*)?(\d+(?:[.,]\d+)?)\s*(млн|миллион(?:а|ов)?|тысяч(?:и)?|тыс|%|руб(?:лей|ля)?)/giu
+    ),
+    ...lower.matchAll(
+      /(\d+(?:[.,]\d+)?)\s*(млн|миллион(?:а|ов)?|тысяч(?:и)?|тыс|%|руб(?:лей|ля)?)\s+(?:на|для)\s+(?:первоначальн\p{L}*|перв\p{L}*)\s+(?:взнос\p{L}*|плат[её]ж\p{L}*)/giu
+    ),
+  ];
+  const explicitDownPaymentMatch = downPaymentAmountMatches[0];
+  const explicitDownPaymentAmount = explicitDownPaymentMatch
+    ? { amount: explicitDownPaymentMatch[1], unit: explicitDownPaymentMatch[2], quote: explicitDownPaymentMatch[0].trim() }
+    : null;
+  const excludedMoneySpan = (payment: RegExpMatchArray) => {
+    const amountEnd = payment.index! + payment[0].length;
+    const currencySuffix = lower.slice(amountEnd).match(/^\s*(?:руб(?:лей|ля)?|₽)(?=$|[^\p{L}\p{N}])/iu);
+    let end = amountEnd + (currencySuffix?.[0].length || 0);
+    while (true) {
+      const alternative = lower.slice(end).match(
+        /^\s*,?\s*(?:или|максимум|до)\s+(\d+(?:[.,]\d+)?)\s*(млн|миллион(?:а|ов)?|тысяч(?:и)?|тыс|%|руб(?:лей|ля)?)(?:\s*(?:руб(?:лей|ля)?|₽))?/iu
+      );
+      if (!alternative) break;
+      const alternativeEnd = end + alternative[0].length;
+      const alternativeIsBudget = /^\s*(?:[:–—-]\s*)?(?:(?:это|мой|наш)\s+)?(?:(?:весь|общий|общая|вся)\s+)?(?:бюджет|стоимость)/iu.test(lower.slice(alternativeEnd));
+      if (alternativeIsBudget) break;
+      end = alternativeEnd;
+    }
+    return { start: payment.index!, end };
+  };
+  // Removing the former turn-wide veto must not promote an explicitly
+  // labelled financing amount that merely accompanies the down payment.
+  const accompanyingFinancingMatches = downPaymentAmountMatches.length ? [
+    ...lower.matchAll(
+      /(?:ежемесячн\p{L}*|ипотечн\p{L}*)\s+плат[её]ж\p{L}*\s*(?:[:–—-]\s*)?(?:(?:составля\p{L}*|будет|примерно|около|в\s+размере)\s*)?(\d+(?:[.,]\d+)?)\s*(млн|миллион(?:а|ов)?|тысяч(?:и)?|тыс|руб(?:лей|ля)?)/giu
+    ),
+    ...lower.matchAll(
+      /(?:остаток|остальн\p{L}*)\s+(\d+(?:[.,]\d+)?)\s*(млн|миллион(?:а|ов)?|тысяч(?:и)?|тыс|руб(?:лей|ля)?)(?:\s*(?:руб(?:лей|ля)?|₽))?\s+(?:(?:возьм\p{L}*|бер\p{L}*|буду\s+брать|оформ\p{L}*)\s+)?(?:в\s+)?ипотек\p{L}*/giu
+    ),
+  ] : [];
+  const nonBudgetMoneySpans = [
+    ...downPaymentAmountMatches.map(excludedMoneySpan),
+    ...accompanyingFinancingMatches.map(excludedMoneySpan),
+  ];
+  // A down-payment amount excludes only its own evidence span. Other amounts
+  // in the same turn remain eligible for the existing budget parsers.
+  const isBudgetMoneySpan = (match: RegExpMatchArray): boolean => !nonBudgetMoneySpans.some(
+    span => match.index! < span.end && span.start < match.index! + match[0].length
+  );
+  const matchBudgetSpan = (pattern: RegExp): RegExpMatchArray | null =>
+    Array.from(lower.matchAll(new RegExp(pattern.source, `${pattern.flags}g`))).find(isBudgetMoneySpan) || null;
+  const budgetRangeMatch = matchBudgetSpan(
     /(?:(?:бюджет|диапазон|рассматрива\p{L}*|смотр\p{L}*|где-то|примерно|около)[^\d]{0,20})?(?:от\s*)?(\d+(?:[.,]\d+)?)\s*(?:млн|миллион(?:а|ов)?|млрд|тысяч(?:и)?|тыс|к)?\s*(?:[-–—]|до)\s*(\d+(?:[.,]\d+)?)\s*(млн|миллион(?:а|ов)?|млрд|тысяч(?:и)?|тыс|к)(?=$|[^\p{L}\p{N}])/iu
   );
-  const unitlessCorrectionRangeMatch = !budgetRangeMatch && lower.match(
+  const unitlessCorrectionRangeMatch = !budgetRangeMatch && matchBudgetSpan(
     /(?:нет\s*,?\s*)?(?:мож\p{L}*|готов\p{L}*)[^.!?]{0,24}(?:подняться|увеличить|расширить)[^\d]{0,12}(?:до\s*)?(\d+(?:[.,]\d+)?)\s*[-–—]\s*(\d+(?:[.,]\d+)?)(?!\s*(?:этаж\p{L}*|лет|год\p{L}*|месяц\p{L}*|процент\p{L}*|%|метр\p{L}*))(?=$|[^\p{L}\p{N}])/iu
   );
-  const rawRublesMatch = lower.match(/^\s*(\d{1,3}(?:\s\d{3}){2,3}|\d{7,12})\s*(?:руб(?:лей|ля)?|₽)?[.!]?\s*$/iu);
+  const rawRublesMatch = matchBudgetSpan(/^\s*(\d{1,3}(?:\s\d{3}){2,3}|\d{7,12})\s*(?:руб(?:лей|ля)?|₽)?[.!]?\s*$/iu);
   const structuredBudget = (() => {
     if (budgetRangeMatch) {
       const unit = normalizedBudgetUnit(budgetRangeMatch[3]);
@@ -256,7 +305,7 @@ export function extractDeterministicFacts(
     `(?:^|[^\\p{L}\\p{N}])не\\s+(${correctionToken})\\s*(млн|миллион(?:а|ов)?|млрд|тысяч(?:и)?|тыс|к)[^.!?]{0,28}(?:,\\s*|\\s+)а\\s+(${correctionToken})(?:\\s*(млн|миллион(?:а|ов)?|млрд|тысяч(?:и)?|тыс|к))?(?!\\s*(?:лет|год|месяц|%))`,
     'iu'
   );
-  const budgetCorrectionMatch = lower.match(budgetCorrectionRegex);
+  const budgetCorrectionMatch = matchBudgetSpan(budgetCorrectionRegex);
   let explicitCorrectedBudget: { value: string; quote: string } | null = null;
   if (budgetCorrectionMatch) {
     const correctedNumber = parseBudgetNumber(budgetCorrectionMatch[3]);
@@ -276,27 +325,15 @@ export function extractDeterministicFacts(
 
   const budgetMatches = Array.from(
     lower.matchAll(
-      /(?:(?:бюджет(?:ом|а)?|до|около|примерно|в\s*районе)\s*)?(\d+(?:[.,]\d+)?(?:\s*-\s*\d+(?:[.,]\d+)?)?)\s*(млн|миллион(?:а|ов)?|млрд|тысяч(?:и)?|тыс|к)(?:[^\p{L}\p{N}]|$)/giu
+      /(?:(?:бюджет(?:ом|а)?|всего\s+рассчитыва\p{L}*\s+на|до|около|примерно|в\s*районе)\s*)?(\d+(?:[.,]\d+)?(?:\s*-\s*\d+(?:[.,]\d+)?)?)\s*(млн|миллион(?:а|ов)?|млрд|тысяч(?:и)?|тыс|к)(?:[^\p{L}\p{N}]|$)/giu
     )
-  );
-  const explicitDownPaymentAmount = (() => {
-    const afterLabel = lower.match(
-      /(?:первоначальн\p{L}*|перв\p{L}*)\s+взнос\p{L}*\s*(?:(?:составля\p{L}*|будет|примерно|около|в\s+размере)\s*)?(\d+(?:[.,]\d+)?)\s*(млн|миллион(?:а|ов)?|тысяч(?:и)?|тыс|%|руб(?:лей|ля)?)/iu
-    );
-    if (afterLabel) return { amount: afterLabel[1], unit: afterLabel[2], quote: afterLabel[0].trim() };
-    const beforeLabel = lower.match(
-      /(\d+(?:[.,]\d+)?)\s*(млн|миллион(?:а|ов)?|тысяч(?:и)?|тыс|%|руб(?:лей|ля)?)\s+(?:на|для)\s+(?:первоначальн\p{L}*|перв\p{L}*)\s+взнос\p{L}*/iu
-    );
-    return beforeLabel
-      ? { amount: beforeLabel[1], unit: beforeLabel[2], quote: beforeLabel[0].trim() }
-      : null;
-  })();
+  ).filter(isBudgetMoneySpan);
   // In corrections such as “not 10m, but 6m”, the last explicit value is current.
   // In flexible-budget phrases (“до 30, но 35–40 если стоящая история”) preserve
   // both the base target and the stretch ceiling instead of collapsing to one number.
-  const unitlessStretchMatch = lower.match(/(?:посмотр(?:ю|им)|готов[^.!?]{0,20}рассмотр|мож(?:но|ем)[^.!?]{0,20}рассмотр)[^0-9]{0,24}(\d{1,3}(?:[.,]\d+)?(?:\s*-\s*\d{1,3}(?:[.,]\d+)?)?)(?!\s*(?:лет|год|месяц|%))/iu);
+  const unitlessStretchMatch = matchBudgetSpan(/(?:посмотр(?:ю|им)|готов[^.!?]{0,20}рассмотр|мож(?:но|ем)[^.!?]{0,20}рассмотр)[^0-9]{0,24}(\d{1,3}(?:[.,]\d+)?(?:\s*-\s*\d{1,3}(?:[.,]\d+)?)?)(?!\s*(?:лет|год|месяц|%))/iu);
   const explicitBudgetCorrection = Boolean(explicitCorrectedBudget);
-  const contextualBudgetMatch = budgetMatches.find((match) => /бюджет/iu.test(match[0]));
+  const contextualBudgetMatch = budgetMatches.find((match) => /бюджет|всего\s+рассчитыва/iu.test(match[0]));
   const hasStretchCue = /(?:^|[^\p{L}\p{N}])(?:если|но)(?=$|[^\p{L}\p{N}])|при\s+(?:сильн|интересн|стоящ)|посмотрю|рассмотр/iu.test(lower);
   const conditionalStretch = !explicitBudgetCorrection &&
     (budgetMatches.length >= 2 || (budgetMatches.length >= 1 && Boolean(unitlessStretchMatch))) &&
@@ -310,13 +347,11 @@ export function extractDeterministicFacts(
   const isUnrealizedAssetGrowth =
     /(?:квартир|жиль|дом).{0,80}вырос\S*\s+(?:в\s+)?цен/iu.test(lower) &&
     /не\s+прода(?:вал|вала|вали|ю|ем)/iu.test(lower);
-  const explicitlyBudgetContext = /(?:бюджет|общая\s*стоимость|весь\s*бюджет|максимальн\w*\s*сумм)/iu.test(lower);
-  const nonBudgetMoneyContext = !explicitlyBudgetContext && (
-    Boolean(explicitDownPaymentAmount) ||
-    /(?:(?:цена|стоимость)\s+(?:за\s+)?(?:квадратн\p{L}*\s+)?метр|доходност\p{L}*|(?:арендн\p{L}*\s+)?доход\s+(?:за|в)\s+|выручк\p{L}*)/iu.test(lower)
-  );
-  const upperBoundMatch = !structuredBudget && !conditionalStretch && !hasStretchCue && lower.match(/(?:^|[^\p{L}\p{N}])(до|максимум|не\s+больше)\s*(\d+(?:[.,]\d+)?)\s*(млн|миллион(?:а|ов)?|млрд|тысяч(?:и)?|тыс|к)(?=$|[^\p{L}\p{N}])/iu);
-  const lowerBoundMatch = !structuredBudget && !conditionalStretch && !hasStretchCue && lower.match(/(?:^|[^\p{L}\p{N}])(от|не\s+меньше)\s*(\d+(?:[.,]\d+)?)\s*(млн|миллион(?:а|ов)?|млрд|тысяч(?:и)?|тыс|к)(?=$|[^\p{L}\p{N}])/iu);
+  const explicitlyBudgetContext = Boolean(contextualBudgetMatch) || /(?:бюджет|общая\s*стоимость|весь\s*бюджет|максимальн\w*\s*сумм)/iu.test(lower);
+  const nonBudgetMoneyContext = !explicitlyBudgetContext &&
+    /(?:(?:цена|стоимость)\s+(?:за\s+)?(?:квадратн\p{L}*\s+)?метр|доходност\p{L}*|(?:арендн\p{L}*\s+)?доход\s+(?:за|в)\s+|выручк\p{L}*)/iu.test(lower);
+  const upperBoundMatch = !structuredBudget && !conditionalStretch && !hasStretchCue && matchBudgetSpan(/(?:^|[^\p{L}\p{N}])(до|максимум|не\s+больше)\s*(\d+(?:[.,]\d+)?)\s*(млн|миллион(?:а|ов)?|млрд|тысяч(?:и)?|тыс|к)(?=$|[^\p{L}\p{N}])/iu);
+  const lowerBoundMatch = !structuredBudget && !conditionalStretch && !hasStretchCue && matchBudgetSpan(/(?:^|[^\p{L}\p{N}])(от|не\s+меньше)\s*(\d+(?:[.,]\d+)?)\s*(млн|миллион(?:а|ов)?|млрд|тысяч(?:и)?|тыс|к)(?=$|[^\p{L}\p{N}])/iu);
   if (structuredBudget && !nonBudgetMoneyContext && (!agentAskedDownPayment || explicitlyBudgetContext || Boolean(unitlessCorrectionRangeMatch))) {
     addFact('budget', 'budget', structuredBudget.value, structuredBudget.quote, 0.98, {
       isFlexible: structuredBudget.isFlexible,
