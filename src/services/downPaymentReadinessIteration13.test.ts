@@ -3,6 +3,7 @@ import type { ConversationState, SpeakerRole, TranscriptTurn } from '../types';
 import { createInitialState } from './conversationStore';
 import { advanceLocalConversation, buildLocalAnalysisResponse } from './localAnalysisEngine';
 import { detectFundsAvailability } from './semanticEvidence';
+import { extractDeterministicFacts } from './deterministicFacts';
 
 function turn(id: string, speaker: SpeakerRole, text: string, revision: number): TranscriptTurn {
   return {
@@ -190,5 +191,87 @@ describe('FIX ITERATION 13 down-payment readiness', () => {
     const { result } = replay('Бюджет уже определили?', 'Да, уже есть.');
     expect(result.state.downPayment?.value ?? null).toBeNull();
     expect(activeDownPaymentFacts(result.state)).toHaveLength(0);
+  });
+});
+
+describe('FIX47 explicit partial down-payment readiness', () => {
+  const partialStatements = [
+    'Пока собрана только часть первоначального взноса.',
+    'Собрана лишь часть первого взноса.',
+    'Часть первоначального взноса уже собрана.',
+    'Часть первоначального взноса сформирована.',
+    'Первоначальный взнос собран частично.',
+    'Первый взнос пока подготовлен только частично.',
+    'У меня уже собрана только часть первоначального взноса.',
+    'Сформирована лишь часть средств на первоначальный взнос.',
+  ];
+
+  it.each(partialStatements)('extracts partial readiness without inventing an amount: %s', text => {
+    const funds = detectFundsAvailability(text);
+    expect(funds).not.toBeNull();
+    expect(funds?.value).toMatch(/частично.*полная готовность требует уточнения/iu);
+    expect(funds?.value).not.toMatch(/\d/u);
+    expect(funds?.needsClarification).toBe(true);
+    expect(funds?.cancelsDownPayment).not.toBe(true);
+    expect(text.toLowerCase()).toContain(funds!.evidenceQuote);
+    expect(extractDeterministicFacts(text, 'partial').filter(fact => fact.field === 'downPayment')).toEqual([
+      expect.objectContaining({ value: funds!.value, needsClarification: true, evidenceTurnId: 'partial' }),
+    ]);
+  });
+
+  it.each(partialStatements)('keeps state, metric and analysis partial with or without a readiness question: %s', text => {
+    for (const question of [null, 'Средства на первоначальный взнос уже доступны?']) {
+      const { result, client, turns, beforeClient } = replay(question, text);
+      const state = result.state;
+      expect(state.downPayment?.value).toEqual(expect.any(String));
+      expect(state.downPayment?.value).toMatch(/частично.*полная готовность требует уточнения/iu);
+      expect(state.downPayment?.value).not.toMatch(/\d/u);
+      expect(state.downPayment?.needsClarification).toBe(true);
+      expect(state.scriptProgress?.metrics.downPayment.status).toBe('partially_confirmed');
+      expect(activeDownPaymentFacts(state)).toEqual([expect.objectContaining({
+        turnId: client.id, needsClarification: true, lifecycleStatus: 'needs_verification',
+      })]);
+      expect(state.budget.value).toBeNull();
+      const analysis = buildLocalAnalysisResponse({
+        sessionId: client.sessionId, revision: client.revision!, newTurns: [client], recentTurns: turns, currentState: beforeClient,
+      });
+      expect(analysis.factsDelta.filter(fact => fact.field === 'downPayment')).toEqual([
+        expect.objectContaining({ value: state.downPayment!.value, needsClarification: true, evidenceTurnId: client.id }),
+      ]);
+    }
+  });
+
+  it.each([
+    'Не собрана только часть первоначального взноса.',
+    'Часть первоначального взноса не собрана.',
+    'Первоначального взноса пока нет.',
+    'Будет собрана только часть первоначального взноса.',
+    'Часть первоначального взноса будет собрана позже.',
+    'У брата собрана только часть первоначального взноса.',
+    'Если собрана только часть первоначального взноса, надо подождать.',
+    'Собрана часть документов для первоначального взноса.',
+    'Только часть бюджета собрана.',
+    'Пока собрана только часть первоначального взноса?',
+    'Не была собрана только часть первоначального взноса.',
+    'Может быть собрана только часть первоначального взноса.',
+    'Должна быть собрана только часть первоначального взноса.',
+    'Собрана только часть первоначального взноса у брата.',
+    'У нашего брата собрана только часть первоначального взноса.',
+    'Собрана только часть первоначального взноса или вся сумма?',
+    'Была бы собрана только часть первоначального взноса, если бы не помощь родителей.',
+    'Могла бы быть собрана только часть первоначального взноса.',
+  ])('does not invent partial readiness from non-assertions or unrelated allocations: %s', text => {
+    expect(detectFundsAvailability(text)?.value || '').not.toMatch(/доступна частично/iu);
+    expect(extractDeterministicFacts(text, 'negative').filter(fact => fact.field === 'downPayment')
+      .some(fact => /доступна частично/iu.test(fact.value))).toBe(false);
+  });
+
+  it('preserves a confirmed amount and the separate budget', () => {
+    const text = 'Бюджет 20 млн, первоначальный взнос 5 млн.';
+    expect(detectFundsAvailability(text)).toBeNull();
+    const { result } = replay(null, text);
+    expect(result.state.downPayment?.value).toBe('5 млн руб');
+    expect(result.state.scriptProgress?.metrics.downPayment.status).toBe('confirmed');
+    expect(result.state.budget.value).toBe('20 млн руб');
   });
 });

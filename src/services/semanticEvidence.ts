@@ -750,9 +750,24 @@ export function detectFundsAvailability(
     };
   }
 
-  const partialQuote = asksReadiness
+  const partialDpSubject = String.raw`часть\s+(?:(?:денег|средств)\s+(?:на|для)\s+)?${dpLabel}`;
+  const collectedPartialQuote = firstMatch(lower, new RegExp(
+    String.raw`(?:собрана|сформирована|подготовлена)\s+(?:(?:пока|уже|только|лишь)\s+)*${partialDpSubject}|${partialDpSubject}\s+(?:(?:пока|уже)\s+)*(?:собрана|сформирована|подготовлена)(?=$|[^\p{L}])|${dpLabel}\s+(?:(?:пока|уже)\s+)*(?:собран|сформирован|подготовлен)\s+(?:(?:только|лишь)\s+)?частично(?=$|[^\p{L}])`, 'iu',
+  ));
+  const partialStart = collectedPartialQuote ? lower.indexOf(collectedPartialQuote) : 0;
+  const partialPrefix = lower.slice(0, partialStart).split(/[.!?;]/u).at(-1) || '';
+  const partialSuffix = lower.slice(partialStart + (collectedPartialQuote?.length || 0)).split(/[.!;]/u)[0] || '';
+  // Only assert current client funds; modal/negative predicates, foreign funds
+  // and questions do not establish even partial readiness.
+  const currentPartialQuote = collectedPartialQuote &&
+    !/(?<!\p{L})(?:не|будет|будут|может|мог\p{L}*|должн\p{L}*|был[ао]?\s+бы)(?:\s+(?:бы|быть|был[ао]?|были|будет|будут|уже|пока))*\s*$/iu.test(partialPrefix) &&
+    !/(?<!\p{L})(?:если(?!\s+точнее\s*[:,])|допустим|предположим)(?=$|[^\p{L}])/iu.test(partialPrefix) &&
+    !/(?<!\p{L})(?:у|для)\s+(?:(?:моего|моей|нашего|нашей)\s+)?(?:брата|сестры|друга|подруги|родителей)(?=$|[^\p{L}])/iu.test(`${partialPrefix} ${partialSuffix}`) &&
+    !/\?/u.test(partialSuffix)
+      ? collectedPartialQuote : null;
+  const partialQuote = currentPartialQuote || (asksReadiness
     ? firstMatch(lower, /^(?:да[,.]?\s*)?(?:только\s+)?частичн\p{L}*[.!]?$/iu)
-    : firstMatch(lower, /част\p{L}*[^.!?]{0,24}(?:денег|средств)[^.!?]{0,40}(?:первоначальн\p{L}*|перв\p{L}*)\s+взнос\p{L}*|(?:первоначальн\p{L}*|перв\p{L}*)\s+взнос\p{L}*[^.!?]{0,40}част\p{L}*[^.!?]{0,20}(?:есть|доступн\p{L}*)/iu);
+    : firstMatch(lower, /част\p{L}*[^.!?]{0,24}(?:денег|средств)[^.!?]{0,40}(?:первоначальн\p{L}*|перв\p{L}*)\s+взнос\p{L}*|(?:первоначальн\p{L}*|перв\p{L}*)\s+взнос\p{L}*[^.!?]{0,40}част\p{L}*[^.!?]{0,20}(?:есть|доступн\p{L}*)/iu));
   if (partialQuote) {
     return {
       value: 'Часть средств на первоначальный взнос доступна частично; полная готовность требует уточнения',
