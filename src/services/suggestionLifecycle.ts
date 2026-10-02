@@ -1,4 +1,6 @@
-import { ConversationState, DiagnosticsData, RecommendationOutcome, SuggestedReply, isMetricClosed } from '../types';
+import { ConversationState, DiagnosticsData, RecommendationOutcome, SuggestedReply, TranscriptTurn, isMetricClosed } from '../types';
+import { normalizeRussianText } from './textUtils';
+import { isSubstantiveClientTurn } from './objectionEngine';
 import { extractDeterministicFacts } from './deterministicFacts';
 import {
   arbitrateRecommendationCandidates,
@@ -89,7 +91,8 @@ export function isPendingSuggestionSuperseded(
 export function shouldReplaceSuggestion(
   current: SuggestedReply | null,
   candidate: SuggestedReply,
-  now = Date.now()
+  now = Date.now(),
+  recentTurns: TranscriptTurn[] = []
 ): boolean {
   if (!current) return true;
   if (current.sessionId !== candidate.sessionId) return true;
@@ -115,6 +118,35 @@ export function shouldReplaceSuggestion(
     candidate.createdAt > current.createdAt &&
     candidateSemanticKey !== currentSemanticKey;
   if (sameRevisionLocalCorrection) return true;
+
+  // A spoken question that has received a substantive response has completed
+  // its turn. Its old priority must not hold the next local decision hostage
+  // while the agent has yet to click "used". Unspoken cards, control events,
+  // duplicate meanings and remote enhancements keep normal arbitration.
+  if (
+    current.source === 'local_engine' && candidate.source === 'local_engine' &&
+    !current.eventType && !candidate.eventType &&
+    current.actionType === 'CLARIFY' && current.text.includes('?') &&
+    candidate.basedOnRevision > current.basedOnRevision &&
+    candidateSemanticKey !== currentSemanticKey
+  ) {
+    const sessionTurns = recentTurns.filter(turn => turn.sessionId === candidate.sessionId);
+    const clientIndex = sessionTurns.findIndex(turn =>
+      turn.speaker === 'client' && turn.isFinal &&
+      turn.revision === candidate.basedOnRevision &&
+      candidate.evidenceTurnIds?.includes(turn.id)
+    );
+    const client = sessionTurns[clientIndex];
+    const agent = sessionTurns.slice(0, Math.max(0, clientIndex)).filter(turn => turn.speaker === 'agent').at(-1);
+    const spoken = normalizeRussianText(agent?.text || '');
+    const question = normalizeRussianText(current.text);
+    if (
+      client && agent && agent.isFinal &&
+      (agent.revision ?? 0) > current.basedOnRevision &&
+      isSubstantiveClientTurn(client.text, agent.text) &&
+      question.length > 10 && (` ${spoken} `).includes(` ${question} `)
+    ) return true;
+  }
 
   // Use stable synthetic identities here. Some legacy callers/tests create
   // lightweight SuggestedReply objects without ids; comparing undefined ids

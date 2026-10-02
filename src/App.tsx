@@ -339,8 +339,8 @@ export const App: React.FC = () => {
       recordSuggestionTrace(pending, 'rejected', 'superseded_by_newer_revision');
       pending = null;
     }
-    const comparisonTarget = pending && shouldReplaceSuggestion(current, pending) ? pending : current;
-    if (!shouldReplaceSuggestion(comparisonTarget, candidate)) {
+    const comparisonTarget = pending && shouldReplaceSuggestion(current, pending, Date.now(), turnsRef.current) ? pending : current;
+    if (!shouldReplaceSuggestion(comparisonTarget, candidate, Date.now(), turnsRef.current)) {
       candidate.lifecycleStatus = 'suppressed';
       recordSuggestionTrace(candidate, 'rejected', 'replacement_policy');
       return false;

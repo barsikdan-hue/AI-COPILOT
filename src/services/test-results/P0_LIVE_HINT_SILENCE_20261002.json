@@ -1,0 +1,186 @@
+{
+  "task": "P0_LIVE_HINT_SILENCE_DIAGNOSE_AND_FIX",
+  "baseline": "db72b222691599ede92212fcea541e5ddea87c6c",
+  "checkout": "C:/Users/EliteSochi/Documents/Codex/2026-09-26/files-mentioned-by-the-user-ai/work/AI-COPILOT-regression-baseline",
+  "root_cause": "PROVEN",
+  "affected_sessions": [
+    "session_1790932200120_clhj"
+  ],
+  "shared_root_cause": "NOT_PROVEN",
+  "markerPolicy": "Stop before the observer marker, including STT variant Стоп, тесть. Never replay it as business input.",
+  "evidenceScope": {
+    "transcript": "real exported final turns; STT/audio fidelity against recording NOT_PROVEN",
+    "conversationState": "reconstructed by the real deterministic turn pipeline before marker; intermediate live state snapshots unavailable",
+    "decisionAndSuppression": "live suggestionTrace plus local replay",
+    "deliveryAndUI": "original live DOM not captured for these five exports; first observed failure is upstream. Fixed clhj delivery verified separately in real local App simulator DOM; no new live-call claim"
+  },
+  "sessions": [
+    {
+      "sessionId": "session_1790931892413_s2wh",
+      "stopRevision": 8,
+      "path": "C:\\Users\\EliteSochi\\Downloads\\call_record_2026-10-02_sessio (1).json",
+      "sha256": "74FB33AAE3851C7FADDEDAEFDE26F88168B77B5B135F402FCBDB3F3B465FB3C4",
+      "marker": "Стоп-тест.",
+      "classification": "CANDIDATE_SUPPRESSED",
+      "revision": 7,
+      "firstBrokenLayer": "candidate suppression: localAnalysisEngineLegacy.ts::buildLocalAnalysisResponse → suggestionLifecycle.ts::isSuggestionAllowedByState",
+      "mechanism": "Meaningful risk/criteria signal produces SPIN_IMPLICATION about noise/sleep. DEEPEN / SPIN_IMPLICATION is correctly disallowed during limited_active_window; state_validator_no_replacement leaves no short permitted alternative. Criteria liquidity is present in reconstructed state; semantic extraction is not changed.",
+      "fixed": false,
+      "fixScope": "diagnosis only"
+    },
+    {
+      "sessionId": "session_1790932073431_tjbq",
+      "stopRevision": 9,
+      "path": "C:\\Users\\EliteSochi\\Downloads\\call_record_2026-10-02_sessio (2).json",
+      "sha256": "7A3D6C4DCA03608A1E6DDA18D1E23CCC622A2522F300A863D24D26847113CD47",
+      "marker": "Стоп, тесть.",
+      "classification": "EXPECTED_SILENCE_NO_NEW_SIGNAL",
+      "revision": 8,
+      "firstBrokenLayer": null,
+      "mechanism": "Не знаю пока is a low-information pure filler under isSubstantiveClientTurn. It does not schedule a new state/decision pass. This silence is not classified as a bug.",
+      "fixed": false,
+      "fixScope": "diagnosis only"
+    },
+    {
+      "sessionId": "session_1790932200120_clhj",
+      "stopRevision": 9,
+      "path": "C:\\Users\\EliteSochi\\Downloads\\call_record_2026-10-02_sessio (3).json",
+      "sha256": "F115D993ECC43729BB38EE12098FBFD8B42326C58920824EDB746811060A2BC2",
+      "marker": "стоп-тест",
+      "classification": "LIFECYCLE_BLOCKED",
+      "revision": 8,
+      "firstBrokenLayer": "active recommendation lifecycle: suggestionLifecycle.ts::shouldReplaceSuggestion called by App.tsx::publishSuggestion",
+      "mechanism": "rev6 ordinary local question priority90 was spoken at rev7 and answered at rev8. A valid local goal candidate priority88 passed state/anti-repeat, but the old question was still shown, age11037ms < TTL15000ms. Arbitration protects current score86 against candidate score97 because 97 < 86+12. Live rejection 1790932259115 precedes manual usedAt1790932260950. There is no retry when the old card is later clicked used.",
+      "fixed": true,
+      "fixScope": "one shared lifecycle function, App wiring and regression fixture"
+    },
+    {
+      "sessionId": "session_1790932299340_dcrs",
+      "stopRevision": 6,
+      "path": "C:\\Users\\EliteSochi\\Downloads\\call_record_2026-10-02_sessio (4).json",
+      "sha256": "2D5E9EFD7AE7CD3B2F930213E4FF97A6EA04726925DE63E3CC3395DA1E7D5D0B",
+      "marker": "стоп-тест",
+      "classification": "DECISION_FAILED",
+      "revision": 5,
+      "firstBrokenLayer": "decision/candidate: conversationEventEngineLegacy.ts::detectConversationEvent TIME_CONSTRAINT branch / extractCallbackTime",
+      "mechanism": "Завтра можно, но коротко follows a today-or-tomorrow callback question. Numeric-time extractor returns null; TIME_CONSTRAINT repeats that question instead of progressing from the chosen day. shown_semantic_cooldown correctly rejects the duplicate. No exact callback time is invented.",
+      "fixed": false,
+      "fixScope": "diagnosis only"
+    },
+    {
+      "sessionId": "session_1790931643421_xita",
+      "stopRevision": 14,
+      "path": "C:\\Users\\EliteSochi\\Downloads\\call_record_2026-10-02_sessio.json",
+      "sha256": "82ACFDEEDFA1FB45B9A4E0B7F879DBE114CC55E1F7798F314F42CEC985CAAD2B",
+      "marker": "стоп-тест",
+      "classification": "DECISION_FAILED",
+      "revision": 13,
+      "firstBrokenLayer": "decision/candidate: conversationEventEngineLegacy.ts::classifyDirectQuestionIntent / directQuestionReply",
+      "mechanism": "Liquidity/resale clarification falls through to direct_question_general. The already-spoken generic clarification is selected again; shown_semantic_cooldown correctly rejects the duplicate and suppressesAnalysis stops a second policy pass.",
+      "fixed": false,
+      "fixScope": "diagnosis only"
+    }
+  ],
+  "fix": "Pass session transcript evidence into central replacement policy. A different-key local candidate may supersede an ordinary local CLARIFY card when finalized agent speech after that card contains its complete normalized question and the candidate cites a finalized substantive client response. Existing state, stale, anti-repeat/cooldown, event and remote guards remain.",
+  "limits": [
+    "Conservative full-phrase speech match; unverified paraphrases keep existing priority arbitration.",
+    "No semantic extraction, Gemini authority, learned-rule storage, benchmark oracle or snapshot change.",
+    "Three independent decision/suppression defects remain outside this single lifecycle fix.",
+    "Fresh live audio acceptance remains NOT_PROVEN."
+  ],
+  "regression": {
+    "red": "real clhj regression 1 FAIL at shouldReplaceSuggestion (expected true, received false), 6 PASS before production edit",
+    "cases": [
+      "continued dialogue before manual used click",
+      "two rapid client turns without agent use preserve active question",
+      "unrelated agent question preserves active question",
+      "expected filler silence",
+      "duplicate semantic key and stale revision",
+      "session and evidence isolation",
+      "non-final speech and agent revision order",
+      "event and remote priority protection"
+    ]
+  },
+  "review": "Independent read-only review: no confirmed correctness holes; actual response metadata and non-final evidence cases added. Separate voice-activity queue timing is not proven by the DOM simulator.",
+  "initialSuite": {
+    "command": "npm test -- --maxWorkers=2",
+    "passed": 1458,
+    "failed": 23,
+    "skipped": 1,
+    "failureType": "ALL_TIMEOUT",
+    "failedTests": [
+      "FAIL  src/services/canonicalFactResolution.test.ts > 4.0.2 canonical facts > T07 down-payment source cannot overwrite mortgage in state, ledger or metrics",
+      "FAIL  src/services/clientBoundarySemanticsIteration35.test.ts > FIX 35 client boundary semantics > keeps a short active window: Времени немного.",
+      "FAIL  src/services/copilot.test.ts > Copilot Engine & Andrei OS Test Suite > Scenario 14: extracts deterministic facts from client turns even when objections are raised",
+      "FAIL  src/services/downPaymentReadinessIteration13.test.ts > FIX ITERATION 13 down-payment readiness > FIX46 recognizes current allocated funds without inventing their amount: Средства на стартовый взнос уже лежат на счёте.",
+      "FAIL  src/services/expandedRegressionNovelScenarios.test.ts > expanded regression: novel scenarios > characterizes 8192 local deterministic executions and clusters unique failures",
+      "FAIL  src/services/finalNextStepDateTimeIteration32.test.ts > FIX 32 final next-step date/time preservation > replays the exact Natalia final callback and preserves date, time and timezone context",
+      "FAIL  src/services/goalPolarityIteration36.test.ts > FIX 36: negated permanent-residence span > does not turn a rejected residence span into a positive goal: Для редкого пребывания. Не для постоянного проживания.",
+      "FAIL  src/services/limitedActiveWindowIteration28.test.ts > FIX 28 limited active window versus hard stop > persists a limited active window and continues briefly: Есть две минуты.",
+      "FAIL  src/services/liveSession1790413802912.regression.test.ts > live session 1790413802912 regressions > treats explicit seasonal personal use as a confirmed goal",
+      "FAIL  src/services/localFirstLatency.test.ts > 4.0.2 local-first and suggestion lifecycle > T10 local actionable callback completes within 300ms while Gemini takes 9s",
+      "FAIL  src/services/objectionResistance.test.ts > 4.0.2 objection resistance acceptance > T01 positive consideration never rejects a branch",
+      "FAIL  src/services/os4.test.ts > ANDREI OS 4 deterministic core > uses the corrected value when two budgets occur in one sentence",
+      "FAIL  src/services/ownerScopedChildAbsenceIteration40.test.ts > FIX40 owner-scoped child-absence polarity > does not interpret letters inside a word as child absence: Детей у меня нетрудно убедить.",
+      "FAIL  src/services/p0DeferredGoalExperienceRegression.test.ts > P0 deferred goal should route through real search experience > does not treat passive orientation as completed past-experience discovery",
+      "FAIL  src/services/p0GoalDeferredLiveness.test.ts > P0 goal-deferred recommendation liveness > does not repeat Goal or go silent after client says they have not decided the use case yet",
+      "FAIL  src/services/paymentPolarityIteration16.test.ts > FIX ITERATION 16 payment polarity and contrast > A: resolves first-turn mortgage contrast to own funds without a correction",
+      "FAIL  src/services/paymentUncertaintyIteration39.test.ts > FIX39 R8 mortgage-credit payment-choice semantics > R8 keeps an undecided client answer to an immediate credit-choice question uncertain",
+      "FAIL  src/services/positiveDownPaymentIteration44.test.ts > FIX44 explicit positive downPayment amounts > projects the explicit amount without inventing budget: На первый взнос выделено три миллиона.",
+      "FAIL  src/services/purchaseTimelineIteration19.test.ts > FIX 19: purchase timeline semantic extraction > extracts a purchase-scoped timeline: Рассчитываю купить за три-четыре месяца.",
+      "FAIL  src/services/session5SemanticRegression.test.ts > session 5 semantic core regression > credits meaning consistently instead of exact card wording",
+      "FAIL  src/services/session5SemanticRegression.test.ts > session 5 semantic core regression > handles active objections without forcing a card for every substantive turn",
+      "FAIL  src/services/session5SemanticRegression.test.ts > session 5 semantic core regression > is idempotent when a semantically equivalent criteria answer is repeated",
+      "FAIL  src/services/staleContextFalseAgreementIteration34.test.ts > FIX 34 stale-context false agreement > 1: exact Nadezhda trust explanation does not accept an older video proposal"
+    ]
+  },
+  "verification": {
+    "scope": {
+      "fixedSessions": [
+        "session_1790932200120_clhj"
+      ],
+      "expectedSilence": [
+        "session_1790932073431_tjbq"
+      ],
+      "unfixedIndependentFindings": [
+        "session_1790931643421_xita",
+        "session_1790931892413_s2wh",
+        "session_1790932299340_dcrs"
+      ]
+    },
+    "lint": {
+      "exitCode": 0,
+      "command": "npm run lint"
+    },
+    "fullSuite": {
+      "filesSkipped": 1,
+      "filesPassed": 94,
+      "durationSeconds": 499.06,
+      "passed": 1482,
+      "exitCode": 0,
+      "command": "npm test -- --maxWorkers=1 --testTimeout=20000",
+      "failed": 0,
+      "skipped": 1
+    },
+    "focused": {
+      "passed": 41,
+      "note": "prior focused run before final additional guard test; final 8 regression cases included in full suite"
+    },
+    "build": {
+      "warning": "existing bundle chunk >550kB",
+      "command": "npm run build",
+      "exitCode": 0
+    },
+    "red": {
+      "passed": 6,
+      "assertion": "shouldReplaceSuggestion: expected true, received false",
+      "failed": 1
+    },
+    "appDom": {
+      "scope": "local App simulator; no live audio/STT proof",
+      "source": "ui-replay.json",
+      "result": "PASS"
+    }
+  },
+  "artifacts": "C:/Users/EliteSochi/Documents/ChatGPT/СИМАНТИЧЕСКОЕ ЯДРО/diagnostics/p0-live-hint-20261002"
+}

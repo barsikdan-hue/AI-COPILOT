@@ -1,0 +1,129 @@
+{
+  "sessionId": "session_1790932200120_clhj",
+  "rejected": {
+    "timestamp": 1790932259115,
+    "candidateId": "reply_1790932259114_ygqn",
+    "basedOnRevision": 8,
+    "source": "local_engine",
+    "actionType": "CLARIFY",
+    "eventType": null,
+    "closesMetric": "goal",
+    "semanticKey": "custom_для_вас_эта_недвижимость_в_пер",
+    "priority": 88,
+    "text": "Для вас эта недвижимость в первую очередь про постоянную жизнь, отдых или инвестицию?",
+    "outcome": "rejected",
+    "reason": "replacement_policy"
+  },
+  "current": {
+    "id": "reply_1790932248078_ooul",
+    "sessionId": "session_1790932200120_clhj",
+    "basedOnRevision": 6,
+    "candidateRuleId": "dialogue_policy_orientation_ask_motive_now",
+    "selectedRuleId": "dialogue_policy_orientation_ask_motive_now",
+    "actionType": "CLARIFY",
+    "text": "Какую задачу хочется решить покупкой именно на этом этапе?",
+    "shortReason": "Этап поиска понятен, теперь выясняем, почему вопрос стал актуален именно сейчас. Это помогает выбрать следующую ветку, а не просто собрать ещё один факт. Dialogue branch=orientation; priority=90.",
+    "expectedClientMeaning": null,
+    "closesMetric": null,
+    "closesMetricLabel": null,
+    "immediatePriority": "Активная ветка: orientation; цель: Причина актуальности сейчас",
+    "suggestionMode": "WAIT",
+    "evidenceTurnIds": [
+      "turn_1790932247979_rlxn"
+    ],
+    "createdAt": 1790932248078,
+    "stage": "contact",
+    "confidenceStatus": "high",
+    "lifecycleStatus": "used",
+    "semanticKey": "custom_какую_задачу_хочется_решить_по",
+    "priority": 90,
+    "eventType": null,
+    "source": "local_engine",
+    "ttlMs": 15000,
+    "used": true,
+    "usedAt": 1790932260950
+  },
+  "turns": [
+    {
+      "id": "turn_1790932215923_jj2q",
+      "sessionId": "session_1790932200120_clhj",
+      "source": "microphone",
+      "speaker": "agent",
+      "text": "Добрый день, Данил, специалист по недвижимости компании Элитный Сочи. Как я могу обращаться к вам?",
+      "timestamp": 1790932215922,
+      "isFinal": true,
+      "revision": 1
+    },
+    {
+      "id": "turn_1790932221248_wkbf",
+      "sessionId": "session_1790932200120_clhj",
+      "source": "call_audio",
+      "speaker": "client",
+      "text": "Я, да, но я просто смотрел, сравниваю, решение ещё не принял.",
+      "timestamp": 1790932221246,
+      "isFinal": true,
+      "revision": 2
+    },
+    {
+      "id": "turn_1790932232593_xplb",
+      "sessionId": "session_1790932200120_clhj",
+      "source": "microphone",
+      "speaker": "agent",
+      "text": "Понял, тогда не буду добавлять еще один список. Давайте сначала сформулируем два-три критерия и по ним отсечем все лишнее.",
+      "timestamp": 1790932232584,
+      "isFinal": true,
+      "revision": 3
+    },
+    {
+      "id": "turn_1790932239829_jca3",
+      "sessionId": "session_1790932200120_clhj",
+      "source": "call_audio",
+      "speaker": "client",
+      "text": "Ну, наверное, да, чтобы не какой-нибудь муравейник безличной стройки под окнами. Остальное пока думаю.",
+      "timestamp": 1790932239827,
+      "isFinal": true,
+      "revision": 4
+    },
+    {
+      "id": "turn_1790932245379_5y7n",
+      "sessionId": "session_1790932200120_clhj",
+      "source": "microphone",
+      "speaker": "agent",
+      "text": "Рынок Сочи давно отслеживаете или интерес недавно появился?",
+      "timestamp": 1790932245375,
+      "isFinal": true,
+      "revision": 5
+    },
+    {
+      "id": "turn_1790932247979_rlxn",
+      "sessionId": "session_1790932200120_clhj",
+      "source": "call_audio",
+      "speaker": "client",
+      "text": "Ну, не вчера.",
+      "timestamp": 1790932247976,
+      "isFinal": true,
+      "revision": 6
+    },
+    {
+      "id": "turn_1790932254338_r5yd",
+      "sessionId": "session_1790932200120_clhj",
+      "source": "microphone",
+      "speaker": "agent",
+      "text": "А какую задачу хочется решить покупкой именно на этом этапе?",
+      "timestamp": 1790932254323,
+      "isFinal": true,
+      "revision": 7
+    },
+    {
+      "id": "turn_1790932258849_oflo",
+      "sessionId": "session_1790932200120_clhj",
+      "source": "call_audio",
+      "speaker": "client",
+      "text": "Скорее присматриваюсь, чтобы не вляпаться.",
+      "timestamp": 1790932258841,
+      "isFinal": true,
+      "revision": 8
+    }
+  ],
+  "source": "call_record_2026-10-02_sessio (3).json"
+}
