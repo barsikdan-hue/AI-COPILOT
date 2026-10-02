@@ -1,0 +1,565 @@
+[
+  {
+    "sessionId": "session_1790943069981_gjy4",
+    "sourceFile": "call_record_2026-10-02_sessio (9).json",
+    "sourceSha256": "107521E261C181D81BD3C265E99B6FD65D3BBCEF8AA37277102CB6E276B6AC4C",
+    "turns": [
+      {
+        "id": "turn_1790943079986_xxyw",
+        "sessionId": "session_1790943069981_gjy4",
+        "source": "microphone",
+        "speaker": "agent",
+        "text": "просьба, давайте мы",
+        "timestamp": 1790943079980,
+        "isFinal": true,
+        "revision": 1
+      },
+      {
+        "id": "turn_1790943085453_iae9",
+        "sessionId": "session_1790943069981_gjy4",
+        "source": "microphone",
+        "speaker": "agent",
+        "text": "Добрый день, меня зовут Данил, специалист по недвижимости компании Элитный Сочи.",
+        "timestamp": 1790943085449,
+        "isFinal": true,
+        "revision": 2
+      },
+      {
+        "id": "turn_1790943090227_6w7a",
+        "sessionId": "session_1790943069981_gjy4",
+        "source": "microphone",
+        "speaker": "agent",
+        "text": "Как я могу к вам обращаться?",
+        "timestamp": 1790943090210,
+        "isFinal": true,
+        "revision": 3
+      },
+      {
+        "id": "turn_1790943095789_12ij",
+        "sessionId": "session_1790943069981_gjy4",
+        "source": "call_audio",
+        "speaker": "client",
+        "text": "Сергей, только сразу скажу, не надо сейчас расспрашивать, времени нет.",
+        "timestamp": 1790943095783,
+        "isFinal": true,
+        "revision": 4
+      },
+      {
+        "id": "turn_1790943103577_hm5c",
+        "sessionId": "session_1790943069981_gjy4",
+        "source": "microphone",
+        "speaker": "agent",
+        "text": "На каком вы сейчас этапе: присматриваете или уже ездите смотреть конкретные объекты?",
+        "timestamp": 1790943103574,
+        "isFinal": true,
+        "revision": 5
+      },
+      {
+        "id": "turn_1790943110042_yi98",
+        "sessionId": "session_1790943069981_gjy4",
+        "source": "call_audio",
+        "speaker": "client",
+        "text": "Слушайте, без анкет, ладно? Если коротко, присматриваюсь пока, ничего не выбрал.",
+        "timestamp": 1790943110041,
+        "isFinal": true,
+        "revision": 6
+      },
+      {
+        "id": "turn_1790943116820_ukt7",
+        "sessionId": "session_1790943069981_gjy4",
+        "source": "microphone",
+        "speaker": "agent",
+        "text": "Понял, не отвлекаю. Когда конкретно вернемся к разговору, сегодня вечером или завтра?",
+        "timestamp": 1790943116819,
+        "isFinal": true,
+        "revision": 7
+      },
+      {
+        "id": "turn_1790943119573_s5ci",
+        "sessionId": "session_1790943069981_gjy4",
+        "source": "call_audio",
+        "speaker": "client",
+        "text": "Завтра в 14:05.",
+        "timestamp": 1790943119571,
+        "isFinal": true,
+        "revision": 8
+      },
+      {
+        "id": "turn_1790943127804_j3hw",
+        "sessionId": "session_1790943069981_gjy4",
+        "source": "microphone",
+        "speaker": "agent",
+        "text": "Я не буду растягивать разговор, зафиксирую сказанное и вернемся к одному следующему шагу. Когда вам будет удобно?",
+        "timestamp": 1790943127802,
+        "isFinal": true,
+        "revision": 9
+      },
+      {
+        "id": "turn_1790943132508_uyje",
+        "sessionId": "session_1790943069981_gjy4",
+        "source": "call_audio",
+        "speaker": "client",
+        "text": "Завтра во второй половине дня, но без растягиваний.",
+        "timestamp": 1790943132506,
+        "isFinal": true,
+        "revision": 10
+      },
+      {
+        "id": "turn_1790943139233_de57",
+        "sessionId": "session_1790943069981_gjy4",
+        "source": "microphone",
+        "speaker": "agent",
+        "text": "Зафиксируй встречу точно. Уточни время, какой вариант удобен.",
+        "timestamp": 1790943139222,
+        "isFinal": true,
+        "revision": 11
+      },
+      {
+        "id": "turn_1790943144405_0jbj",
+        "sessionId": "session_1790943069981_gjy4",
+        "source": "call_audio",
+        "speaker": "client",
+        "text": "После обеда ближе к трем, если коротко и по делу.",
+        "timestamp": 1790943144400,
+        "isFinal": true,
+        "revision": 12
+      },
+      {
+        "id": "turn_1790943151838_5f51",
+        "sessionId": "session_1790943069981_gjy4",
+        "source": "microphone",
+        "speaker": "agent",
+        "text": "Более того, когда вы будете рассматривать недвижимость для жизни, отдыха или инвестиций.",
+        "timestamp": 1790943151836,
+        "isFinal": true,
+        "revision": 13
+      },
+      {
+        "id": "turn_1790943157220_1b7v",
+        "sessionId": "session_1790943069981_gjy4",
+        "source": "call_audio",
+        "speaker": "client",
+        "text": "Вот это как раз потом, завтра коротко скажу, сейчас не готов это обсуждать.",
+        "timestamp": 1790943157217,
+        "isFinal": true,
+        "revision": 14
+      }
+    ],
+    "suggestedRepliesHistory": [
+      {
+        "id": "reply_1790943144438_time_constraint",
+        "sessionId": "session_1790943069981_gjy4",
+        "basedOnRevision": 12,
+        "candidateRuleId": "respect_busy_time",
+        "selectedRuleId": "respect_busy_time",
+        "actionType": "PROPOSE_NEXT_STEP",
+        "text": "Понял. Тогда коротко: для какой задачи рассматриваете недвижимость — для жизни, отдыха или инвестиции?",
+        "shortReason": "Клиент ограничил формат разговора, но разрешил кратко продолжить: без small talk переходим к задаче покупки.",
+        "evidenceTurnIds": [
+          "turn_1790943144405_0jbj"
+        ],
+        "createdAt": 1790943144438,
+        "stage": "next_step_agreement",
+        "confidenceStatus": "confirmed",
+        "lifecycleStatus": "used",
+        "immediatePriority": "P0: TIME_CONSTRAINT",
+        "priority": 115,
+        "eventType": "TIME_CONSTRAINT",
+        "source": "local_event",
+        "semanticKey": "custom_понял_тогда_коротко_для_какой_",
+        "ttlMs": 15000,
+        "used": true,
+        "usedAt": 1790943149819
+      },
+      {
+        "id": "reply_1790943132577_meeting_contract",
+        "sessionId": "session_1790943069981_gjy4",
+        "basedOnRevision": 10,
+        "candidateRuleId": "meeting_contract",
+        "selectedRuleId": "meeting_contract",
+        "actionType": "PROPOSE_NEXT_STEP",
+        "text": "Зафиксируем встречу точно. Уточним время — какой вариант удобен?",
+        "shortReason": "Контракт встречи: качество согласия — clear; не заполнено: время.",
+        "evidenceTurnIds": [
+          "turn_1790943132508_uyje"
+        ],
+        "createdAt": 1790943132577,
+        "stage": "next_step_agreement",
+        "confidenceStatus": "confirmed",
+        "lifecycleStatus": "used",
+        "closesMetric": "ppv",
+        "closesMetricLabel": "Контракт видеовстречи",
+        "immediatePriority": "P0: MEETING_CONTRACT",
+        "priority": 95,
+        "eventType": "MEETING_CONTRACT",
+        "source": "local_event",
+        "semanticKey": "custom_зафиксируем_встречу_точно_уточ",
+        "ttlMs": 15000,
+        "used": true,
+        "usedAt": 1790943137491
+      },
+      {
+        "id": "reply_1790943110118_time_constraint",
+        "sessionId": "session_1790943069981_gjy4",
+        "basedOnRevision": 6,
+        "candidateRuleId": "respect_busy_time",
+        "selectedRuleId": "respect_busy_time",
+        "actionType": "PROPOSE_NEXT_STEP",
+        "text": "Понял, не отвлекаю. Когда конкретно вернуться к разговору — сегодня вечером или завтра?",
+        "shortReason": "Ограничение времени: зафиксировать точный возврат и остановить текущую продажу.",
+        "evidenceTurnIds": [
+          "turn_1790943110042_yi98"
+        ],
+        "createdAt": 1790943110118,
+        "stage": "next_step_agreement",
+        "confidenceStatus": "confirmed",
+        "lifecycleStatus": "used",
+        "immediatePriority": "P0: TIME_CONSTRAINT",
+        "priority": 115,
+        "eventType": "TIME_CONSTRAINT",
+        "source": "local_event",
+        "semanticKey": "custom_понял_не_отвлекаю_когда_конкре",
+        "ttlMs": 15000,
+        "used": true,
+        "usedAt": 1790943117249
+      }
+    ],
+    "suggestionTrace": [
+      {
+        "timestamp": 1790943110118,
+        "candidateId": "reply_1790943110118_time_constraint",
+        "basedOnRevision": 6,
+        "source": "local_event",
+        "actionType": "PROPOSE_NEXT_STEP",
+        "eventType": "TIME_CONSTRAINT",
+        "semanticKey": "custom_понял_не_отвлекаю_когда_конкре",
+        "priority": 115,
+        "text": "Понял, не отвлекаю. Когда конкретно вернуться к разговору — сегодня вечером или завтра?",
+        "outcome": "shown",
+        "reason": "accepted"
+      },
+      {
+        "timestamp": 1790943132581,
+        "candidateId": "reply_1790943132577_meeting_contract",
+        "basedOnRevision": 10,
+        "source": "local_event",
+        "actionType": "PROPOSE_NEXT_STEP",
+        "eventType": "MEETING_CONTRACT",
+        "closesMetric": "ppv",
+        "semanticKey": "custom_зафиксируем_встречу_точно_уточ",
+        "priority": 95,
+        "text": "Зафиксируем встречу точно. Уточним время — какой вариант удобен?",
+        "outcome": "shown",
+        "reason": "accepted"
+      },
+      {
+        "timestamp": 1790943144439,
+        "candidateId": "reply_1790943144438_time_constraint",
+        "basedOnRevision": 12,
+        "source": "local_event",
+        "actionType": "PROPOSE_NEXT_STEP",
+        "eventType": "TIME_CONSTRAINT",
+        "semanticKey": "custom_понял_тогда_коротко_для_какой_",
+        "priority": 115,
+        "text": "Понял. Тогда коротко: для какой задачи рассматриваете недвижимость — для жизни, отдыха или инвестиции?",
+        "outcome": "shown",
+        "reason": "accepted"
+      },
+      {
+        "timestamp": 1790943157252,
+        "candidateId": "reply_1790943157252_time_constraint",
+        "basedOnRevision": 14,
+        "source": "local_event",
+        "actionType": "PROPOSE_NEXT_STEP",
+        "eventType": "TIME_CONSTRAINT",
+        "semanticKey": "custom_понял_не_отвлекаю_когда_конкре",
+        "priority": 115,
+        "text": "Понял, не отвлекаю. Когда конкретно вернуться к разговору — сегодня вечером или завтра?",
+        "outcome": "rejected",
+        "reason": "anti_repeat:Вопрос по теме \"custom_понял_не_отвлекаю_когда_конкре\" уже задавался в диалоге."
+      }
+    ]
+  },
+  {
+    "sessionId": "session_1790943191435_u531",
+    "sourceFile": "call_record_2026-10-02_sessio (10).json",
+    "sourceSha256": "A927250181F0CB12504D6A2F215D3C8E398DEDD7F678CB5CBBADEF24407FE30F",
+    "turns": [
+      {
+        "id": "turn_1790943196686_wp8a",
+        "sessionId": "session_1790943191435_u531",
+        "source": "microphone",
+        "speaker": "agent",
+        "text": "Добрый день, Данил, Элитный Сочи. Как я могу к вам обращаться?",
+        "timestamp": 1790943196682,
+        "isFinal": true,
+        "revision": 1
+      },
+      {
+        "id": "turn_1790943201963_37tx",
+        "sessionId": "session_1790943191435_u531",
+        "source": "call_audio",
+        "speaker": "client",
+        "text": "Андрей, только сразу, я не фанат долгих выяснений.",
+        "timestamp": 1790943201961,
+        "isFinal": true,
+        "revision": 2
+      },
+      {
+        "id": "turn_1790943208877_3cyl",
+        "sessionId": "session_1790943191435_u531",
+        "source": "microphone",
+        "speaker": "agent",
+        "text": "В Сочи уже давно присматриваете или только начали изучать рынок?",
+        "timestamp": 1790943208873,
+        "isFinal": true,
+        "revision": 3
+      },
+      {
+        "id": "turn_1790943212761_ahg9",
+        "sessionId": "session_1790943191435_u531",
+        "source": "call_audio",
+        "speaker": "client",
+        "text": "Да какое-то время смотрю на без фанатизма.",
+        "timestamp": 1790943212759,
+        "isFinal": true,
+        "revision": 4
+      },
+      {
+        "id": "turn_1790943219175_cata",
+        "sessionId": "session_1790943191435_u531",
+        "source": "microphone",
+        "speaker": "agent",
+        "text": "Что сейчас по доходности от наблюдения по более предметному выбору?",
+        "timestamp": 1790943219171,
+        "isFinal": true,
+        "revision": 5
+      },
+      {
+        "id": "turn_1790943224022_qqkl",
+        "sessionId": "session_1790943191435_u531",
+        "source": "call_audio",
+        "speaker": "client",
+        "text": "Ничего не подтолкнуло, пока просто наблюдаю.",
+        "timestamp": 1790943224007,
+        "isFinal": true,
+        "revision": 6
+      },
+      {
+        "id": "turn_1790943231463_73hr",
+        "sessionId": "session_1790943191435_u531",
+        "source": "microphone",
+        "speaker": "agent",
+        "text": "Что должно измениться после покупки: переезд, свой формат отдыха или работа капитала?",
+        "timestamp": 1790943231459,
+        "isFinal": true,
+        "revision": 7
+      },
+      {
+        "id": "turn_1790943237924_we01",
+        "sessionId": "session_1790943191435_u531",
+        "source": "call_audio",
+        "speaker": "client",
+        "text": "Сейчас не сформулирую. Давайте без давления. Я не готов сейчас раскладывать по полочкам.",
+        "timestamp": 1790943237922,
+        "isFinal": true,
+        "revision": 8
+      },
+      {
+        "id": "turn_1790943244455_e6qa",
+        "sessionId": "session_1790943191435_u531",
+        "source": "microphone",
+        "speaker": "agent",
+        "text": "После прошлых просмотров что стало понятнее про ваш идеальный вариант?",
+        "timestamp": 1790943244454,
+        "isFinal": true,
+        "revision": 9
+      },
+      {
+        "id": "turn_1790943252071_165b",
+        "sessionId": "session_1790943191435_u531",
+        "source": "call_audio",
+        "speaker": "client",
+        "text": "Чтобы не было плотной застройки и постоянного шума, остальное пока не для решения по телефону.",
+        "timestamp": 1790943252069,
+        "isFinal": true,
+        "revision": 10
+      },
+      {
+        "id": "turn_1790943259721_4433",
+        "sessionId": "session_1790943191435_u531",
+        "source": "microphone",
+        "speaker": "agent",
+        "text": "По каким двум признакам вы сразу поймёте, вариант стоит смотреть дальше?",
+        "timestamp": 1790943259719,
+        "isFinal": true,
+        "revision": 11
+      },
+      {
+        "id": "turn_1790943266702_mvlk",
+        "sessionId": "session_1790943191435_u531",
+        "source": "call_audio",
+        "speaker": "client",
+        "text": "Если нет ощущения человеника и вина, что потом это не зависнет мертвым грузом.",
+        "timestamp": 1790943266689,
+        "isFinal": true,
+        "revision": 12
+      },
+      {
+        "id": "turn_1790943273516_hg3g",
+        "sessionId": "session_1790943191435_u531",
+        "source": "microphone",
+        "speaker": "agent",
+        "text": "Что сейчас подтолкнуло приоритет наблюдения к более предметному выбору?",
+        "timestamp": 1790943273515,
+        "isFinal": true,
+        "revision": 13
+      },
+      {
+        "id": "turn_1790943280866_zv32",
+        "sessionId": "session_1790943191435_u531",
+        "source": "call_audio",
+        "speaker": "client",
+        "text": "Ничего нового не произошло. Я просто держу это в поле внимания. Не надо сейчас дальше тянуть.",
+        "timestamp": 1790943280858,
+        "isFinal": true,
+        "revision": 14
+      },
+      {
+        "id": "turn_1790943286792_0xq5",
+        "sessionId": "session_1790943191435_u531",
+        "source": "microphone",
+        "speaker": "agent",
+        "text": "Для себя выбираете, для семьи и отдыха или как инвестицию?",
+        "timestamp": 1790943286791,
+        "isFinal": true,
+        "revision": 15
+      },
+      {
+        "id": "turn_1790943290273_euhf",
+        "sessionId": "session_1790943191435_u531",
+        "source": "call_audio",
+        "speaker": "client",
+        "text": "Не готов это сейчас озвучивать.",
+        "timestamp": 1790943290270,
+        "isFinal": true,
+        "revision": 16
+      },
+      {
+        "id": "turn_1790943293826_x0hr",
+        "sessionId": "session_1790943191435_u531",
+        "source": "call_audio",
+        "speaker": "client",
+        "text": "Можно без этого вопроса, правда.",
+        "timestamp": 1790943293815,
+        "isFinal": true,
+        "revision": 17
+      },
+      {
+        "id": "turn_1790943296800_9sr5",
+        "sessionId": "session_1790943191435_u531",
+        "source": "microphone",
+        "speaker": "agent",
+        "text": "Что из того, что вы уже увидели, вас не устроило больше всего?",
+        "timestamp": 1790943296796,
+        "isFinal": true,
+        "revision": 18
+      },
+      {
+        "id": "turn_1790943305913_htd1",
+        "sessionId": "session_1790943191435_u531",
+        "source": "call_audio",
+        "speaker": "client",
+        "text": "Плотная застройка с шум обещания вместо фактов. Этого достаточно. Сейчас, завтра, могу коротко, если нужно.",
+        "timestamp": 1790943305911,
+        "isFinal": true,
+        "revision": 19
+      },
+      {
+        "id": "turn_1790943312955_xvsv",
+        "sessionId": "session_1790943191435_u531",
+        "source": "microphone",
+        "speaker": "agent",
+        "text": "Ну, не отвлекай. Когда конкретно вернёмся к разговору, сегодня вечером или завтра?",
+        "timestamp": 1790943312954,
+        "isFinal": true,
+        "revision": 20
+      },
+      {
+        "id": "turn_1790943317696_2icq",
+        "sessionId": "session_1790943191435_u531",
+        "source": "call_audio",
+        "speaker": "client",
+        "text": "Завтра коротко, 5 минут, без допросов.",
+        "timestamp": 1790943317688,
+        "isFinal": true,
+        "revision": 21
+      },
+      {
+        "id": "turn_1790943328729_qgvt",
+        "sessionId": "session_1790943191435_u531",
+        "source": "microphone",
+        "speaker": "agent",
+        "text": "Стоп, стоп.",
+        "timestamp": 1790943328727,
+        "isFinal": true,
+        "revision": 22
+      }
+    ],
+    "suggestedRepliesHistory": [
+      {
+        "id": "reply_1790943305980_time_constraint",
+        "sessionId": "session_1790943191435_u531",
+        "basedOnRevision": 19,
+        "candidateRuleId": "respect_busy_time",
+        "selectedRuleId": "respect_busy_time",
+        "actionType": "PROPOSE_NEXT_STEP",
+        "text": "Понял, не отвлекаю. Когда конкретно вернуться к разговору — сегодня вечером или завтра?",
+        "shortReason": "Ограничение времени: зафиксировать точный возврат и остановить текущую продажу.",
+        "evidenceTurnIds": [
+          "turn_1790943305913_htd1"
+        ],
+        "createdAt": 1790943305980,
+        "stage": "next_step_agreement",
+        "confidenceStatus": "confirmed",
+        "lifecycleStatus": "used",
+        "immediatePriority": "P0: TIME_CONSTRAINT",
+        "priority": 115,
+        "eventType": "TIME_CONSTRAINT",
+        "source": "local_event",
+        "semanticKey": "custom_понял_не_отвлекаю_когда_конкре",
+        "ttlMs": 15000,
+        "used": true,
+        "usedAt": 1790943312717
+      }
+    ],
+    "suggestionTrace": [
+      {
+        "timestamp": 1790943305981,
+        "candidateId": "reply_1790943305980_time_constraint",
+        "basedOnRevision": 19,
+        "source": "local_event",
+        "actionType": "PROPOSE_NEXT_STEP",
+        "eventType": "TIME_CONSTRAINT",
+        "semanticKey": "custom_понял_не_отвлекаю_когда_конкре",
+        "priority": 115,
+        "text": "Понял, не отвлекаю. Когда конкретно вернуться к разговору — сегодня вечером или завтра?",
+        "outcome": "shown",
+        "reason": "accepted"
+      },
+      {
+        "timestamp": 1790943317750,
+        "candidateId": "reply_1790943317750_time_constraint",
+        "basedOnRevision": 21,
+        "source": "local_event",
+        "actionType": "PROPOSE_NEXT_STEP",
+        "eventType": "TIME_CONSTRAINT",
+        "semanticKey": "custom_понял_не_отвлекаю_когда_конкре",
+        "priority": 115,
+        "text": "Понял, не отвлекаю. Когда конкретно вернуться к разговору — сегодня вечером или завтра?",
+        "outcome": "rejected",
+        "reason": "shown_semantic_cooldown"
+      }
+    ]
+  }
+]

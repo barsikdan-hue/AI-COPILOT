@@ -1,0 +1,69 @@
+{
+  "task": "P0_FIX_NEXT_STEP_SCHEDULING_RECOGNITION",
+  "checkpoint": "bd8520f4206b6c4fd6ac2cdde9ce3724b0e3544a",
+  "sources": [
+    {
+      "session": "session_1790943191435_u531",
+      "sha256": "a927250181f0cb12504d6a2f215d3c8e398dedd7f678cb5cbbadef24407fe30f"
+    },
+    {
+      "session": "session_1790943069981_gjy4",
+      "sha256": "107521e261c181d81bd3c265e99b6fd65d3bbcef8aa37277102cb6e276b6ac4c"
+    }
+  ],
+  "productionBoundary": "conversationEventEngineLegacy.ts: current callback proposal recognition, timing parsing, candidate precedence and existing nextStepAgreement progression",
+  "changes": [
+    "Recognize the current natural callback proposal: когда конкретно вернемся к разговору.",
+    "Accept selected callback day with duration or client constraints; ask only for the missing time.",
+    "Advance an existing callback agreement before competing TIME_CONSTRAINT generation for its time answer.",
+    "Preserve approximate time, callback duration and client constraints in the existing agreement.",
+    "Generate distinct update wording for a changed callback time while retaining existing duplicate guards."
+  ],
+  "replay": {
+    "u531Revision21": {
+      "event": "TIME_CONSTRAINT",
+      "candidate": "Понял, на завтра. Во сколько удобно коротко созвониться на 5 минут, без допросов?",
+      "agreement": "discussing; tomorrow; duration 5; constraint без допросов; no invented clock",
+      "stateAllowed": true,
+      "antiRepeatAccepted": true
+    },
+    "gjy4": {
+      "revision8": "MEETING_CONTRACT: agreed tomorrow 14:05",
+      "revision10": "Retains agreed time and без растягиваний",
+      "revision12": "MEETING_CONTRACT: agreed завтра после обеда ближе к 15:00; preserves constraints",
+      "revision14": "TIME_CONSTRAINT: keeps scheduled callback and closes the current call",
+      "stateAllowed": true,
+      "antiRepeatAccepted": true
+    },
+    "scope": "Deterministic replay through the production local pipeline using exported final transcripts; fresh STT/UI delivery NOT_PROVEN"
+  },
+  "regression": {
+    "newTests": 35,
+    "existingSchedulingTests": 50,
+    "coverage": "Original sessions, canonical replacements, tomorrow briefly, day plus duration, day plus constraint, after lunch closer to three, after three, quantities, alternatives, questions, refusals, active availability, stale proposals and stop precedence",
+    "tddInitial": { "failed": 15, "passed": 5 },
+    "focusedFinal": { "passed": 85, "failed": 0 },
+    "fullFinal": {
+      "command": "node node_modules/vitest/vitest.mjs run --maxWorkers=1 --testTimeout=20000",
+      "filesPassed": 98,
+      "filesSkipped": 1,
+      "testsPassed": 1576,
+      "testsSkipped": 1,
+      "testsFailed": 0,
+      "durationSeconds": 543.88,
+      "expandedRegression": "PASS including 8192 executions and unchanged snapshot"
+    }
+  },
+  "verification": {
+    "lint": { "command": "npm run lint", "exitCode": 0 },
+    "build": { "command": "npm run build", "exitCode": 0, "existingWarning": "Bundle chunk size threshold" },
+    "diffCheck": "PASS",
+    "independentReview": "No actionable findings in final bounded diff; negative and approximate-time counterexamples independently replayed",
+    "protected": "Anti-repeat, semantic cooldown, Gemini, 13v5 and unrelated production files unchanged; timeContract parser and application blocks identical to checkpoint",
+    "testedProductionSha256": "2D432BEE6F60A5DE0DCBC5239EE978BE777DE6B5D119450FB1ADE5B3882D5016",
+    "testedRegressionSha256": "E097FF11DC79703D21E02B32BB454153769C0BFF00E99AF38E08AA6615C8118E",
+    "fixtureSha256": "AC4B4551FC4D91F6F0D574688F374F81BAA5CE0B14863FB1868D30675B4C626F"
+  },
+  "excludedPreexistingIssue": "The mixed active-now/future-slot phrase Сейчас пять минут есть, завтра в дороге после трёх. Давайте коротко. can produce a generic Онлайн-созвон scalar fact in deterministicFacts before event processing. Identical checkpoint behavior independently reproduced. This extraction issue is outside the approved boundary; callback time is not advanced from the current five-minute window.",
+  "publication": "Local commit only; no push or deployment"
+}
