@@ -1033,6 +1033,18 @@ export function detectConversationEvent(
     const briefContinuation = allowsBriefContinuation(text);
     const detectedBoundaryMode = classifyClientBoundaryMode(turn.text);
     const boundaryMode = detectedBoundaryMode === 'none' ? 'defer' : detectedBoundaryMode;
+    const callbackPrompt = normalize(lastAgentBefore(turn, recentTurns)?.text || '');
+    const callbackDay = boundaryMode === 'defer' && !agreementIsConfirmed(state) && !text.includes('?') &&
+      /созвон|позвон|перезвон|на(?:бер|бр)|к\s+разговору/iu.test(callbackPrompt) &&
+      /(?:^|[^\p{L}])(?:когда|во\s+сколько|в\s+какое\s+время)(?=$|[^\p{L}])/iu.test(callbackPrompt) &&
+      !/видео|zoom|зум|офис|личн\p{L}*\s+встреч/iu.test(callbackPrompt)
+      ? extractCallbackDateOrDay(turn.text) : null;
+    // A date mention is not a choice: accept the complete selected-day reply, without
+    // borrowing a rejected day, a question, or an alternative from the turn.
+    const selectedCallbackDay = !callbackTime && !materialRequest && !/после\s+обеда/iu.test(text) && callbackDay &&
+      new RegExp(
+        `^(?:не\\s+[^,.;!?]+,\\s*а\\s+)?(?:(?:да|давайте|лучше)\\s+)?(?:в\\s+)?${callbackDay}(?:\\s+(?:можно|подходит|удобно))?\\s*(?:[,.;]?\\s*(?:но\\s+)?(?:только\\s+)?(?:коротко|быстро))?[.!]?\\s*$`, 'iu',
+      ).test(text) ? callbackDay : null;
     return configuredEvent(timeConstraint, turn, {
       actionType: timeConstraint.actionType,
       suggestedReply: boundaryMode === 'defer' && /после\s+обеда/iu.test(text)
@@ -1041,10 +1053,14 @@ export function detectConversationEvent(
         ? 'Понял, не отвлекаю. Отправлю запрошенный материал; к разговору вернёмся позже.'
         : callbackTime
         ? `Понял. Перезвоню ${callbackTime}. Не отвлекаю.`
+        : selectedCallbackDay
+        ? `Понял, ${selectedCallbackDay.startsWith('через ') ? '' : 'на '}${selectedCallbackDay}. Во сколько удобно коротко созвониться?`
         : briefContinuation
         ? 'Понял. Тогда коротко: для какой задачи рассматриваете недвижимость — для жизни, отдыха или инвестиции?'
         : timeConstraint.suggestion,
-      shortReason: briefContinuation
+      shortReason: selectedCallbackDay
+        ? 'День возврата уже выбран клиентом; уточняем только время короткого созвона, не предлагая день повторно.'
+        : briefContinuation
         ? 'Клиент ограничил формат разговора, но разрешил кратко продолжить: без small talk переходим к задаче покупки.'
         : timeConstraint.shortReason,
       boundaryMode,

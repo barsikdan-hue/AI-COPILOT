@@ -1,0 +1,124 @@
+{
+  "task": "P0_FIX_DCRS_TIME_CONSTRAINT_REPEAT",
+  "checkpoint": "9d2e8eb11100f1beaaa3d83f6a911aaaeba43940",
+  "session": "session_1790932299340_dcrs",
+  "sourceSha256": "2D5E9EFD7AE7CD3B2F930213E4FF97A6EA04726925DE63E3CC3395DA1E7D5D0B",
+  "root_cause": "PROVEN",
+  "first_broken_layer": "conversationEventEngineLegacy.ts / detectConversationEvent / TIME_CONSTRAINT candidate generation",
+  "mechanism": "After the client selected tomorrow, day-only completion fell through to the same today-or-tomorrow question. Priority 115 was eligible by state but duplicate guards rejected it, leaving no new recommendation.",
+  "before": {
+    "revision": 5,
+    "client": "Завтра можно, но коротко.",
+    "previousAgent": "Понял, не отвлекаю. Когда конкретно вернутся к разговору, сегодня вечером или завтра?",
+    "activeSituation": {
+      "lastEventType": "TIME_CONSTRAINT",
+      "lastEventTurnId": "turn_1790932344995_dp8q",
+      "clientBoundaryActive": true,
+      "boundaryMode": "defer",
+      "researchMode": false,
+      "softResistanceCount": 0,
+      "rejectedBranches": [],
+      "meetingConsentQuality": "none",
+      "timeContract": null
+    },
+    "candidate": {
+      "text": "Понял, не отвлекаю. Когда конкретно вернуться к разговору — сегодня вечером или завтра?",
+      "actionType": "PROPOSE_NEXT_STEP",
+      "eventType": "TIME_CONSTRAINT",
+      "priority": 115,
+      "stage": "next_step_agreement",
+      "source": "local_event",
+      "sessionId": "session_1790932299340_dcrs",
+      "basedOnRevision": 5
+    },
+    "guards": {
+      "stateAllowed": true,
+      "antiRepeat": {
+        "accepted": false,
+        "semanticKey": "custom_понял_не_отвлекаю_когда_конкре",
+        "rejectionReason": "Вопрос по теме \"custom_понял_не_отвлекаю_когда_конкре\" уже задавался в диалоге."
+      }
+    },
+    "selected": {
+      "rule": "state_validator_no_replacement",
+      "text": null,
+      "priority": 115,
+      "action": "WAIT",
+      "event": "TIME_CONSTRAINT",
+      "shouldSuggest": false,
+      "reason": "Кандидат отклонён state validator; случайный checklist-вопрос не создаём."
+    },
+    "originalLiveRejection": "shown_semantic_cooldown"
+  },
+  "after": {
+    "candidate": {
+      "id": "dcrs-time",
+      "sessionId": "session_1790932299340_dcrs",
+      "basedOnRevision": 5,
+      "candidateRuleId": "respect_busy_time",
+      "text": "Понял, на завтра. Во сколько удобно коротко созвониться?",
+      "shortReason": "День возврата уже выбран клиентом; уточняем только время короткого созвона, не предлагая день повторно.",
+      "evidenceTurnIds": [
+        "turn_1790932344995_dp8q"
+      ],
+      "createdAt": 1790932344993,
+      "stage": "next_step_agreement",
+      "actionType": "PROPOSE_NEXT_STEP",
+      "eventType": "TIME_CONSTRAINT",
+      "priority": 115,
+      "source": "local_event",
+      "semanticKey": "custom_понял_на_завтра_во_сколько_удо"
+    },
+    "guards": {
+      "stateAllowed": true,
+      "antiRepeat": {
+        "accepted": true,
+        "semanticKey": "custom_понял_на_завтра_во_сколько_удо"
+      },
+      "replaceOriginalUsedCard": true
+    },
+    "decision": {
+      "shouldSuggest": true,
+      "recommendationOutcome": "NEW_RECOMMENDATION"
+    },
+    "agreementNotInvented": true
+  },
+  "fix": "Only TIME_CONSTRAINT candidate generation now recognizes an affirmative selected day answering the current callback question and asks for the remaining time. Exact-time, material, active-window and stop precedence remain intact. Refusals, alternatives, incidental dates and office/video context do not activate this branch.",
+  "regression": {
+    "file": "src/services/liveDecisionDcrsTimeConstraint.test.ts",
+    "tests": 20,
+    "realSession": "GREEN: revision 5 selects tomorrow callback time clarification",
+    "continuation": "GREEN: client supplies 18:00, existing MEETING_CONTRACT agrees tomorrow 18:00",
+    "duplicate": "GREEN: repeating the day after the clarification was spoken produces NO_NEW_RECOMMENDATION",
+    "tdd": {
+      "initial": "5 failed, 10 passed before implementation",
+      "reviewCounterexamples": "4 failures reproduced before correction",
+      "officeCounterexample": "1 failure reproduced before correction"
+    }
+  },
+  "verification": {
+    "focused": {
+      "filesPassed": 7,
+      "testsPassed": 122
+    },
+    "full": {
+      "command": "npm test -- --maxWorkers=1 --testTimeout=20000",
+      "filesPassed": 96,
+      "filesSkipped": 1,
+      "testsPassed": 1524,
+      "testsSkipped": 1
+    },
+    "lint": {
+      "command": "npm run lint",
+      "exitCode": 0
+    },
+    "build": {
+      "command": "npm run build",
+      "exitCode": 0,
+      "existingWarning": "Bundle chunk exceeds configured size warning threshold"
+    },
+    "independentReview": "PASS: no confirmed findings on final diff; real-session and negative counterexamples independently replayed",
+    "protectedDiff": "Empty against checkpoint for App.tsx, suggestionLifecycle.ts, liveDecisionLiquidity.test.ts and immutable liveDecisionXitaDcrs.json; production diff confined to TIME_CONSTRAINT block"
+  },
+  "scope": "Existing real final transcripts and original live rejection; reconstructed production state and decision. Fresh live STT/UI delivery NOT_PROVEN. No push or deployment."
+}
