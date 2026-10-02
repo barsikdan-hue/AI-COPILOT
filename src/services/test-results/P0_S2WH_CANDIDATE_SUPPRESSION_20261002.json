@@ -1,0 +1,193 @@
+{
+  "task": "P0_DIAGNOSE_AND_FIX_S2WH_CANDIDATE_SUPPRESSION",
+  "checkpoint": "d596c11a07410e61695020ee76923b35265a38d8",
+  "session": "session_1790931892413_s2wh",
+  "sourceSha256": "74FB33AAE3851C7FADDEDAEFDE26F88168B77B5B135F402FCBDB3F3B465FB3C4",
+  "observerMarkerRevisionExcluded": 8,
+  "root_cause": "PROVEN",
+  "first_broken_layer": "localAnalysisEngineLegacy.ts / buildLocalAnalysisResponse / SPIN candidate selection",
+  "mechanism": "Revision 7 generates priority-60 DEEPEN / SPIN_IMPLICATION despite an active limited window. State guard correctly rejects deep discovery; legacy clears the candidate into state_validator_no_replacement. The wrapper cannot recover a brief action when goal is unknown. App shouldSuggest gate is false, so publication is never attempted. Duplicate, stale and replacement protections are not the root.",
+  "revision5": {
+    "classification": "EXPECTED_PROTECTION",
+    "current": {
+      "text": "По сумме какой ориентир держим и выше какой границы точно не идём?",
+      "priority": 94,
+      "ageMs": 5028,
+      "spokenYet": false,
+      "score": 103
+    },
+    "candidate": {
+      "text": "Вы уже сравниваете конкретные варианты в Сочи или пока просто изучаете рынок?",
+      "priority": 55,
+      "score": 51
+    },
+    "outcome": "replacement_policy rejects a lower-priority candidate while the useful unspoken card is fresh; unchanged"
+  },
+  "beforeRevision7": {
+    "transcript": "Да, ну, честно сказать, рано про деньги. У меня пока нет ощущения вообще, что что-то из того, что я видел, стоит своих денег. Вот, да, так что поэтому пока не готов обсуждать. Смотрел пару проектов — всё шумно, всё плотненько, неликвидно, одни обещания, поэтому так, с опаской отношусь.",
+    "activeSituation": {
+      "lastEventType": "TIME_CONSTRAINT",
+      "lastEventTurnId": "turn_1790931914739_20ux",
+      "clientBoundaryActive": true,
+      "boundaryMode": "limited_active_window",
+      "researchMode": false,
+      "softResistanceCount": 0,
+      "rejectedBranches": [],
+      "meetingConsentQuality": "none",
+      "timeContract": null
+    },
+    "candidate": {
+      "id": "spin-7",
+      "sessionId": "session_1790931892413_s2wh",
+      "source": "local_engine",
+      "basedOnRevision": 7,
+      "evidenceTurnIds": [
+        "turn_1790931967631_d2ht"
+      ],
+      "text": "Что именно больше всего страдает из-за этого — отдых, сон или общее состояние?",
+      "shortReason": "Обнаружена боль («шум/сон»). Углубляем последствия по SPIN перед презентацией.",
+      "actionType": "DEEPEN",
+      "suggestionMode": "SPIN_IMPLICATION",
+      "priority": 60,
+      "createdAt": 1790931967947,
+      "semanticKey": "custom_что_именно_больше_всего_страда",
+      "stage": "next_step_agreement"
+    },
+    "guards": {
+      "stateAllowed": false,
+      "antiRepeat": {
+        "accepted": true,
+        "semanticKey": "custom_что_именно_больше_всего_страда"
+      },
+      "replace": true,
+      "currentAgeMs": 33159
+    },
+    "activeRecommendation": {
+      "id": "reply_1790931934788_ktrd",
+      "basedOnRevision": 4,
+      "status": "used",
+      "ageMs": 33159,
+      "ttlMs": 15000
+    },
+    "publishGate": {
+      "rule": "state_validator_no_replacement",
+      "text": null,
+      "action": "CLARIFY",
+      "mode": "WAIT",
+      "priority": 60,
+      "shouldSuggest": false,
+      "outcome": "NO_NEW_RECOMMENDATION"
+    },
+    "originalLiveTrace": "No entry at revision 7; reconstructed candidate/state matches exported SPIN problem and active limited boundary. No intermediate live candidate log or original DOM captured."
+  },
+  "fix": "Only the non-event SPIN candidate branch changes: active limited window + fresh client PROBLEM + proposed IMPLICATION becomes one brief concern-priority question. Normal SPIN, current event ownership and all publication guards remain intact. Extraction is read through its existing API and is not modified.",
+  "afterRevision7": {
+    "candidate": {
+      "id": "spin-7",
+      "sessionId": "session_1790931892413_s2wh",
+      "source": "local_engine",
+      "basedOnRevision": 7,
+      "evidenceTurnIds": [
+        "turn_1790931967631_d2ht"
+      ],
+      "text": "Что из названного для вас главный стоп-фактор при выборе?",
+      "shortReason": "Клиент назвал проблему в коротком активном окне: уточняем главный стоп-фактор одним вопросом, без углубления последствий.",
+      "actionType": "CLARIFY",
+      "suggestionMode": "WAIT",
+      "priority": 60,
+      "createdAt": 1790931967947,
+      "semanticKey": "custom_что_из_названного_для_вас_глав",
+      "stage": "next_step_agreement",
+      "candidateRuleId": "limited_window_problem_priority",
+      "closesMetric": null,
+      "eventType": null
+    },
+    "guards": {
+      "stateAllowed": true,
+      "antiRepeat": {
+        "accepted": true,
+        "semanticKey": "custom_что_из_названного_для_вас_глав"
+      },
+      "replace": true,
+      "shownKeyCooldown": false
+    },
+    "outcome": "NEW_RECOMMENDATION"
+  },
+  "regression": {
+    "file": "src/services/liveDecisionS2whSuppression.test.ts",
+    "fixture": "src/services/test-support/liveDecisionS2wh.json",
+    "testsPassed": 17,
+    "tdd": "5 failed / 7 passed before production edit; 12 passed after fix; final 17 cases passed",
+    "cases": [
+      "real final turn",
+      "original rev5 protection",
+      "original deep candidate remains blocked",
+      "normal SPIN without boundary",
+      "stale revision",
+      "spoken and same-key duplicates",
+      "stop/defer/direct events",
+      "actual material event publication path",
+      "inactive historical boundary",
+      "stale pain/filler/topic shift",
+      "known-goal compressed path",
+      "intentional question-reaction silence"
+    ]
+  },
+  "appPublication": {
+    "scope": "Fresh local App simulator session using original seven final transcripts and two duplicate continuation turns; free-running UI clock, not original timestamps; no live STT",
+    "simulatorSession": "session_1790939928010_qukr",
+    "published": {
+      "timestamp": 1790940197984,
+      "candidateId": "reply_1790940197983_0fpi",
+      "basedOnRevision": 7,
+      "source": "local_engine",
+      "actionType": "CLARIFY",
+      "eventType": null,
+      "closesMetric": null,
+      "semanticKey": "custom_что_из_названного_для_вас_глав",
+      "priority": 60,
+      "text": "Что из названного для вас главный стоп-фактор при выборе?",
+      "outcome": "shown",
+      "reason": "accepted"
+    },
+    "duplicate": "Same question spoken and same client signal repeated at rev9: zero new shown trace entries; DOM displays Суфлёр готов",
+    "artifacts": [
+      "ui-session.json",
+      "ui-publication.txt",
+      "ui-publication.jpg",
+      "ui-duplicate.txt"
+    ],
+    "liveSttSessions": 0
+  },
+  "independentReview": "PASS: no confirmed issue in final SPIN diff; postagreement, dismiss, direct/material ownership and single-problem continuation independently probed",
+  "separateExistingFinding": "Limited-window analysis wrapper rewrites material event metadata to CLARIFY, which fails its state guard. Normal App material path publishes the original ANSWER event and skips secondary analysis because suppressesAnalysis=true. Live material delivery failure NOT_PROVEN; this unrelated wrapper mismatch is unchanged.",
+  "verification": {
+    "focused": {
+      "filesPassed": 8,
+      "testsPassed": 125
+    },
+    "full": {
+      "command": "npm test -- --maxWorkers=1 --testTimeout=20000",
+      "exitCode": 0,
+      "filesPassed": 97,
+      "filesSkipped": 1,
+      "testsPassed": 1541,
+      "testsSkipped": 1
+    },
+    "lint": {
+      "command": "npm run lint",
+      "exitCode": 0
+    },
+    "build": {
+      "command": "npm run build",
+      "exitCode": 0,
+      "existingWarning": "Bundle exceeds configured size warning threshold"
+    },
+    "protected": "No changes to App.tsx or suggestionLifecycle.ts versus dc7444f; conversationEventEngineLegacy.ts, xita/dcrs tests and fixture unchanged versus checkpoint; no Gemini changes"
+  },
+  "next": {
+    "freshLiveCallsRequired": 5,
+    "status": "PENDING_ACTUAL_AUDIO_STT_UI",
+    "note": "Simulator export call_record_2026-10-02_sessio (5).json is verification data and must not be counted as a fresh live call."
+  }
+}

@@ -1,0 +1,150 @@
+{
+  "sessionId": "session_1790931892413_s2wh",
+  "sourceSha256": "74FB33AAE3851C7FADDEDAEFDE26F88168B77B5B135F402FCBDB3F3B465FB3C4",
+  "stopRevision": 8,
+  "turns": [
+    {
+      "id": "turn_1790931907848_lf6b",
+      "sessionId": "session_1790931892413_s2wh",
+      "source": "microphone",
+      "speaker": "agent",
+      "text": "Добрый день, Данил, Элитный Сочи. Как я могу к вам обращаться?",
+      "timestamp": 1790931907822,
+      "isFinal": true,
+      "revision": 1
+    },
+    {
+      "id": "turn_1790931914739_20ux",
+      "sessionId": "session_1790931892413_s2wh",
+      "source": "call_audio",
+      "speaker": "client",
+      "text": "Да, Кирилл, я заявку оставлял, да. У меня буквально пару минут сейчас, если коротко.",
+      "timestamp": 1790931914737,
+      "isFinal": true,
+      "revision": 2
+    },
+    {
+      "id": "turn_1790931922260_qauk",
+      "sessionId": "session_1790931892413_s2wh",
+      "source": "microphone",
+      "speaker": "agent",
+      "text": "Понятно, за коротко. Для какой задачи рассматриваете недвижимость: для жизни, отдыха или инвестиции?",
+      "timestamp": 1790931922259,
+      "isFinal": true,
+      "revision": 3
+    },
+    {
+      "id": "turn_1790931934450_0n6p",
+      "sessionId": "session_1790931892413_s2wh",
+      "source": "call_audio",
+      "speaker": "client",
+      "text": "Ага, да, слушайте, ну посмотреть вообще хочу, просто, ну прицениться, да, как-то, рынок понять вообще, вот чисто, не знаю, да, может просто, знаете, ради интереса.",
+      "timestamp": 1790931934449,
+      "isFinal": true,
+      "revision": 4
+    },
+    {
+      "id": "turn_1790931939770_z5a4",
+      "sessionId": "session_1790931892413_s2wh",
+      "source": "call_audio",
+      "speaker": "client",
+      "text": "У меня тут поменяться всё может, поэтому может вложусь, может нет.",
+      "timestamp": 1790931939759,
+      "isFinal": true,
+      "revision": 5
+    },
+    {
+      "id": "turn_1790931946802_38oh",
+      "sessionId": "session_1790931892413_s2wh",
+      "source": "microphone",
+      "speaker": "agent",
+      "text": "По сумме какой ориентир держим и выше какой границы точно не идём?",
+      "timestamp": 1790931946797,
+      "isFinal": true,
+      "revision": 6
+    },
+    {
+      "id": "turn_1790931967631_d2ht",
+      "sessionId": "session_1790931892413_s2wh",
+      "source": "call_audio",
+      "speaker": "client",
+      "text": "Да, ну, честно сказать, рано про деньги. У меня пока нет ощущения вообще, что что-то из того, что я видел, стоит своих денег. Вот, да, так что поэтому пока не готов обсуждать. Смотрел пару проектов — всё шумно, всё плотненько, неликвидно, одни обещания, поэтому так, с опаской отношусь.",
+      "timestamp": 1790931967611,
+      "isFinal": true,
+      "revision": 7
+    }
+  ],
+  "originalCurrent": {
+    "id": "reply_1790931934788_ktrd",
+    "sessionId": "session_1790931892413_s2wh",
+    "basedOnRevision": 4,
+    "candidateRuleId": "dialogue_policy_finance_ask_budget",
+    "selectedRuleId": "dialogue_policy_finance_ask_budget",
+    "actionType": "CLARIFY",
+    "text": "По сумме какой ориентир держим и выше какой границы точно не идём?",
+    "shortReason": "Клиент перевёл разговор в деньги: сначала фиксируем рабочий диапазон. Dialogue branch=finance; priority=94.",
+    "expectedClientMeaning": null,
+    "closesMetric": "budget",
+    "closesMetricLabel": "Бюджет",
+    "immediatePriority": "Активная ветка: finance; цель: Бюджет",
+    "suggestionMode": "WAIT",
+    "evidenceTurnIds": [
+      "turn_1790931934450_0n6p"
+    ],
+    "createdAt": 1790931934788,
+    "stage": "next_step_agreement",
+    "confidenceStatus": "high",
+    "lifecycleStatus": "used",
+    "semanticKey": "ask_budget",
+    "priority": 94,
+    "eventType": null,
+    "source": "local_engine",
+    "ttlMs": 15000,
+    "used": true,
+    "usedAt": 1790931949102
+  },
+  "originalTrace": [
+    {
+      "timestamp": 1790931915264,
+      "candidateId": "reply_1790931915257_time_constraint",
+      "basedOnRevision": 2,
+      "source": "local_event",
+      "actionType": "PROPOSE_NEXT_STEP",
+      "eventType": "TIME_CONSTRAINT",
+      "semanticKey": "custom_понял_тогда_коротко_для_какой_",
+      "priority": 115,
+      "text": "Понял. Тогда коротко: для какой задачи рассматриваете недвижимость — для жизни, отдыха или инвестиции?",
+      "outcome": "shown",
+      "reason": "accepted"
+    },
+    {
+      "timestamp": 1790931934788,
+      "candidateId": "reply_1790931934788_ktrd",
+      "basedOnRevision": 4,
+      "source": "local_engine",
+      "actionType": "CLARIFY",
+      "eventType": null,
+      "closesMetric": "budget",
+      "semanticKey": "ask_budget",
+      "priority": 94,
+      "text": "По сумме какой ориентир держим и выше какой границы точно не идём?",
+      "outcome": "shown",
+      "reason": "accepted"
+    },
+    {
+      "timestamp": 1790931939816,
+      "candidateId": "reply_1790931939815_k11t",
+      "basedOnRevision": 5,
+      "source": "local_engine",
+      "actionType": "CLARIFY",
+      "eventType": null,
+      "closesMetric": null,
+      "semanticKey": "custom_вы_уже_сравниваете_конкретные_",
+      "priority": 55,
+      "text": "Вы уже сравниваете конкретные варианты в Сочи или пока просто изучаете рынок?",
+      "outcome": "rejected",
+      "reason": "replacement_policy"
+    }
+  ],
+  "lastAnalysisTime": 1790931967947
+}

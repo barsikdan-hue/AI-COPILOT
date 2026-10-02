@@ -14,7 +14,7 @@ import { applyPaymentUncertainty, latestPaymentUncertainty } from './paymentUnce
 import { evaluateFirstCallScript, getFirstCallSuggestion } from './firstCallScriptEngine';
 import { checkSemanticAntiRepeat, extractSemanticKey } from './semanticAntiRepeat';
 import { isSuggestionAllowedByState } from './suggestionLifecycle';
-import { classifyAgentAction, evaluateSpinAndHpb } from './spinEngine';
+import { classifyAgentAction, evaluateSpinAndHpb, extractClientSpinMeaning } from './spinEngine';
 import { getContextualDopamineQuestion } from './dopamineQuestionEngine';
 
 
@@ -682,11 +682,25 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
     // Once a real Problem/Implication/Need-payoff chain is active, keep its
     // causal continuity. A generic rapport/trust question must not interrupt
     // the chain immediately after the client disclosed a meaningful pain.
-    suggestedReply = spin.suggestedText;
-    shortReason = spin.shortReason;
-    suggestionMode = spin.suggestionMode;
-    actionType = actionForSuggestionMode(spin.suggestionMode);
-    expectedClientMeaning = spin.expectedClientMeaning;
+    // A fresh problem still deserves a next action in a short active window,
+    // but a deep implication question is correctly blocked by the state guard.
+    const limitedWindowCurrentProblem =
+      workingState.dialogueControl?.clientBoundaryActive &&
+      workingState.dialogueControl?.boundaryMode === 'limited_active_window' &&
+      spin.suggestionMode === 'SPIN_IMPLICATION' &&
+      lastClientTurn && extractClientSpinMeaning(lastClientTurn)?.stage === 'PROBLEM';
+    suggestedReply = limitedWindowCurrentProblem
+      ? 'Что из названного для вас главный стоп-фактор при выборе?'
+      : spin.suggestedText;
+    shortReason = limitedWindowCurrentProblem
+      ? 'Клиент назвал проблему в коротком активном окне: уточняем главный стоп-фактор одним вопросом, без углубления последствий.'
+      : spin.shortReason;
+    candidateRuleId = limitedWindowCurrentProblem ? 'limited_window_problem_priority' : null;
+    suggestionMode = limitedWindowCurrentProblem ? 'SPIN_PROBLEM' : spin.suggestionMode;
+    actionType = actionForSuggestionMode(suggestionMode);
+    expectedClientMeaning = limitedWindowCurrentProblem
+      ? 'Клиент выделяет главное препятствие из уже названных причин.'
+      : spin.expectedClientMeaning;
     priority = 60;
   } else if (canUseDopamine && dopamine) {
     suggestedReply = dopamine.text;
