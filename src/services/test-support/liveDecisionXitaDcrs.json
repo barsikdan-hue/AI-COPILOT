@@ -1,0 +1,473 @@
+[
+  {
+    "sessionId": "session_1790932299340_dcrs",
+    "sourceSha256": "2D5E9EFD7AE7CD3B2F930213E4FF97A6EA04726925DE63E3CC3395DA1E7D5D0B",
+    "stopRevision": 6,
+    "turns": [
+      {
+        "id": "turn_1790932314046_ul41",
+        "sessionId": "session_1790932299340_dcrs",
+        "source": "microphone",
+        "speaker": "agent",
+        "text": "Добрый день, Данил, специалист по недвижимости компании Элитный Сочи.",
+        "timestamp": 1790932314044,
+        "isFinal": true,
+        "revision": 1
+      },
+      {
+        "id": "turn_1790932330191_17iw",
+        "sessionId": "session_1790932299340_dcrs",
+        "source": "microphone",
+        "speaker": "agent",
+        "text": "Алло, меня слышно?",
+        "timestamp": 1790932330190,
+        "isFinal": true,
+        "revision": 2
+      },
+      {
+        "id": "turn_1790932335025_6fo8",
+        "sessionId": "session_1790932299340_dcrs",
+        "source": "call_audio",
+        "speaker": "client",
+        "text": "Да слышу, слышу, просто давайте без анкет, мне некогда.",
+        "timestamp": 1790932335021,
+        "isFinal": true,
+        "revision": 3
+      },
+      {
+        "id": "turn_1790932341894_n2b1",
+        "sessionId": "session_1790932299340_dcrs",
+        "source": "microphone",
+        "speaker": "agent",
+        "text": "Понял, не отвлекаю. Когда конкретно вернутся к разговору, сегодня вечером или завтра?",
+        "timestamp": 1790932341891,
+        "isFinal": true,
+        "revision": 4
+      },
+      {
+        "id": "turn_1790932344995_dp8q",
+        "sessionId": "session_1790932299340_dcrs",
+        "source": "call_audio",
+        "speaker": "client",
+        "text": "Завтра можно, но коротко.",
+        "timestamp": 1790932344993,
+        "isFinal": true,
+        "revision": 5
+      }
+    ],
+    "suggestionTrace": [
+      {
+        "timestamp": 1790932335460,
+        "candidateId": "reply_1790932335455_time_constraint",
+        "basedOnRevision": 3,
+        "source": "local_event",
+        "actionType": "PROPOSE_NEXT_STEP",
+        "eventType": "TIME_CONSTRAINT",
+        "semanticKey": "custom_понял_не_отвлекаю_когда_конкре",
+        "priority": 115,
+        "text": "Понял, не отвлекаю. Когда конкретно вернуться к разговору — сегодня вечером или завтра?",
+        "outcome": "shown",
+        "reason": "accepted"
+      },
+      {
+        "timestamp": 1790932345049,
+        "candidateId": "reply_1790932345048_time_constraint",
+        "basedOnRevision": 5,
+        "source": "local_event",
+        "actionType": "PROPOSE_NEXT_STEP",
+        "eventType": "TIME_CONSTRAINT",
+        "semanticKey": "custom_понял_не_отвлекаю_когда_конкре",
+        "priority": 115,
+        "text": "Понял, не отвлекаю. Когда конкретно вернуться к разговору — сегодня вечером или завтра?",
+        "outcome": "rejected",
+        "reason": "shown_semantic_cooldown"
+      }
+    ],
+    "suggestedRepliesHistory": [
+      {
+        "id": "reply_1790932335455_time_constraint",
+        "sessionId": "session_1790932299340_dcrs",
+        "basedOnRevision": 3,
+        "candidateRuleId": "respect_busy_time",
+        "selectedRuleId": "respect_busy_time",
+        "actionType": "PROPOSE_NEXT_STEP",
+        "text": "Понял, не отвлекаю. Когда конкретно вернуться к разговору — сегодня вечером или завтра?",
+        "shortReason": "Ограничение времени: зафиксировать точный возврат и остановить текущую продажу.",
+        "evidenceTurnIds": [
+          "turn_1790932335025_6fo8"
+        ],
+        "createdAt": 1790932335455,
+        "stage": "next_step_agreement",
+        "confidenceStatus": "confirmed",
+        "lifecycleStatus": "used",
+        "immediatePriority": "P0: TIME_CONSTRAINT",
+        "priority": 115,
+        "eventType": "TIME_CONSTRAINT",
+        "source": "local_event",
+        "semanticKey": "custom_понял_не_отвлекаю_когда_конкре",
+        "ttlMs": 15000,
+        "used": true,
+        "usedAt": 1790932339976
+      }
+    ]
+  },
+  {
+    "sessionId": "session_1790931643421_xita",
+    "sourceSha256": "82ACFDEEDFA1FB45B9A4E0B7F879DBE114CC55E1F7798F314F42CEC985CAAD2B",
+    "stopRevision": 14,
+    "turns": [
+      {
+        "id": "turn_1790931677572_hfv5",
+        "sessionId": "session_1790931643421_xita",
+        "source": "microphone",
+        "speaker": "agent",
+        "text": "Это всё хуйня.",
+        "timestamp": 1790931677569,
+        "isFinal": true,
+        "revision": 1
+      },
+      {
+        "id": "turn_1790931711476_582a",
+        "sessionId": "session_1790931643421_xita",
+        "source": "microphone",
+        "speaker": "agent",
+        "text": "Добрый день, меня зовут Данил, специалист по недвижимости.",
+        "timestamp": 1790931711468,
+        "isFinal": true,
+        "revision": 2
+      },
+      {
+        "id": "turn_1790931724795_k2a6",
+        "sessionId": "session_1790931643421_xita",
+        "source": "call_audio",
+        "speaker": "client",
+        "text": "Ага, здравствуйте. Да, очень приятно. Я вот оставлял заявку, я хочу сориентироваться по недвижимости в Сочи. У меня буквально минут пять сейчас, если можно, коротко.",
+        "timestamp": 1790931724790,
+        "isFinal": true,
+        "revision": 3
+      },
+      {
+        "id": "turn_1790931733559_e806",
+        "sessionId": "session_1790931643421_xita",
+        "source": "microphone",
+        "speaker": "agent",
+        "text": "Понял, тогда коротко. В легкой сдаче рассматривайте недвижимость для жизни, отдыха или инвестиций.",
+        "timestamp": 1790931733557,
+        "isFinal": true,
+        "revision": 4
+      },
+      {
+        "id": "turn_1790931741101_c4x9",
+        "sessionId": "session_1790931643421_xita",
+        "source": "call_audio",
+        "speaker": "client",
+        "text": "Ну я вообще пока не знаю. Я вот, скорее всего, хотел посмотреть, просто цены, сориентироваться. Не знаю.",
+        "timestamp": 1790931741093,
+        "isFinal": true,
+        "revision": 5
+      },
+      {
+        "id": "turn_1790931746072_1tvu",
+        "sessionId": "session_1790931643421_xita",
+        "source": "microphone",
+        "speaker": "agent",
+        "text": "уложиться без натяжки.",
+        "timestamp": 1790931746071,
+        "isFinal": true,
+        "revision": 6
+      },
+      {
+        "id": "turn_1790931761480_79d9",
+        "sessionId": "session_1790931643421_xita",
+        "source": "call_audio",
+        "speaker": "client",
+        "text": "Ой, ну давайте, наверное, рано ещё про деньги так конкретно. Ну не хочу влезать в то, что потом висеть будет. Я смотрел пару проектов, муравейники шумные, вообще неликвидно, мне кажется. А потом сиди и думай, что с этим делать.",
+        "timestamp": 1790931761479,
+        "isFinal": true,
+        "revision": 7
+      },
+      {
+        "id": "turn_1790931769314_iml4",
+        "sessionId": "session_1790931643421_xita",
+        "source": "microphone",
+        "speaker": "agent",
+        "text": "А после прошлых просмотров что стало понятнее про ваш идеальный вариант?",
+        "timestamp": 1790931769313,
+        "isFinal": true,
+        "revision": 8
+      },
+      {
+        "id": "turn_1790931786795_tsd8",
+        "sessionId": "session_1790931643421_xita",
+        "source": "call_audio",
+        "speaker": "client",
+        "text": "Ну, не идеальный, а чтобы понятно было, что это не неликвид. Чтобы при необходимости продать можно было, а не так, купил и сидишь потом в человечнике этом. Я уже видел пару примеров, где люди купили и так и мучаются. Я не хочу так же.",
+        "timestamp": 1790931786791,
+        "isFinal": true,
+        "revision": 9
+      },
+      {
+        "id": "turn_1790931793407_iuuy",
+        "sessionId": "session_1790931643421_xita",
+        "source": "microphone",
+        "speaker": "agent",
+        "text": "В Сочи уже давно присматриваете или только начали изучать рынок?",
+        "timestamp": 1790931793396,
+        "isFinal": true,
+        "revision": 10
+      },
+      {
+        "id": "turn_1790931808849_e5lg",
+        "sessionId": "session_1790931643421_xita",
+        "source": "call_audio",
+        "speaker": "client",
+        "text": "Да нет уже какое-то время смотрю, но пока всё какое-то не то попадается, сам не знаю почему. Может, надо время какое-то выждать? Вот хотел самого спросить, сейчас вообще есть что-то ликвидное-то? А то понастроили, только пугают людей.",
+        "timestamp": 1790931808848,
+        "isFinal": true,
+        "revision": 11
+      },
+      {
+        "id": "turn_1790931815299_ojbx",
+        "sessionId": "session_1790931643421_xita",
+        "source": "microphone",
+        "speaker": "agent",
+        "text": "Уточните, пожалуйста, какой именно момент вы сейчас хотите прояснить?",
+        "timestamp": 1790931815299,
+        "isFinal": true,
+        "revision": 12
+      },
+      {
+        "id": "turn_1790931826937_5don",
+        "sessionId": "session_1790931643421_xita",
+        "source": "call_audio",
+        "speaker": "client",
+        "text": "Ну вот у меня ощущение, что вокруг одни вот эти муравейники и красивые обещания. А где реальность-то? Чтобы потом это можно было спокойно продать и не сидеть в этом бетоне всю жизнь.",
+        "timestamp": 1790931826929,
+        "isFinal": true,
+        "revision": 13
+      }
+    ],
+    "suggestionTrace": [
+      {
+        "timestamp": 1790931725305,
+        "candidateId": "reply_1790931725297_time_constraint",
+        "basedOnRevision": 3,
+        "source": "local_event",
+        "actionType": "PROPOSE_NEXT_STEP",
+        "eventType": "TIME_CONSTRAINT",
+        "semanticKey": "custom_понял_тогда_коротко_для_какой_",
+        "priority": 115,
+        "text": "Понял. Тогда коротко: для какой задачи рассматриваете недвижимость — для жизни, отдыха или инвестиции?",
+        "outcome": "shown",
+        "reason": "accepted"
+      },
+      {
+        "timestamp": 1790931741271,
+        "candidateId": "reply_1790931741271_hosk",
+        "basedOnRevision": 5,
+        "source": "local_engine",
+        "actionType": "CLARIFY",
+        "eventType": null,
+        "closesMetric": "budget",
+        "semanticKey": "custom_в_какой_диапазон_хотите_уложит",
+        "priority": 94,
+        "text": "В какой диапазон хотите уложиться без натяжки?",
+        "outcome": "shown",
+        "reason": "accepted"
+      },
+      {
+        "timestamp": 1790931761861,
+        "candidateId": "reply_1790931761860_zcvj",
+        "basedOnRevision": 7,
+        "source": "local_engine",
+        "actionType": "CLARIFY",
+        "eventType": null,
+        "closesMetric": "experience",
+        "semanticKey": "custom_после_прошлых_просмотров_что_с",
+        "priority": 58,
+        "text": "После прошлых просмотров что стало понятнее про ваш идеальный вариант?",
+        "outcome": "shown",
+        "reason": "accepted"
+      },
+      {
+        "timestamp": 1790931787130,
+        "candidateId": "reply_1790931787130_bumm",
+        "basedOnRevision": 9,
+        "source": "local_engine",
+        "actionType": "CLARIFY",
+        "eventType": null,
+        "closesMetric": null,
+        "semanticKey": "ask_search_experience",
+        "priority": 55,
+        "text": "Сочи уже давно присматриваете или только начали изучать рынок?",
+        "outcome": "shown",
+        "reason": "accepted"
+      },
+      {
+        "timestamp": 1790931809181,
+        "candidateId": "reply_1790931809180_direct_question",
+        "basedOnRevision": 11,
+        "source": "local_event",
+        "actionType": "ANSWER",
+        "eventType": "DIRECT_QUESTION",
+        "semanticKey": "custom_уточните_пожалуйста_какой_имен",
+        "priority": 105,
+        "text": "Уточните, пожалуйста, какой именно момент вы хотите сейчас прояснить?",
+        "outcome": "shown",
+        "reason": "accepted"
+      },
+      {
+        "timestamp": 1790931827252,
+        "candidateId": "reply_1790931827250_direct_question",
+        "basedOnRevision": 13,
+        "source": "local_event",
+        "actionType": "ANSWER",
+        "eventType": "DIRECT_QUESTION",
+        "semanticKey": "custom_уточните_пожалуйста_какой_имен",
+        "priority": 105,
+        "text": "Уточните, пожалуйста, какой именно момент вы хотите сейчас прояснить?",
+        "outcome": "rejected",
+        "reason": "shown_semantic_cooldown"
+      }
+    ],
+    "suggestedRepliesHistory": [
+      {
+        "id": "reply_1790931809180_direct_question",
+        "sessionId": "session_1790931643421_xita",
+        "basedOnRevision": 11,
+        "candidateRuleId": "direct_question_general",
+        "selectedRuleId": "direct_question_general",
+        "actionType": "ANSWER",
+        "text": "Уточните, пожалуйста, какой именно момент вы хотите сейчас прояснить?",
+        "shortReason": "Прямой вопрос клиента (general) выше коррекции, SPIN-вопроса и презентации.",
+        "evidenceTurnIds": [
+          "turn_1790931808849_e5lg"
+        ],
+        "createdAt": 1790931809180,
+        "stage": "next_step_agreement",
+        "confidenceStatus": "confirmed",
+        "lifecycleStatus": "used",
+        "immediatePriority": "P0: DIRECT_QUESTION",
+        "priority": 105,
+        "eventType": "DIRECT_QUESTION",
+        "source": "local_event",
+        "semanticKey": "custom_уточните_пожалуйста_какой_имен",
+        "ttlMs": 15000,
+        "used": true,
+        "usedAt": 1790931814393
+      },
+      {
+        "id": "reply_1790931787130_bumm",
+        "sessionId": "session_1790931643421_xita",
+        "basedOnRevision": 9,
+        "candidateRuleId": null,
+        "selectedRuleId": null,
+        "actionType": "CLARIFY",
+        "text": "Сочи уже давно присматриваете или только начали изучать рынок?",
+        "shortReason": "Явного более важного сигнала пока нет; добираем минимальный контекст клиента. Формулировка выбрана из смыслового пула ask_search_experience, а не из одной фиксированной карточки.",
+        "expectedClientMeaning": "Клиент раскрывает причину обращения, сценарий покупки или предыдущий опыт.",
+        "closesMetric": null,
+        "closesMetricLabel": null,
+        "immediatePriority": null,
+        "suggestionMode": "WAIT",
+        "evidenceTurnIds": [
+          "turn_1790931786795_tsd8"
+        ],
+        "createdAt": 1790931787130,
+        "stage": "next_step_agreement",
+        "confidenceStatus": "high",
+        "lifecycleStatus": "used",
+        "semanticKey": "ask_search_experience",
+        "priority": 55,
+        "eventType": null,
+        "source": "local_engine",
+        "ttlMs": 15000,
+        "used": true,
+        "usedAt": 1790931792490
+      },
+      {
+        "id": "reply_1790931761860_zcvj",
+        "sessionId": "session_1790931643421_xita",
+        "basedOnRevision": 7,
+        "candidateRuleId": "dialogue_policy_experience_ask_experience",
+        "selectedRuleId": "dialogue_policy_experience_ask_experience",
+        "actionType": "CLARIFY",
+        "text": "После прошлых просмотров что стало понятнее про ваш идеальный вариант?",
+        "shortReason": "Прошлый опыт полезен только пока он реально существует и ещё не раскрыт. Dialogue branch=experience; priority=54.",
+        "expectedClientMeaning": null,
+        "closesMetric": "experience",
+        "closesMetricLabel": "Опыт выбора или покупки",
+        "immediatePriority": "Активная ветка: experience; цель: Опыт выбора или покупки",
+        "suggestionMode": "WAIT",
+        "evidenceTurnIds": [
+          "turn_1790931761480_79d9"
+        ],
+        "createdAt": 1790931761860,
+        "stage": "next_step_agreement",
+        "confidenceStatus": "high",
+        "lifecycleStatus": "used",
+        "semanticKey": "custom_после_прошлых_просмотров_что_с",
+        "priority": 58,
+        "eventType": null,
+        "source": "local_engine",
+        "ttlMs": 15000,
+        "used": true,
+        "usedAt": 1790931771224
+      },
+      {
+        "id": "reply_1790931741271_hosk",
+        "sessionId": "session_1790931643421_xita",
+        "basedOnRevision": 5,
+        "candidateRuleId": "dialogue_policy_finance_ask_budget",
+        "selectedRuleId": "dialogue_policy_finance_ask_budget",
+        "actionType": "CLARIFY",
+        "text": "В какой диапазон хотите уложиться без натяжки?",
+        "shortReason": "Клиент перевёл разговор в деньги: сначала фиксируем рабочий диапазон. Dialogue branch=finance; priority=94.",
+        "expectedClientMeaning": null,
+        "closesMetric": "budget",
+        "closesMetricLabel": "Бюджет",
+        "immediatePriority": "Активная ветка: finance; цель: Бюджет",
+        "suggestionMode": "WAIT",
+        "evidenceTurnIds": [
+          "turn_1790931741101_c4x9"
+        ],
+        "createdAt": 1790931741271,
+        "stage": "next_step_agreement",
+        "confidenceStatus": "high",
+        "lifecycleStatus": "used",
+        "semanticKey": "custom_в_какой_диапазон_хотите_уложит",
+        "priority": 94,
+        "eventType": null,
+        "source": "local_engine",
+        "ttlMs": 15000,
+        "used": true,
+        "usedAt": 1790931743995
+      },
+      {
+        "id": "reply_1790931725297_time_constraint",
+        "sessionId": "session_1790931643421_xita",
+        "basedOnRevision": 3,
+        "candidateRuleId": "respect_busy_time",
+        "selectedRuleId": "respect_busy_time",
+        "actionType": "PROPOSE_NEXT_STEP",
+        "text": "Понял. Тогда коротко: для какой задачи рассматриваете недвижимость — для жизни, отдыха или инвестиции?",
+        "shortReason": "Клиент ограничил формат разговора, но разрешил кратко продолжить: без small talk переходим к задаче покупки.",
+        "evidenceTurnIds": [
+          "turn_1790931724795_k2a6"
+        ],
+        "createdAt": 1790931725297,
+        "stage": "next_step_agreement",
+        "confidenceStatus": "confirmed",
+        "lifecycleStatus": "used",
+        "immediatePriority": "P0: TIME_CONSTRAINT",
+        "priority": 115,
+        "eventType": "TIME_CONSTRAINT",
+        "source": "local_event",
+        "semanticKey": "custom_понял_тогда_коротко_для_какой_",
+        "ttlMs": 15000,
+        "used": true,
+        "usedAt": 1790931732374
+      }
+    ]
+  }
+]

@@ -1,0 +1,877 @@
+{
+  "task": "P0_LIVE_DECISION_FAILED",
+  "baseline": "dc7444f16c4dde091cf43cd676531ca49abb52af",
+  "checkout": "C:/Users/EliteSochi/Documents/Codex/2026-09-26/files-mentioned-by-the-user-ai/work/AI-COPILOT-regression-baseline",
+  "shared_root": "NO",
+  "root_cause": "PROVEN",
+  "first_broken_layer": "conversationEventEngineLegacy.ts::classifyDirectQuestionIntent / directQuestionReply",
+  "mechanism": "xita current liquidity/resale questions fall into general at revisions 11 and 13. DIRECT_QUESTION priority105 suppresses other selection. Revision13 repeats the already-spoken generic clarification; replay anti-repeat and original live shown_semantic_cooldown reject it.",
+  "impact_selection": "Fix xita: two consecutive unanswered, explicit requests about the client's dominant resale risk. dcrs has one incomplete callback response. This is the bounded qualitative impact judgment, not measured revenue impact.",
+  "fix": "One decision file: private liquidity intent and concise comparable-sales/sale-timing/exit-price verification answer. Existing explicit document/price/finance/material/market/property subjects take precedence. Same-turn context is used only for the bare referential evidence question. No broad fallback, force-hint, extraction, lifecycle or Gemini change.",
+  "sessions": [
+    {
+      "sessionId": "session_1790932299340_dcrs",
+      "sourceSha256": "2D5E9EFD7AE7CD3B2F930213E4FF97A6EA04726925DE63E3CC3395DA1E7D5D0B",
+      "stopRevision": 6,
+      "root_cause": "PROVEN",
+      "fixed": false,
+      "first_broken_layer": "detectConversationEvent TIME_CONSTRAINT branch / extractCallbackTime",
+      "mechanism": "Завтра можно, но коротко enters TIME_CONSTRAINT before detectMeetingContract. Its numeric-time-only helper returns null for day-only selection, so it repeats today-or-tomorrow. The duplicate is correctly rejected.",
+      "before": [
+        {
+          "revision": 5,
+          "transcript": "Завтра можно, но коротко.",
+          "state": {
+            "criteria": {
+              "value": null,
+              "items": [],
+              "evidenceTurnIds": []
+            },
+            "boundary": {
+              "lastEventType": "TIME_CONSTRAINT",
+              "lastEventTurnId": "turn_1790932344995_dp8q",
+              "clientBoundaryActive": true,
+              "boundaryMode": "defer",
+              "researchMode": false,
+              "softResistanceCount": 0,
+              "rejectedBranches": [],
+              "meetingConsentQuality": "none",
+              "timeContract": null
+            },
+            "agreedNextStep": {
+              "value": null,
+              "evidenceTurnIds": []
+            },
+            "facts": []
+          },
+          "event": {
+            "type": "TIME_CONSTRAINT",
+            "priority": 115,
+            "actionType": "PROPOSE_NEXT_STEP",
+            "ruleId": "respect_busy_time",
+            "suggestedReply": "Понял, не отвлекаю. Когда конкретно вернуться к разговору — сегодня вечером или завтра?",
+            "shortReason": "Ограничение времени: зафиксировать точный возврат и остановить текущую продажу.",
+            "evidenceTurnId": "turn_1790932344995_dp8q",
+            "evidenceQuote": "Завтра можно, но коротко.",
+            "suppressesAnalysis": true,
+            "stage": "next_step_agreement",
+            "boundaryMode": "defer"
+          },
+          "candidate": {
+            "text": "Понял, не отвлекаю. Когда конкретно вернуться к разговору — сегодня вечером или завтра?",
+            "actionType": "PROPOSE_NEXT_STEP",
+            "eventType": "TIME_CONSTRAINT",
+            "priority": 115,
+            "stage": "next_step_agreement",
+            "source": "local_event",
+            "sessionId": "session_1790932299340_dcrs",
+            "basedOnRevision": 5
+          },
+          "guards": {
+            "stateAllowed": true,
+            "antiRepeat": {
+              "accepted": false,
+              "semanticKey": "custom_понял_не_отвлекаю_когда_конкре",
+              "rejectionReason": "Вопрос по теме \"custom_понял_не_отвлекаю_когда_конкре\" уже задавался в диалоге."
+            }
+          },
+          "selected": {
+            "rule": "state_validator_no_replacement",
+            "text": null,
+            "priority": 115,
+            "action": "WAIT",
+            "event": "TIME_CONSTRAINT",
+            "shouldSuggest": false,
+            "reason": "Кандидат отклонён state validator; случайный checklist-вопрос не создаём."
+          },
+          "originalLiveTrace": [
+            {
+              "timestamp": 1790932345049,
+              "candidateId": "reply_1790932345048_time_constraint",
+              "basedOnRevision": 5,
+              "source": "local_event",
+              "actionType": "PROPOSE_NEXT_STEP",
+              "eventType": "TIME_CONSTRAINT",
+              "semanticKey": "custom_понял_не_отвлекаю_когда_конкре",
+              "priority": 115,
+              "text": "Понял, не отвлекаю. Когда конкретно вернуться к разговору — сегодня вечером или завтра?",
+              "outcome": "rejected",
+              "reason": "shown_semantic_cooldown"
+            }
+          ]
+        }
+      ],
+      "after": [
+        {
+          "revision": 5,
+          "transcript": "Завтра можно, но коротко.",
+          "state": {
+            "stage": "next_step_agreement",
+            "activeObjection": {
+              "category": "objection_timing",
+              "target": null,
+              "status": "detected",
+              "resistanceCount": 1,
+              "evidenceTurnIds": [
+                "turn_1790932335025_6fo8"
+              ],
+              "evidenceQuote": "Да слышу, слышу, просто давайте без анкет, мне некогда.",
+              "lastAgentResponseTurnId": null,
+              "rootCause": null
+            },
+            "goal": {
+              "value": null,
+              "evidenceTurnIds": []
+            },
+            "criteria": {
+              "value": null,
+              "items": [],
+              "evidenceTurnIds": []
+            },
+            "boundary": {
+              "lastEventType": "TIME_CONSTRAINT",
+              "lastEventTurnId": "turn_1790932344995_dp8q",
+              "clientBoundaryActive": true,
+              "boundaryMode": "defer",
+              "researchMode": false,
+              "softResistanceCount": 0,
+              "rejectedBranches": [],
+              "meetingConsentQuality": "none",
+              "timeContract": null
+            },
+            "agreedNextStep": {
+              "value": null,
+              "evidenceTurnIds": []
+            },
+            "facts": []
+          },
+          "event": {
+            "type": "TIME_CONSTRAINT",
+            "priority": 115,
+            "actionType": "PROPOSE_NEXT_STEP",
+            "ruleId": "respect_busy_time",
+            "suggestedReply": "Понял, не отвлекаю. Когда конкретно вернуться к разговору — сегодня вечером или завтра?",
+            "shortReason": "Ограничение времени: зафиксировать точный возврат и остановить текущую продажу.",
+            "evidenceTurnId": "turn_1790932344995_dp8q",
+            "evidenceQuote": "Завтра можно, но коротко.",
+            "suppressesAnalysis": true,
+            "stage": "next_step_agreement",
+            "boundaryMode": "defer"
+          },
+          "candidate": {
+            "text": "Понял, не отвлекаю. Когда конкретно вернуться к разговору — сегодня вечером или завтра?",
+            "actionType": "PROPOSE_NEXT_STEP",
+            "eventType": "TIME_CONSTRAINT",
+            "priority": 115,
+            "stage": "next_step_agreement",
+            "source": "local_event",
+            "sessionId": "session_1790932299340_dcrs",
+            "basedOnRevision": 5
+          },
+          "guards": {
+            "stateAllowed": true,
+            "antiRepeat": {
+              "accepted": false,
+              "semanticKey": "custom_понял_не_отвлекаю_когда_конкре",
+              "rejectionReason": "Вопрос по теме \"custom_понял_не_отвлекаю_когда_конкре\" уже задавался в диалоге."
+            }
+          },
+          "selected": {
+            "rule": "state_validator_no_replacement",
+            "text": null,
+            "priority": 115,
+            "action": "WAIT",
+            "event": "TIME_CONSTRAINT",
+            "shouldSuggest": false,
+            "reason": "Кандидат отклонён state validator; случайный checklist-вопрос не создаём."
+          },
+          "originalLiveTrace": [
+            {
+              "timestamp": 1790932345049,
+              "candidateId": "reply_1790932345048_time_constraint",
+              "basedOnRevision": 5,
+              "source": "local_event",
+              "actionType": "PROPOSE_NEXT_STEP",
+              "eventType": "TIME_CONSTRAINT",
+              "semanticKey": "custom_понял_не_отвлекаю_когда_конкре",
+              "priority": 115,
+              "text": "Понял, не отвлекаю. Когда конкретно вернуться к разговору — сегодня вечером или завтра?",
+              "outcome": "rejected",
+              "reason": "shown_semantic_cooldown"
+            }
+          ]
+        }
+      ],
+      "selectionTrace": [
+        {
+          "revision": 5,
+          "diagnosticAlternatives": {
+            "note": "evaluated for diagnosis; dominant event owns production selection",
+            "policy": {
+              "branch": "orientation",
+              "metric": null,
+              "semanticKey": "ask_search_experience",
+              "reason": "В начале звонка сначала ориентируемся, насколько клиент уже погружён в рынок. Это не критерий качества и не анкета.",
+              "priority": 92
+            },
+            "spin": {
+              "suggestionMode": "SPIN_SITUATION",
+              "suggestedText": "Сочи давно рассматриваете или только начали изучать рынок?",
+              "shortReason": "Явного более важного сигнала пока нет; добираем минимальный контекст клиента.",
+              "evidenceQuote": "Завтра можно, но коротко.",
+              "expectedClientMeaning": "Клиент раскрывает причину обращения, сценарий покупки или предыдущий опыт.",
+              "updatedSpin": {
+                "situation": [],
+                "problem": [],
+                "implication": [],
+                "needPayoff": [],
+                "currentStage": "SITUATION",
+                "completedStages": [],
+                "missingStage": "SITUATION",
+                "lastClientEvidence": "",
+                "confidence": 0
+              }
+            }
+          },
+          "dominantEventPriority": 115,
+          "suppressesAnalysis": true
+        }
+      ],
+      "counterfactual": {
+        "change": "Remove only но коротко in diagnostic input, no production edit",
+        "event": {
+          "type": "MEETING_CONTRACT",
+          "priority": 95,
+          "actionType": "PROPOSE_NEXT_STEP",
+          "ruleId": "meeting_contract",
+          "suggestedReply": "Отлично, тогда созвонимся завтра вечером. Зафиксировал.",
+          "shortReason": "Контракт встречи: качество согласия — clear; не заполнено: ничего.",
+          "evidenceTurnId": "turn_1790932344995_dp8q",
+          "evidenceQuote": "Завтра можно.",
+          "suppressesAnalysis": true,
+          "stage": "next_step_agreement",
+          "closesMetric": "ppv",
+          "closesMetricLabel": "Контракт видеовстречи",
+          "meetingConsentQuality": "clear",
+          "meetingContract": {
+            "dateOrDay": "завтра",
+            "time": "вечером",
+            "channel": "созвон",
+            "participants": null,
+            "expectedResult": null,
+            "durationMinutes": null
+          }
+        },
+        "limit": "Demonstrates that the TIME_CONSTRAINT branch bypasses reachable meeting progression. It is not a corrected contract oracle; inherited tomorrow-evening precision is not endorsed."
+      }
+    },
+    {
+      "sessionId": "session_1790931643421_xita",
+      "sourceSha256": "82ACFDEEDFA1FB45B9A4E0B7F879DBE114CC55E1F7798F314F42CEC985CAAD2B",
+      "stopRevision": 14,
+      "root_cause": "PROVEN",
+      "fixed": true,
+      "first_broken_layer": "classifyDirectQuestionIntent / directQuestionReply",
+      "mechanism": "Current liquidity topic falls through to general; duplicate clarification replaces an answer.",
+      "before": [
+        {
+          "revision": 11,
+          "transcript": "Да нет уже какое-то время смотрю, но пока всё какое-то не то попадается, сам не знаю почему. Может, надо время какое-то выждать? Вот хотел самого спросить, сейчас вообще есть что-то ликвидное-то? А то понастроили, только пугают людей.",
+          "state": {
+            "criteria": {
+              "value": "Ликвидность / возможность перепродажи",
+              "items": [
+                {
+                  "text": "Ликвидность / возможность перепродажи",
+                  "evidenceTurnId": "turn_1790931761480_79d9"
+                }
+              ],
+              "evidenceTurnIds": [
+                "turn_1790931761480_79d9",
+                "turn_1790931808849_e5lg"
+              ]
+            },
+            "boundary": {
+              "lastEventType": "DIRECT_QUESTION",
+              "lastEventTurnId": "turn_1790931808849_e5lg",
+              "clientBoundaryActive": true,
+              "boundaryMode": "limited_active_window",
+              "researchMode": false,
+              "softResistanceCount": 0,
+              "rejectedBranches": [],
+              "meetingConsentQuality": "none",
+              "timeContract": null
+            },
+            "agreedNextStep": {
+              "value": null,
+              "evidenceTurnIds": []
+            },
+            "facts": [
+              {
+                "id": "fact_turn_1790931761480_79d9_clientCriteria_1",
+                "category": "criteria",
+                "value": "Ликвидность / возможность перепродажи",
+                "evidenceQuote": "ликвидно",
+                "turnId": "turn_1790931761480_79d9",
+                "confidence": 0.94,
+                "status": "confirmed",
+                "timestamp": 1790931761479,
+                "origin": "client_explicit",
+                "lifecycleStatus": "confirmed",
+                "supersedesFactId": null
+              },
+              {
+                "id": "fact_turn_1790931808849_e5lg_clientCriteria_1",
+                "category": "criteria",
+                "value": "Ликвидность / возможность перепродажи",
+                "evidenceQuote": "ликвидное",
+                "turnId": "turn_1790931808849_e5lg",
+                "confidence": 0.94,
+                "status": "confirmed",
+                "timestamp": 1790931808848,
+                "origin": "client_explicit",
+                "lifecycleStatus": "confirmed",
+                "supersedesFactId": null
+              }
+            ]
+          },
+          "event": {
+            "type": "DIRECT_QUESTION",
+            "priority": 105,
+            "actionType": "ANSWER",
+            "ruleId": "direct_question_general",
+            "suggestedReply": "Уточните, пожалуйста, какой именно момент вы хотите сейчас прояснить?",
+            "shortReason": "Прямой вопрос клиента (general) выше коррекции, SPIN-вопроса и презентации.",
+            "evidenceTurnId": "turn_1790931808849_e5lg",
+            "evidenceQuote": "Да нет уже какое-то время смотрю, но пока всё какое-то не то попадается, сам не знаю почему. Может, надо время какое-то выждать? Вот хотел самого спросить, сейчас вообще есть что-то ликвидное-то? А то понастроили, только пугают людей.",
+            "suppressesAnalysis": true,
+            "stage": "next_step_agreement"
+          },
+          "candidate": {
+            "text": "Уточните, пожалуйста, какой именно момент вы хотите сейчас прояснить?",
+            "actionType": "ANSWER",
+            "eventType": "DIRECT_QUESTION",
+            "priority": 105,
+            "stage": "next_step_agreement",
+            "source": "local_event",
+            "sessionId": "session_1790931643421_xita",
+            "basedOnRevision": 11
+          },
+          "guards": {
+            "stateAllowed": true,
+            "antiRepeat": {
+              "accepted": true,
+              "semanticKey": "custom_уточните_пожалуйста_какой_имен"
+            }
+          },
+          "selected": {
+            "rule": "direct_question_general",
+            "text": "Уточните, пожалуйста, какой именно момент вы хотите сейчас прояснить?",
+            "priority": 105,
+            "action": "CLARIFY",
+            "event": "DIRECT_QUESTION",
+            "shouldSuggest": true,
+            "reason": "Прямой вопрос клиента (general) выше коррекции, SPIN-вопроса и презентации."
+          },
+          "originalLiveTrace": [
+            {
+              "timestamp": 1790931809181,
+              "candidateId": "reply_1790931809180_direct_question",
+              "basedOnRevision": 11,
+              "source": "local_event",
+              "actionType": "ANSWER",
+              "eventType": "DIRECT_QUESTION",
+              "semanticKey": "custom_уточните_пожалуйста_какой_имен",
+              "priority": 105,
+              "text": "Уточните, пожалуйста, какой именно момент вы хотите сейчас прояснить?",
+              "outcome": "shown",
+              "reason": "accepted"
+            }
+          ]
+        },
+        {
+          "revision": 13,
+          "transcript": "Ну вот у меня ощущение, что вокруг одни вот эти муравейники и красивые обещания. А где реальность-то? Чтобы потом это можно было спокойно продать и не сидеть в этом бетоне всю жизнь.",
+          "state": {
+            "criteria": {
+              "value": "Ликвидность / возможность перепродажи",
+              "items": [
+                {
+                  "text": "Ликвидность / возможность перепродажи",
+                  "evidenceTurnId": "turn_1790931761480_79d9"
+                }
+              ],
+              "evidenceTurnIds": [
+                "turn_1790931761480_79d9",
+                "turn_1790931808849_e5lg"
+              ]
+            },
+            "boundary": {
+              "lastEventType": "DIRECT_QUESTION",
+              "lastEventTurnId": "turn_1790931826937_5don",
+              "clientBoundaryActive": true,
+              "boundaryMode": "limited_active_window",
+              "researchMode": false,
+              "softResistanceCount": 0,
+              "rejectedBranches": [],
+              "meetingConsentQuality": "none",
+              "timeContract": null
+            },
+            "agreedNextStep": {
+              "value": null,
+              "evidenceTurnIds": []
+            },
+            "facts": [
+              {
+                "id": "fact_turn_1790931761480_79d9_clientCriteria_1",
+                "category": "criteria",
+                "value": "Ликвидность / возможность перепродажи",
+                "evidenceQuote": "ликвидно",
+                "turnId": "turn_1790931761480_79d9",
+                "confidence": 0.94,
+                "status": "confirmed",
+                "timestamp": 1790931761479,
+                "origin": "client_explicit",
+                "lifecycleStatus": "confirmed",
+                "supersedesFactId": null
+              },
+              {
+                "id": "fact_turn_1790931808849_e5lg_clientCriteria_1",
+                "category": "criteria",
+                "value": "Ликвидность / возможность перепродажи",
+                "evidenceQuote": "ликвидное",
+                "turnId": "turn_1790931808849_e5lg",
+                "confidence": 0.94,
+                "status": "confirmed",
+                "timestamp": 1790931808848,
+                "origin": "client_explicit",
+                "lifecycleStatus": "confirmed",
+                "supersedesFactId": null
+              }
+            ]
+          },
+          "event": {
+            "type": "DIRECT_QUESTION",
+            "priority": 105,
+            "actionType": "ANSWER",
+            "ruleId": "direct_question_general",
+            "suggestedReply": "Уточните, пожалуйста, какой именно момент вы хотите сейчас прояснить?",
+            "shortReason": "Прямой вопрос клиента (general) выше коррекции, SPIN-вопроса и презентации.",
+            "evidenceTurnId": "turn_1790931826937_5don",
+            "evidenceQuote": "Ну вот у меня ощущение, что вокруг одни вот эти муравейники и красивые обещания. А где реальность-то? Чтобы потом это можно было спокойно продать и не сидеть в этом бетоне всю жизнь.",
+            "suppressesAnalysis": true,
+            "stage": "next_step_agreement"
+          },
+          "candidate": {
+            "text": "Уточните, пожалуйста, какой именно момент вы хотите сейчас прояснить?",
+            "actionType": "ANSWER",
+            "eventType": "DIRECT_QUESTION",
+            "priority": 105,
+            "stage": "next_step_agreement",
+            "source": "local_event",
+            "sessionId": "session_1790931643421_xita",
+            "basedOnRevision": 13
+          },
+          "guards": {
+            "stateAllowed": true,
+            "antiRepeat": {
+              "accepted": false,
+              "semanticKey": "custom_уточните_пожалуйста_какой_имен",
+              "rejectionReason": "Вопрос по теме \"custom_уточните_пожалуйста_какой_имен\" уже задавался в диалоге."
+            }
+          },
+          "selected": {
+            "rule": "state_validator_no_replacement",
+            "text": null,
+            "priority": 105,
+            "action": "CLARIFY",
+            "event": "DIRECT_QUESTION",
+            "shouldSuggest": false,
+            "reason": "Кандидат отклонён state validator; случайный checklist-вопрос не создаём."
+          },
+          "originalLiveTrace": [
+            {
+              "timestamp": 1790931827252,
+              "candidateId": "reply_1790931827250_direct_question",
+              "basedOnRevision": 13,
+              "source": "local_event",
+              "actionType": "ANSWER",
+              "eventType": "DIRECT_QUESTION",
+              "semanticKey": "custom_уточните_пожалуйста_какой_имен",
+              "priority": 105,
+              "text": "Уточните, пожалуйста, какой именно момент вы хотите сейчас прояснить?",
+              "outcome": "rejected",
+              "reason": "shown_semantic_cooldown"
+            }
+          ]
+        }
+      ],
+      "after": [
+        {
+          "revision": 11,
+          "transcript": "Да нет уже какое-то время смотрю, но пока всё какое-то не то попадается, сам не знаю почему. Может, надо время какое-то выждать? Вот хотел самого спросить, сейчас вообще есть что-то ликвидное-то? А то понастроили, только пугают людей.",
+          "state": {
+            "stage": "next_step_agreement",
+            "goal": {
+              "value": null,
+              "evidenceTurnIds": []
+            },
+            "criteria": {
+              "value": "Ликвидность / возможность перепродажи",
+              "items": [
+                {
+                  "text": "Ликвидность / возможность перепродажи",
+                  "evidenceTurnId": "turn_1790931761480_79d9"
+                }
+              ],
+              "evidenceTurnIds": [
+                "turn_1790931761480_79d9",
+                "turn_1790931808849_e5lg"
+              ]
+            },
+            "boundary": {
+              "lastEventType": "DIRECT_QUESTION",
+              "lastEventTurnId": "turn_1790931808849_e5lg",
+              "clientBoundaryActive": true,
+              "boundaryMode": "limited_active_window",
+              "researchMode": false,
+              "softResistanceCount": 0,
+              "rejectedBranches": [],
+              "meetingConsentQuality": "none",
+              "timeContract": null
+            },
+            "agreedNextStep": {
+              "value": null,
+              "evidenceTurnIds": []
+            },
+            "facts": [
+              {
+                "id": "fact_turn_1790931761480_79d9_clientCriteria_1",
+                "category": "criteria",
+                "value": "Ликвидность / возможность перепродажи",
+                "evidenceQuote": "ликвидно",
+                "turnId": "turn_1790931761480_79d9",
+                "confidence": 0.94,
+                "status": "confirmed",
+                "timestamp": 1790931761479,
+                "origin": "client_explicit",
+                "lifecycleStatus": "confirmed",
+                "supersedesFactId": null
+              },
+              {
+                "id": "fact_turn_1790931808849_e5lg_clientCriteria_1",
+                "category": "criteria",
+                "value": "Ликвидность / возможность перепродажи",
+                "evidenceQuote": "ликвидное",
+                "turnId": "turn_1790931808849_e5lg",
+                "confidence": 0.94,
+                "status": "confirmed",
+                "timestamp": 1790931808848,
+                "origin": "client_explicit",
+                "lifecycleStatus": "confirmed",
+                "supersedesFactId": null
+              }
+            ]
+          },
+          "event": {
+            "type": "DIRECT_QUESTION",
+            "priority": 105,
+            "actionType": "ANSWER",
+            "ruleId": "direct_question_liquidity",
+            "suggestedReply": "Ликвидность проверяем по сделкам аналогов, срокам продажи и цене выхода. Запрошу эти данные по подходящим вариантам; быструю перепродажу обещать нельзя.",
+            "shortReason": "Прямой вопрос клиента (liquidity) выше коррекции, SPIN-вопроса и презентации.",
+            "evidenceTurnId": "turn_1790931808849_e5lg",
+            "evidenceQuote": "Да нет уже какое-то время смотрю, но пока всё какое-то не то попадается, сам не знаю почему. Может, надо время какое-то выждать? Вот хотел самого спросить, сейчас вообще есть что-то ликвидное-то? А то понастроили, только пугают людей.",
+            "suppressesAnalysis": true,
+            "stage": "next_step_agreement"
+          },
+          "candidate": {
+            "text": "Ликвидность проверяем по сделкам аналогов, срокам продажи и цене выхода. Запрошу эти данные по подходящим вариантам; быструю перепродажу обещать нельзя.",
+            "actionType": "ANSWER",
+            "eventType": "DIRECT_QUESTION",
+            "priority": 105,
+            "stage": "next_step_agreement",
+            "source": "local_event",
+            "sessionId": "session_1790931643421_xita",
+            "basedOnRevision": 11
+          },
+          "guards": {
+            "stateAllowed": true,
+            "antiRepeat": {
+              "accepted": true,
+              "semanticKey": "custom_ликвидность_проверяем_по_сделк"
+            }
+          },
+          "selected": {
+            "rule": "direct_question_liquidity",
+            "text": "Ликвидность проверяем по сделкам аналогов, срокам продажи и цене выхода. Запрошу эти данные по подходящим вариантам; быструю перепродажу обещать нельзя.",
+            "priority": 105,
+            "action": "CLARIFY",
+            "event": "DIRECT_QUESTION",
+            "shouldSuggest": true,
+            "reason": "Прямой вопрос клиента (liquidity) выше коррекции, SPIN-вопроса и презентации."
+          },
+          "originalLiveTrace": [
+            {
+              "timestamp": 1790931809181,
+              "candidateId": "reply_1790931809180_direct_question",
+              "basedOnRevision": 11,
+              "source": "local_event",
+              "actionType": "ANSWER",
+              "eventType": "DIRECT_QUESTION",
+              "semanticKey": "custom_уточните_пожалуйста_какой_имен",
+              "priority": 105,
+              "text": "Уточните, пожалуйста, какой именно момент вы хотите сейчас прояснить?",
+              "outcome": "shown",
+              "reason": "accepted"
+            }
+          ]
+        },
+        {
+          "revision": 13,
+          "transcript": "Ну вот у меня ощущение, что вокруг одни вот эти муравейники и красивые обещания. А где реальность-то? Чтобы потом это можно было спокойно продать и не сидеть в этом бетоне всю жизнь.",
+          "state": {
+            "stage": "next_step_agreement",
+            "goal": {
+              "value": null,
+              "evidenceTurnIds": []
+            },
+            "criteria": {
+              "value": "Ликвидность / возможность перепродажи",
+              "items": [
+                {
+                  "text": "Ликвидность / возможность перепродажи",
+                  "evidenceTurnId": "turn_1790931761480_79d9"
+                }
+              ],
+              "evidenceTurnIds": [
+                "turn_1790931761480_79d9",
+                "turn_1790931808849_e5lg"
+              ]
+            },
+            "boundary": {
+              "lastEventType": "DIRECT_QUESTION",
+              "lastEventTurnId": "turn_1790931826937_5don",
+              "clientBoundaryActive": true,
+              "boundaryMode": "limited_active_window",
+              "researchMode": false,
+              "softResistanceCount": 0,
+              "rejectedBranches": [],
+              "meetingConsentQuality": "none",
+              "timeContract": null
+            },
+            "agreedNextStep": {
+              "value": null,
+              "evidenceTurnIds": []
+            },
+            "facts": [
+              {
+                "id": "fact_turn_1790931761480_79d9_clientCriteria_1",
+                "category": "criteria",
+                "value": "Ликвидность / возможность перепродажи",
+                "evidenceQuote": "ликвидно",
+                "turnId": "turn_1790931761480_79d9",
+                "confidence": 0.94,
+                "status": "confirmed",
+                "timestamp": 1790931761479,
+                "origin": "client_explicit",
+                "lifecycleStatus": "confirmed",
+                "supersedesFactId": null
+              },
+              {
+                "id": "fact_turn_1790931808849_e5lg_clientCriteria_1",
+                "category": "criteria",
+                "value": "Ликвидность / возможность перепродажи",
+                "evidenceQuote": "ликвидное",
+                "turnId": "turn_1790931808849_e5lg",
+                "confidence": 0.94,
+                "status": "confirmed",
+                "timestamp": 1790931808848,
+                "origin": "client_explicit",
+                "lifecycleStatus": "confirmed",
+                "supersedesFactId": null
+              }
+            ]
+          },
+          "event": {
+            "type": "DIRECT_QUESTION",
+            "priority": 105,
+            "actionType": "ANSWER",
+            "ruleId": "direct_question_liquidity",
+            "suggestedReply": "Ликвидность проверяем по сделкам аналогов, срокам продажи и цене выхода. Запрошу эти данные по подходящим вариантам; быструю перепродажу обещать нельзя.",
+            "shortReason": "Прямой вопрос клиента (liquidity) выше коррекции, SPIN-вопроса и презентации.",
+            "evidenceTurnId": "turn_1790931826937_5don",
+            "evidenceQuote": "Ну вот у меня ощущение, что вокруг одни вот эти муравейники и красивые обещания. А где реальность-то? Чтобы потом это можно было спокойно продать и не сидеть в этом бетоне всю жизнь.",
+            "suppressesAnalysis": true,
+            "stage": "next_step_agreement"
+          },
+          "candidate": {
+            "text": "Ликвидность проверяем по сделкам аналогов, срокам продажи и цене выхода. Запрошу эти данные по подходящим вариантам; быструю перепродажу обещать нельзя.",
+            "actionType": "ANSWER",
+            "eventType": "DIRECT_QUESTION",
+            "priority": 105,
+            "stage": "next_step_agreement",
+            "source": "local_event",
+            "sessionId": "session_1790931643421_xita",
+            "basedOnRevision": 13
+          },
+          "guards": {
+            "stateAllowed": true,
+            "antiRepeat": {
+              "accepted": true,
+              "semanticKey": "custom_ликвидность_проверяем_по_сделк"
+            }
+          },
+          "selected": {
+            "rule": "direct_question_liquidity",
+            "text": "Ликвидность проверяем по сделкам аналогов, срокам продажи и цене выхода. Запрошу эти данные по подходящим вариантам; быструю перепродажу обещать нельзя.",
+            "priority": 105,
+            "action": "CLARIFY",
+            "event": "DIRECT_QUESTION",
+            "shouldSuggest": true,
+            "reason": "Прямой вопрос клиента (liquidity) выше коррекции, SPIN-вопроса и презентации."
+          },
+          "originalLiveTrace": [
+            {
+              "timestamp": 1790931827252,
+              "candidateId": "reply_1790931827250_direct_question",
+              "basedOnRevision": 13,
+              "source": "local_event",
+              "actionType": "ANSWER",
+              "eventType": "DIRECT_QUESTION",
+              "semanticKey": "custom_уточните_пожалуйста_какой_имен",
+              "priority": 105,
+              "text": "Уточните, пожалуйста, какой именно момент вы хотите сейчас прояснить?",
+              "outcome": "rejected",
+              "reason": "shown_semantic_cooldown"
+            }
+          ]
+        }
+      ],
+      "selectionTrace": [
+        {
+          "revision": 11,
+          "diagnosticAlternatives": {
+            "note": "evaluated for diagnosis; dominant event owns production selection",
+            "policy": {
+              "branch": "orientation",
+              "metric": null,
+              "semanticKey": "ask_motive_now",
+              "reason": "Этап поиска понятен, теперь выясняем, почему вопрос стал актуален именно сейчас. Это помогает выбрать следующую ветку, а не просто собрать ещё один факт.",
+              "priority": 90
+            },
+            "spin": {
+              "suggestionMode": "SPIN_SITUATION",
+              "suggestedText": "Для себя выбираете, для семьи, отдыха или как инвестицию?",
+              "shortReason": "Явного более важного сигнала пока нет; добираем минимальный контекст клиента.",
+              "evidenceQuote": "Да нет уже какое-то время смотрю, но пока всё какое-то не то попадается, сам не знаю почему. Может, надо время какое-то выждать? Вот хотел самого спросить, сейчас вообще есть что-то ликвидное-то? А то понастроили, только пугают людей.",
+              "expectedClientMeaning": "Клиент раскрывает причину обращения, сценарий покупки или предыдущий опыт.",
+              "updatedSpin": {
+                "situation": [
+                  {
+                    "text": "Да нет уже какое-то время смотрю, но пока всё какое-то не то попадается, сам не знаю почему. Может, надо время какое-то выждать? Вот хотел самого спросить, сейчас вообще есть что-то ликвидное-то? А то понастроили, только пугают людей.",
+                    "evidenceQuote": "Да нет уже какое-то время смотрю, но пока всё какое-то не то попадается, сам не знаю почему. Может, надо время какое-то выждать? Вот хотел самого спросить, сейчас вообще есть что-то ликвидное-то? А то понастроили, только пугают людей.",
+                    "evidenceTurnId": "turn_1790931808849_e5lg",
+                    "source": "client",
+                    "confidence": 0.95
+                  }
+                ],
+                "problem": [],
+                "implication": [],
+                "needPayoff": [],
+                "currentStage": "SITUATION",
+                "completedStages": [],
+                "missingStage": "SITUATION",
+                "lastClientEvidence": "Да нет уже какое-то время смотрю, но пока всё какое-то не то попадается, сам не знаю почему. Может, надо время какое-то выждать? Вот хотел самого спросить, сейчас вообще есть что-то ликвидное-то? А то понастроили, только пугают людей.",
+                "confidence": 0
+              }
+            }
+          },
+          "dominantEventPriority": 105,
+          "suppressesAnalysis": true
+        },
+        {
+          "revision": 13,
+          "diagnosticAlternatives": {
+            "note": "evaluated for diagnosis; dominant event owns production selection",
+            "policy": null,
+            "spin": {
+              "suggestionMode": "SPIN_SITUATION",
+              "suggestedText": "Сочи давно рассматриваете или только начали изучать рынок?",
+              "shortReason": "Явного более важного сигнала пока нет; добираем минимальный контекст клиента.",
+              "evidenceQuote": "Ну вот у меня ощущение, что вокруг одни вот эти муравейники и красивые обещания. А где реальность-то? Чтобы потом это можно было спокойно продать и не сидеть в этом бетоне всю жизнь.",
+              "expectedClientMeaning": "Клиент раскрывает причину обращения, сценарий покупки или предыдущий опыт.",
+              "updatedSpin": {
+                "situation": [],
+                "problem": [],
+                "implication": [],
+                "needPayoff": [],
+                "currentStage": "SITUATION",
+                "completedStages": [],
+                "missingStage": "SITUATION",
+                "lastClientEvidence": "Ой, ну давайте, наверное, рано ещё про деньги так конкретно. Ну не хочу влезать в то, что потом висеть будет. Я смотрел пару проектов, муравейники шумные, вообще неликвидно, мне кажется. А потом сиди и думай, что с этим делать.",
+                "confidence": 0
+              }
+            }
+          },
+          "dominantEventPriority": 105,
+          "suppressesAnalysis": true
+        }
+      ],
+      "counterfactual": null
+    }
+  ],
+  "invariants": {
+    "protectedLifecycleDiff": "EMPTY against dc7444f for App.tsx, suggestionLifecycle.ts and liveHintSilence.test.ts",
+    "extraction": "UNCHANGED",
+    "geminiAuthority": "UNCHANGED",
+    "noForcedHint": "When the verification answer was already spoken, replay remains NO_NEW_RECOMMENDATION"
+  },
+  "verification": {
+    "red": {
+      "failed": 3,
+      "passed": 5,
+      "log": "red.log"
+    },
+    "reviewRed": [
+      "review-red.log: 2 wrong-subject failures",
+      "lexical-red.log: 1 liquidation-word failure",
+      "scope-red.log: 4 scope failures",
+      "subject-red.log: 3 explicit property-subject failures"
+    ],
+    "focused": {
+      "passed": 56,
+      "failed": 0,
+      "newCases": 22,
+      "log": "focused-final.log"
+    },
+    "fullSuite": {
+      "command": "npm test -- --maxWorkers=1 --testTimeout=20000",
+      "passed": 1504,
+      "skipped": 1,
+      "failed": 0,
+      "filesPassed": 95,
+      "filesSkipped": 1,
+      "log": "full-suite-final.log"
+    },
+    "lint": {
+      "command": "npm run lint",
+      "exitCode": 0,
+      "log": "lint-final.log"
+    },
+    "build": {
+      "command": "npm run build",
+      "exitCode": 0,
+      "log": "build-final.log",
+      "warning": "Existing bundle chunk exceeds 550kB"
+    },
+    "review": "Independent read-only final review: no confirmed findings; xita rev11/13 and neighboring property routes independently replayed."
+  },
+  "limits": [
+    "Final transcripts and original live rejection traces are real; intermediate state is reconstructed through production deterministic code.",
+    "Replay proves selection/guards, not new live audio/STT/UI acceptance.",
+    "dcrs remains unfixed by the single higher-impact-root rule.",
+    "No push or deployment."
+  ],
+  "artifacts": "C:\\Users\\EliteSochi\\Documents\\ChatGPT\\СИМАНТИЧЕСКОЕ ЯДРО\\diagnostics\\p0-live-decision-20261002"
+}

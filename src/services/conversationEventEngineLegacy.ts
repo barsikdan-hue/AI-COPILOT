@@ -711,6 +711,7 @@ type DirectQuestionIntent =
   | 'price'
   | 'yield_comparison'
   | 'materials_request'
+  | 'liquidity'
   | 'market_options'
   | 'property_details'
   | 'general';
@@ -749,6 +750,14 @@ function classifyDirectQuestionIntent(text: string, previousAgentText: string | 
     /(?<![\p{L}\p{N}])(?:площад\p{L}*|этаж\p{L}*|планиров\p{L}*|отделк\p{L}*|ремонт\p{L}*|срок\s+сдач\p{L}*|инфраструктур\p{L}*|паркинг\p{L}*|вид\s+(?:из\s+окна|на\s+(?:море|горы|город))|видов\p{L}*\s+характеристик\p{L}*|море)(?![\p{L}\p{N}])/iu.test(questionClause) ||
     /(?<![\p{L}\p{N}])(?:лпх|объект\p{L}*|квартир\p{L}*|апартамент\p{L}*|дом\p{L}*|участок\p{L}*)[^?]{0,60}(?:можно|разреш\p{L}*|сдава\p{L}*|использ\p{L}*|коммерц\p{L}*)/iu.test(questionClause)
   ) return 'property_details';
+  // A concrete resale question (or a request for proof clarified in this same
+  // turn) already names the topic. Do not ask the client to name it again.
+  // Earlier liquidity context must not override an unrelated final question.
+  if (
+    /(?:есть[^?]{0,55}ликвидн\p{L}*|насколько\s+ликвидн\p{L}*|(?:как|чем)[^?]{0,35}(?:провер|оцен|подтверд)[^?]{0,35}ликвидност)/iu.test(questionClause) ||
+    (/^(?:а\s+)?где\s+реальность(?:-то)?\s*\?$/iu.test(questionClause) &&
+      /ликвидн\p{L}*|перепрод\p{L}*|(?:потом|после\s+покупки|при\s+необходимости)[^.!?]{0,65}продать/iu.test(text))
+  ) return 'liquidity';
   return 'general';
 }
 
@@ -762,6 +771,7 @@ function directQuestionReply(intent: DirectQuestionIntent, text: string): string
   if (intent === 'yield_comparison') return 'Без конкретного объекта честную доходность не назову. Считать нужно чистый денежный поток, возможный рост цены и риски, а затем сравнить это с депозитом. Какая планка для вас будет минимально приемлемой?';
   if (intent === 'financing') return 'По этому финансовому вопросу лучше дать точный расчёт по вашим параметрам — проверю условия, не буду гадать.';
   if (intent === 'materials_request') return 'Да. Отправлю 2–3 варианта с ценами и планировками без длинной презентации. После просмотра коротко сверим, что из этого действительно оставлять.';
+  if (intent === 'liquidity') return 'Ликвидность проверяем по сделкам аналогов, срокам продажи и цене выхода. Запрошу эти данные по подходящим вариантам; быструю перепродажу обещать нельзя.';
   if (intent === 'market_options') return 'Если цель — вложить капитал и не тратить время, сравнивать нужно 2–3 сценария по чистому доходу, ликвидности и потенциалу роста. Что для вас важнее: доход сейчас или рост стоимости?';
   if (intent === 'property_details') return 'По конкретному объекту отвечу только проверенными данными. Если объект ещё не выбран, сначала сузим до 2–3 вариантов и сравним этот параметр по каждому.';
   return 'Уточните, пожалуйста, какой именно момент вы хотите сейчас прояснить?';
