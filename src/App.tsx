@@ -630,7 +630,7 @@ export const App: React.FC = () => {
         .slice(0, -1)
         .filter((turn) => turn.speaker === 'agent')
         .at(-1);
-      if (!isSubstantiveClientTurn(trimmed, lastAgentTurn?.text)) return;
+      if (!isSubstantiveClientTurn(trimmed, lastAgentTurn?.text, turnsRef.current.at(-2)?.speaker === 'agent')) return;
       lastSubstantiveClientRevisionRef.current = nextRev;
 
       const { state: nextState, event, clientIntent, localObjection } = advanceLocalConversation(baseState, newTurn, turnsRef.current);

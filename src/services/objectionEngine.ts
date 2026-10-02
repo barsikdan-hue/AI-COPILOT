@@ -36,7 +36,7 @@ export interface FastObjectionResult {
  * Preserves short business-critical turns: goal, budget, timeline, location, family, payment, objections.
  * Also analyzes short answers ("да / нет / хорошо / конечно") if answering a meaningful previous agent turn.
  */
-export function isSubstantiveClientTurn(text: string, previousAgentTurn?: string | null): boolean {
+export function isSubstantiveClientTurn(text: string, previousAgentTurn?: string | null, previousAgentTurnIsImmediate = true): boolean {
   if (!text) return false;
   const clean = text
     .toLowerCase()
@@ -237,9 +237,20 @@ export function isSubstantiveClientTurn(text: string, previousAgentTurn?: string
 
   const words = clean.split(/\s+/).filter(Boolean);
 
-  // Single word not matched by business keywords
+  // A one-word response can answer an explicit name question without carrying
+  // a business keyword. Classify its conversational context, not a name lexicon.
   if (words.length <= 1) {
-    return false;
+    if (!previousAgentTurnIsImmediate) return false;
+    const agentClause = (previousAgentTurn || '')
+      .toLowerCase()
+      .split(/[.!?…]/u)
+      .map((clause) => clause.replace(/[,;:]/gu, ' ').replace(/\s+/gu, ' ').trim())
+      .filter(Boolean)
+      .at(-1) || '';
+    const reportedOrNegated = /(?:^|\s)(?:не|раньше|спрашивал[аи]?|спрашивали|спросил[аи]?|спросили|говорил[аи]?|говорили|цитирую|задал[аи]?|задали)(?:\s|$)/u.test(agentClause);
+    const askedClientName = !reportedOrNegated && /(?:^|\s)(?:как\s+(?:вас\s+зовут|(?:(?:(?:я|мы)\s+)?(?:могу|можем|можно)\s+)?к\s+вам\s+обращаться)(?:\s+пожалуйста)?|(?:скажите|подскажите|назовите)\s+(?:пожалуйста\s+)?(?:ваше\s+)?имя)$/u.test(agentClause);
+    const nonAnswer = /^(?:взаимно|спасибо|пожалуйста|э+м+|к?хм+|(\p{L})\1+)$/u.test(clean);
+    return askedClientName && /^\p{L}{2,}$/u.test(clean) && !nonAnswer;
   }
 
   // Multi-word phrase composed only of common conversational fillers
