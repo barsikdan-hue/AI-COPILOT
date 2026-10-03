@@ -740,7 +740,28 @@ export function extractDeterministicFacts(
     if (downPaymentMoneyMatch) {
       const amount = downPaymentMoneyMatch[1].replace(',', '.');
       const unit = downPaymentMoneyMatch[2].startsWith('тыс') ? 'тыс руб' : 'млн руб';
-      addFact('downPayment', 'downPayment', `${amount} ${unit}`, downPaymentMoneyMatch[0].trim(), 0.98);
+      // Bind readiness qualifiers to this amount, not to unrelated clauses.
+      // Skipping a noncurrent amount must not cancel a previously confirmed DP.
+      const beforeAmount = lower.slice(0, downPaymentMoneyMatch.index);
+      const afterAmount = lower.slice(downPaymentMoneyMatch.index! + downPaymentMoneyMatch[0].length);
+      const timing = String.raw`(?:(?:сейчас|пока|ещ[её]|уже|только)\s+)*`;
+      const notCurrent = String.raw`(?:поступ(?:ит|ят)|появ(?:ится|ятся)|не\s*доступ(?:ен|на|но|ны))`;
+      // A future allocation ("будут в качестве взноса") says nothing about
+      // current availability. Require an availability predicate or actual time.
+      const month = String.raw`(?:(?:январ|феврал|апрел|июн|июл|сентябр|октябр|ноябр|декабр)[еюя]|март[еуа]|ма[еюя]|август[еуа])`;
+      const futureTime = String.raw`(?:(?:в|к)\s+${month}|через\s+${TIMELINE_DURATION_PATTERN}|после\s+(?:закрытия|окончания|продажи|поступления|получения)|позже|потом)`;
+      const futureAvailability = String.raw`буд(?:ет|ут)\s+(?:только\s+)?(?:доступ(?:ен|на|но|ны)|на\s+руках)`;
+      // A dated allocation can still use money available now. Accept only an
+      // affirmative money clause immediately following this amount's clause;
+      // this must not override explicit arrival/unavailability predicates.
+      const currentMoneyInNextClause = /^[^,;.!?]*[,;.!?]\s*(?:деньги|средства|они)\s+(?:уже\s+(?:есть|на\s+(?:руках|сч[её]те))|сейчас\s+доступны)\s*[.!?]?\s*$/iu.test(afterAmount);
+      const noncurrentAmount =
+        new RegExp(String.raw`(?<!\p{L})${notCurrent}\s+${timing}$`, 'iu').test(beforeAmount) ||
+        new RegExp(String.raw`^\s*,?\s*${timing}(?:${notCurrent}|${futureAvailability})(?=$|[^\p{L}])`, 'iu').test(afterAmount) ||
+        (!currentMoneyInNextClause && new RegExp(String.raw`^\s*,?\s*${timing}буд(?:ет|ут)\s+(?:только\s+)?${futureTime}(?=$|[^\p{L}])`, 'iu').test(afterAmount));
+      if (!noncurrentAmount) {
+        addFact('downPayment', 'downPayment', `${amount} ${unit}`, downPaymentMoneyMatch[0].trim(), 0.98);
+      }
     } else if (downPaymentPercentMatch) {
       addFact('downPayment', 'downPayment', `${downPaymentPercentMatch[1]}%`, downPaymentPercentMatch[0], 0.98);
     }
