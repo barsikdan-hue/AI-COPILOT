@@ -10,6 +10,7 @@ import {
   ConversationState,
 } from '../types';
 import { isSubstantiveClientTurn } from './objectionEngine';
+import { isSearchOrientationQuestion } from './semanticEvidence';
 
 export type RealEstatePainCategory =
   | 'noise_sleep'
@@ -312,6 +313,7 @@ export function classifyAgentAction(text: string): AgentActionType {
     // агента засчитываются по последующему ответу клиента, даже если агент
     // сформулировал их своими словами, а не нажал кнопку SPIN.
     if (
+      isSearchOrientationQuestion(text) ||
       /давно.{0,25}(?:рассматрива|присматрива)|только начали.{0,20}(?:изуч|смотр)/iu.test(lower) ||
       lower.includes('что стало причиной') ||
       lower.includes('для себя выбираете') ||

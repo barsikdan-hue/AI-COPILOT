@@ -643,7 +643,7 @@ export function extractDeterministicFacts(
     addFact('criteria', 'clientCriteria', criterion.label, criterion.evidenceQuote, 0.94);
   }
 
-  const searchExperience = detectSearchExperience(trimmed);
+  const searchExperience = detectSearchExperience(trimmed, immediateAgentTurnText || '');
   if (searchExperience) {
     addFact('searchExperience', 'searchExperience', searchExperience.value, searchExperience.evidenceQuote, 0.94);
   }

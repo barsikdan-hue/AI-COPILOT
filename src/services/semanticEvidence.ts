@@ -620,13 +620,58 @@ export function extractSemanticCriteria(text: string): SemanticCriterion[] {
   return out;
 }
 
-export function detectSearchExperience(text: string): SemanticSearchExperience | null {
+// Orientation asks where the client is in the property search, not about any
+// arbitrary activity's stage. Share this meaning with SPIN and dialogue policy.
+export const searchOrientationQuestionPattern = /(?:как\s+вообще[^?]{0,40}рынк|давно.*(?:рассматрива|присматрива|отслежива)|интерес\s+появил\p{L}*\s+недавно|только.*(?:начал|начала|начали|изуча).*рын|на\s+каком.*этап.*рын|уже\s+сравниваете\s+конкретн.*вариант|на\s+как(?:ом|ой)[^.!]{0,35}(?:этап\p{L}*|стади\p{L}*)[^.!]{0,110}(?:поиск\p{L}*\s+(?:недвижимост\p{L}*|квартир(?:а|ы|у|е|ой|ам|ах)?(?!\p{L})|дом(?:а|ов|у|ом|е)?(?!\p{L})|объект(?:а|ов|ы|у|е|ом|ам|ах)?(?!\p{L}))|рынк\p{L}*|присматрива\p{L}*|смотреть\s+конкретн\p{L}*\s+объект\p{L}*)|(?:присматрива\p{L}*|изуча\p{L}*\s+рынок)[^.!?]{0,40}или[^.!?]{0,50}(?:смотр\p{L}*|езд\p{L}*)[^.!?]{0,30}(?:объект\p{L}*|квартир\p{L}*|конкретн\p{L}*\s+вариант\p{L}*))/iu;
+
+export function isSearchOrientationQuestion(text: string): boolean {
+  return searchOrientationQuestionPattern.test((text || '').toLocaleLowerCase('ru-RU').replace(/ё/g, 'е'));
+}
+
+function isContextualClientSearchAnswer(text: string, quote: string, index = text.indexOf(quote)): boolean {
+  const before = text.slice(0, index);
+  const sentence = before.split(/[.!?;]/u).at(-1) || '';
+  if (/(?:^|\s)бы(?:\s|$)/iu.test(sentence)) return false;
+  const clauses = before.split(/[.!?;]|\s+(?:но|а|зато)\s+/u);
+  const prefix = clauses.at(-1)!.trim();
+  if (clauses.length > 1 && !/^(?:я|мы)(?:\s|,|$)/iu.test(prefix)) {
+    // A conjunction inherits the earlier subject. Only an explicit client
+    // subject can reset somebody else's scope; implicit earlier clauses must
+    // themselves describe the client's actual search, not a hypothetical.
+    const clientSearchClause = /^(?:(?:я|мы|уже|вчера|позавчера|раньше|сначала|пока|еще|просто|только|ну|честно|да|нет|вообще)\s*[,—-]?\s*)*(?:не\s+)?(?:смотрел\p{L}*|смотрю|ездил\p{L}*|сравнивал\p{L}*|был\p{L}*|изучал\p{L}*|изучаю|мониторю|читаю)/iu;
+    if (clauses.slice(0, -1).some(clause => clause.replace(/[,\s]+/gu, '').length > 0 && !clientSearchClause.test(clause.trim()))) return false;
+  }
+  // An omitted subject can inherit the client's scope; an explicit other person
+  // or hypothetical clause cannot. Do not guess ownership from names.
+  return /^(?:(?:я|мы|уже|вчера|позавчера|раньше|сначала|пока|еще|просто|только|ну|честно|да|нет|вообще)\s*[,—-]?\s*)*$/iu.test(prefix);
+}
+
+function findContextualClientSearchAnswer(text: string, pattern: RegExp): RegExpMatchArray | null {
+  for (const match of text.matchAll(new RegExp(pattern.source, pattern.flags + 'g'))) {
+    if (isContextualClientSearchAnswer(text, match[0], match.index)) return match;
+  }
+  return null;
+}
+
+export function detectSearchExperience(text: string, previousAgentTurnText = ''): SemanticSearchExperience | null {
   const raw = (text || '').trim();
   if (!raw) return null;
   const lower = raw.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
 
   const purchase = firstMatch(lower, /(?:уже\s+покупал\p{L}*\s+недвижимост\p{L}*|есть\s+опыт\s+покупк\p{L}*|не\s+первая\s+покупк\p{L}*)/iu);
   if (purchase) return { value: 'Есть опыт покупки недвижимости', evidenceQuote: purchase, level: 'purchase' };
+
+  if (isSearchOrientationQuestion(previousAgentTurnText)) {
+    const noViewingsAnswer = findContextualClientSearchAnswer(lower, /(?:пока\s+|ещ[её]\s+|вообще\s+)*не\s+(?:смотрел\p{L}*|ездил\p{L}*|был\p{L}*\s+на\s+просмотр\p{L}*)(?:\s+(?:квартир\p{L}*|объект\p{L}*|вариант\p{L}*|дом\p{L}*|жк|на\s+просмотр\p{L}*))?(?=\s*[,.!?;]|\s*$)/iu);
+    if (noViewingsAnswer) {
+      // A later voluntary viewing wins over historical absence; keep its own quote.
+      const completed = detectSearchExperience(lower);
+      if (completed?.level === 'viewings' && isContextualClientSearchAnswer(lower, completed.evidenceQuote)) return completed;
+      const later = detectSearchExperience(lower.slice(noViewingsAnswer.index! + noViewingsAnswer[0].length), previousAgentTurnText);
+      if (later && ['viewings', 'purchase'].includes(later.level)) return later;
+      return { value: 'Изучает рынок; конкретные объекты ещё не смотрел', evidenceQuote: noViewingsAnswer[0], level: 'none' };
+    }
+  }
 
   // Completed actions and real-estate anchors are deliberately separate from
   // future intent ("посмотрю", "хочу посмотреть") and unrelated visual verbs.
@@ -678,6 +723,21 @@ export function detectSearchExperience(text: string): SemanticSearchExperience |
     /(?:смотрю\s+(?:рынок|недвижимост|вариант)|изучаю\s+рынок|присматриваюсь|прицениваюсь|только\s+начал\p{L}*\s+(?:изуча\p{L}*|смотре\p{L}*)\s+(?:рынок|недвижимост|вариант\p{L}*)|(?:уже\s+)?(?:месяц|полтора\s+месяца)[^.!?]{0,25}(?:смотр\p{L}*|изуча\p{L}*|ковыря\p{L}*)|смотрю\s+где-то\s+\p{L}+\s+месяц\p{L}*)/iu,
   );
   if (browsing) return { value: 'Изучает рынок / находится в процессе выбора', evidenceQuote: browsing, level: 'browsing' };
+
+  // Elliptical answers inherit the property-search scope only from the current
+  // orientation question. They do not turn unrelated monitoring or a purchase
+  // postponement into an answered search stage.
+  if (!isSearchOrientationQuestion(previousAgentTurnText)) return null;
+  if (/(?:сервер|телевизор|книг|на\s+работе|рабоч\p{L}*|фильм|погод|новост\p{L}*\s+политик|акци\p{L}*\s+на\s+бирж)/iu.test(lower) ||
+      /(?:покупк\p{L}*[^.!?]{0,45}(?:откладыва\p{L}*|отлож\p{L}*|перенос\p{L}*)|(?:откладыва\p{L}*|отлож\p{L}*|перенос\p{L}*)[^.!?]{0,45}покупк\p{L}*|сейчас\s+не\s+готов\p{L}*[^.!?]{0,35}(?:покуп|принимать\s+решени))/iu.test(lower)) return null;
+
+  if (/не\s+сравнивал\p{L}*/iu.test(lower)) return null;
+  const contextualViewings = findContextualClientSearchAnswer(lower, /(?:уже\s+)?(?:ездил\p{L}*|смотрел\p{L}*|сравнивал\p{L}*)(?:\s*[,;]\s*|\s+)(?:сравнивал\p{L}*\s+)?(?:несколько|пару|вариант\p{L}*)(?=\s*[,.!?;]|\s*$)/iu);
+  if (contextualViewings) return { value: 'Есть опыт просмотров и сравнения объектов', evidenceQuote: contextualViewings[0], level: 'viewings' };
+
+  if (/не\s+(?:монитор\p{L}*|смотрю|читаю|изучаю)/iu.test(lower)) return null;
+  const contextualBrowsing = findContextualClientSearchAnswer(lower, /(?:мониторю|мониторим|смотрю\s*,?\s*читаю|(?:просто|пока|только)\s+(?:смотрю|читаю|изучаю))(?:\s+(?:рынок|недвижимост\p{L}*|объявлени\p{L}*|вариант\p{L}*))?(?=\s*[,.!?;]|\s*$|\s+(?:но|пока)\s)/iu);
+  if (contextualBrowsing) return { value: 'Изучает рынок / находится в процессе выбора', evidenceQuote: contextualBrowsing[0], level: 'browsing' };
 
   return null;
 }

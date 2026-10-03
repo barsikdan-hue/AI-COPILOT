@@ -1,5 +1,6 @@
 import type { ConversationState, FirstCallScriptProgress, TranscriptTurn } from '../types';
 import { isMetricClosed } from '../types';
+import { searchOrientationQuestionPattern } from './semanticEvidence';
 
 export type DialogueBranch =
   | 'orientation'
@@ -58,7 +59,7 @@ const clientHasNoConcreteExperience = (text: string): boolean =>
 const clientHasConcretePastExperience = (text: string): boolean =>
   /(?:(?:смотрел\p{L}*|видел\p{L}*|увидел\p{L}*|ездил\p{L}*|показывал\p{L}*|присылал\p{L}*|общал\p{L}*)[^.!?]{0,90}(?:объект|вариант|жк|квартир|апартамент|дом)|(?:понравил\p{L}*|не\s+устроил\p{L}*|не\s+подош\p{L}*|оттолкнул\p{L}*|компромисс)[^.!?]{0,80}(?:объект|вариант|жк|квартир|апартамент|дом)?)/iu.test(text);
 
-const searchOrientationPattern = /(?:как\s+вообще[^?]{0,40}рынк|давно.*(?:рассматрива|присматрива|отслежива)|интерес\s+появил\p{L}*\s+недавно|только.*(?:начал|начала|начали|изуча).*рын|на\s+каком.*этап.*рын|уже\s+сравниваете\s+конкретн.*вариант)/iu;
+const searchOrientationPattern = searchOrientationQuestionPattern;
 const motiveNowPattern = /(?:что.*(?:причин|изменил).*сейчас|почему.*именно.*сейчас|что\s+сейчас\s+подтолкнул|тема\s+недвижимости.*актуаль|почему\s+к\s+вопросу.*верну|какую\s+задачу[^?]{0,70}именно\s+на\s+этом\s+этапе)/iu;
 const goalQuestionPattern = /(?:для\s+чего|цель\s+покупк|для\s+жизни|отдых.*инвест|(?:отдых|сезонн\p{L}*\s+визит\p{L}*)[^?]{0,100}(?:переезд|постоянн\p{L}*\s+прожив)|постоянн.*(?:жизн|прожив)|какую\s+задачу\s+(?:должна|должен)\s+решить\s+покупк|что\s+должно\s+измениться.*покупк)/iu;
 const pastExperienceQuestionPattern = /(?:что\s+из\s+того[^?]{0,80}(?:смотрел|увидел)|что\s+уже\s+успели\s+посмотреть|какие\s+варианты\s+уже\s+успели\s+посмотреть|что[^?]{0,50}(?:понравил|не\s+устроил|не\s+подош|оттолкнул)|главн\p{L}*\s+компромисс|после\s+прошлых\s+просмотр)/iu;
