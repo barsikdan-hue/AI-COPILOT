@@ -248,7 +248,7 @@ export function isSubstantiveClientTurn(text: string, previousAgentTurn?: string
       .filter(Boolean)
       .at(-1) || '';
     const reportedOrNegated = /(?:^|\s)(?:не|раньше|спрашивал[аи]?|спрашивали|спросил[аи]?|спросили|говорил[аи]?|говорили|цитирую|задал[аи]?|задали)(?:\s|$)/u.test(agentClause);
-    const askedClientName = !reportedOrNegated && /(?:^|\s)(?:как\s+(?:вас\s+зовут|(?:(?:(?:я|мы)\s+)?(?:могу|можем|можно)\s+)?к\s+вам\s+обращаться)(?:\s+пожалуйста)?|(?:скажите|подскажите|назовите)\s+(?:пожалуйста\s+)?(?:ваше\s+)?имя)$/u.test(agentClause);
+    const askedClientName = !reportedOrNegated && /(?:^|\s)(?:как\s+(?:вас\s+зовут|(?:(?:(?:я|мы)\s+)?(?:могу|можем|можно)\s+)?(?:к\s+вам\s+обращаться|обращаться\s+к\s+вам))(?:\s+пожалуйста)?|(?:скажите|подскажите|назовите)\s+(?:пожалуйста\s+)?(?:ваше\s+)?имя)$/u.test(agentClause);
     const nonAnswer = /^(?:взаимно|спасибо|пожалуйста|э+м+|к?хм+|(\p{L})\1+)$/u.test(clean);
     return askedClientName && /^\p{L}{2,}$/u.test(clean) && !nonAnswer;
   }

@@ -125,10 +125,20 @@ afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 describe('contextual short name eligibility', () => {
   it('limits only the name exception when the last agent question is no longer immediate', () => {
     expect(isSubstantiveClientTurn('Марина', 'Как вас зовут?', false)).toBe(false);
+    expect(isSubstantiveClientTurn('Марина.', 'Как я могу обращаться к вам?', false)).toBe(false);
+    expect(isSubstantiveClientTurn('холодильник', 'Как обращаться к вам?', false)).toBe(false);
     expect(isSubstantiveClientTurn('да', 'Вам удобно?', false)).toBe(true);
   });
   it.each([
     ['Как я могу к вам обращаться?', 'Марина'],
+    ['Как я могу обращаться к вам?', 'Марина.'],
+    ['Как к вам обращаться?', 'Марина.'],
+    ['Как обращаться к вам?', 'Марина.'],
+    ['Как могу обращаться к вам?', 'Марина.'],
+    ['Как можно обращаться к вам?', 'Марина.'],
+    ['Как мы можем обращаться к вам?', 'Марина.'],
+    ['Подскажите, как обращаться к вам, пожалуйста?', 'Марина.'],
+    ['Добрый день, Данил, Элитный Сочи. Как я могу обращаться к вам?', 'Марина.'],
     ['Как вас зовут?', 'Дмитрий'],
     ['Добрый день! Подскажите, как к вам обращаться?', 'Ли'],
     ['Скажите, пожалуйста, ваше имя.', 'Алекс'],
@@ -140,6 +150,14 @@ describe('contextual short name eligibility', () => {
 
   it.each([
     ['Марина', undefined],
+    ['Марина.', undefined],
+    ['Взаимно.', 'Как я могу обращаться к вам?'],
+    ['Марина.', 'По вопросам договора буду обращаться к вам.'],
+    ['Марина.', 'Как обращаться с документами?'],
+    ['Марина.', 'Как обращаться к вам по вопросам ремонта?'],
+    ['Марина.', 'Раньше спрашивали, как я могу обращаться к вам?'],
+    ['Марина.', 'Не спрашиваю, как обращаться к вам.'],
+    ['Марина.', '«Как обращаться к вам?»'],
     ['Дмитрий', 'Что из просмотренного понравилось?'],
     ['холодильник', 'Какой предмет вам нужен?'],
     ['Взаимно.', 'Очень приятно, Марина.'],
@@ -166,6 +184,53 @@ describe('contextual short name eligibility', () => {
 });
 
 describe('contextual short name through production live callbacks', () => {
+  it('advances the exact fresh pke4 name answer through the live state and decision path', async () => {
+    await start();
+    final('agent', 'Добрый день, Данил, Элитный Сочи. Как я могу обращаться к вам?', 1791011187922);
+    const tree = final('client', 'Марина.', 1791011189991);
+    expect(panel(tree).props.state.revision).toBe(2);
+    expect(card(tree).props.shouldSuggest).toBe(true);
+    expect(card(tree).props.suggestion).toMatchObject({ basedOnRevision: 2, source: 'local_engine' });
+    await controls(tree).props.onEndCall();
+    const record = runtime.records.at(-1)!;
+    expect(record.turns.map(turn => turn.text)).toEqual([
+      'Добрый день, Данил, Элитный Сочи. Как я могу обращаться к вам?', 'Марина.',
+    ]);
+    expect(record.state.revision).toBe(2);
+    expect(record.suggestedRepliesHistory).toHaveLength(1);
+    expect(record.suggestionTrace).toEqual(expect.arrayContaining([
+      expect.objectContaining({ basedOnRevision: 2, outcome: 'shown', source: 'local_engine' }),
+    ]));
+    expect(record.diagnostics?.lastAnalysisTime).not.toBeNull();
+  });
+
+  it('does not reuse a reversed name question for an unrelated later client word', async () => {
+    await start();
+    final('agent', 'Как обращаться к вам?', 1791011187922);
+    const answered = final('client', 'Марина.', 1791011189991);
+    expect(panel(answered).props.state.revision).toBe(2);
+    const later = final('client', 'холодильник', 1791011205000);
+    expect(panel(later).props.state.revision).toBe(2);
+    await controls(later).props.onEndCall();
+    expect(runtime.records.at(-1)?.turns.map(turn => turn.text)).toEqual([
+      'Как обращаться к вам?', 'Марина.', 'холодильник',
+    ]);
+  });
+
+  it('preserves technical_discussion early return for the exact fresh pke4 finals', async () => {
+    await start('technical_discussion');
+    final('agent', 'Добрый день, Данил, Элитный Сочи. Как я могу обращаться к вам?', 1791011187922);
+    const tree = final('client', 'Марина.', 1791011189991);
+    expect(panel(tree).props.state.revision).toBe(0);
+    expect(card(tree).props.shouldSuggest).toBe(false);
+    await controls(tree).props.onEndCall();
+    const record = runtime.records.at(-1)!;
+    expect(record.turns).toHaveLength(2);
+    expect(record.suggestionTrace).toEqual([]);
+    expect(record.suggestedRepliesHistory).toEqual([]);
+    expect(record.diagnostics?.lastAnalysisTime).toBeNull();
+  });
+
   it('advances the exact 4jch finals in live_call when the client answers the name question', async () => {
     let tree = await start();
     for (const [speaker, text, timestamp] of fourJch) tree = final(speaker, text, timestamp);
