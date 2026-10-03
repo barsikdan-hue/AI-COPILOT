@@ -421,25 +421,6 @@ export const App: React.FC = () => {
       conversationStateRef.current = updated;
       setConversationState(updated);
 
-      publishSuggestion({
-        id: `reply_${Date.now()}_time_warning`,
-        sessionId: sessionIdRef.current,
-        basedOnRevision: revisionRef.current,
-        candidateRuleId: 'time_contract_warning',
-        actionType: 'PROPOSE_NEXT_STEP',
-        text: 'Время почти вышло: завершите текущую мысль и зафиксируйте один конкретный следующий шаг.',
-        shortReason: 'Использовано 80% обещанного клиенту времени.',
-        evidenceTurnIds: current.dialogueControl?.lastEventTurnId
-          ? [current.dialogueControl.lastEventTurnId]
-          : [],
-        createdAt: Date.now(),
-        stage: current.stage,
-        confidenceStatus: 'confirmed',
-        lifecycleStatus: 'candidate',
-        priority: 108,
-        eventType: 'TIME_CONTRACT_WARNING',
-        source: 'local_event',
-      });
     }, delay);
 
     return () => {
@@ -448,7 +429,7 @@ export const App: React.FC = () => {
         timeContractWarningTimerRef.current = null;
       }
     };
-  }, [conversationState.dialogueControl?.timeContract, publishSuggestion]);
+  }, [conversationState.dialogueControl?.timeContract]);
 
   // Hint lifecycle: verify and promote pending suggestion after agent speech finishes
   const verifyAndPromotePendingSuggestion = useCallback(() => {
@@ -1378,6 +1359,11 @@ export const App: React.FC = () => {
 
         {/* Prompter Suggestion Card (Hero Element, Constrained Height) */}
         <div className="shrink-0">
+          {isCallRunning && !isPaused && conversationState.dialogueControl?.timeContract?.warningShown && (
+            <div role="status" className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              <strong>Контроль времени:</strong> использовано 80% обещанного времени. Завершите текущую мысль и зафиксируйте следующий шаг.
+            </div>
+          )}
           <SuggestionCard
             suggestion={currentSuggestion}
             shouldSuggest={shouldSuggest}

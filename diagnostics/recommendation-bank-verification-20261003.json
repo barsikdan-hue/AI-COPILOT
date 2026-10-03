@@ -1,0 +1,14 @@
+{
+  "baseline":"606309e819541c2775aca82df027c10477073cb5",
+  "targeted":{"passed":11,"failed":0,"evidence":"recommendation-bank-green-20261003.json"},
+  "focused":{"files":19,"passed":203,"failed":0,"workers":1,"ordinary_timeout_ms":20000,"evidence":"recommendation-bank-focused-final-20261003.json"},
+  "full_initial":{"passed":1606,"failed":15,"skipped":1,"timeouts":14,"assertion_failures":1,"evidence":"recommendation-bank-full-20261003.json"},
+  "full_final":{"passed":1620,"failed":1,"skipped":1,"timeouts":1,"assertion_failures":0,"workers":2,"ordinary_timeout_ms":20000,"command_exit_code":1,"evidence":"recommendation-bank-full-final-20261003.json"},
+  "remaining_timeout_retry":{"file":"session5SemanticRegression.test.ts","passed":3,"failed":0,"workers":1,"ordinary_timeout_ms":20000,"command_exit_code":0,"evidence":"recommendation-bank-session5-final-20261003.json"},
+  "coverage_after_retry":{"non_skipped_tests":1621,"all_passed_across_final_full_and_retry":true,"raw_full_command_green":false},
+  "expanded_isolated":{"passed":2,"failed":0,"executions":8192,"snapshot_changed":false,"evidence":"recommendation-bank-expanded-retry-20261003.json"},
+  "lint":{"exit_code":0,"evidence":"recommendation-bank-lint-final-20261003.log"},
+  "build":{"exit_code":0,"warning":"Existing frontend bundle-size warning","evidence":"recommendation-bank-build-20261003.log"},
+  "inventory":{"records":412,"live":219,"guidance":65,"manual":61,"post_call":17,"inactive":30,"overridden":20,"rewritten":4,"removed_from_live":1,"added":0},
+  "limits":["No fresh browser/audio/STT or Gemini-call acceptance","STOP CONDITION applied; unresolved routing and Gemini cache policy gaps are recorded in the Markdown report","No push"]
+}

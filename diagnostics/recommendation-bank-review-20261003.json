@@ -1,0 +1,57 @@
+{
+  "baseline": "606309e",
+  "review": "Independent read-only review and synthetic runtime witnesses",
+  "method": "advanceLocalConversation(createInitialState(), clientTurn, [clientTurn]); App local-objection intent gate; isSuggestionAllowedByState",
+  "limitation": "Conditional candidate reachability, not browser publication or fresh live-call proof",
+  "witnesses": [
+    {"audit_id":177,"input":"Дорого, 30","event":null,"clientIntent":"objection","stateAllowed":true},
+    {"audit_id":178,"input":"Дорого","event":null,"clientIntent":"objection","stateAllowed":true},
+    {"audit_id":179,"input":"Надо подумать","event":null,"clientIntent":"objection","stateAllowed":true},
+    {"audit_id":180,"input":"Нет денег","event":null,"clientIntent":"objection","stateAllowed":true},
+    {"audit_id":181,"input":"Цены снизятся","event":null,"clientIntent":"objection","stateAllowed":true},
+    {"audit_id":182,"input":"Не к спеху","event":null,"clientIntent":"objection","stateAllowed":true},
+    {"audit_id":183,"input":"Плохие отзывы","event":null,"clientIntent":"objection","stateAllowed":true},
+    {"audit_id":184,"input":"Был плохой опыт","event":null,"clientIntent":"objection","stateAllowed":true},
+    {"audit_id":185,"input":"Нет гарантий","event":null,"clientIntent":"objection","stateAllowed":true},
+    {"audit_id":186,"input":"Неинтересно","event":null,"clientIntent":"objection","stateAllowed":true},
+    {"audit_id":187,"input":"Я занят","event":null,"clientIntent":"objection","stateAllowed":true},
+    {"audit_id":188,"input":"Нужна личная встреча","event":null,"clientIntent":"objection","stateAllowed":true},
+    {"audit_id":189,"input":"Продаем свою","event":null,"clientIntent":"objection","stateAllowed":true},
+    {"audit_id":190,"input":"Далеко ехать","event":null,"clientIntent":"objection","stateAllowed":true},
+    {"audit_id":191,"input":"Не меньше чем на депозите","event":null,"clientIntent":"objection","stateAllowed":true},
+    {"audit_id":192,"input":"Не верю в окупаемость","event":null,"clientIntent":"objection","stateAllowed":true},
+    {"audit_id":193,"input":"Хочу сравнить","event":null,"clientIntent":"objection","stateAllowed":true},
+    {"audit_id":194,"input":"Нужно посоветоваться","event":null,"clientIntent":"objection","stateAllowed":true},
+    {"audit_id":195,"input":"Большой платеж","event":null,"clientIntent":"objection","stateAllowed":true},
+    {"audit_id":196,"input":"Не достроят","event":null,"clientIntent":"objection","stateAllowed":true},
+    {"audit_id":202,"input":"Не люблю видео","event":null,"clientIntent":"objection","stateAllowed":true}
+  ],
+  "inactive_by_intent_gate": {
+    "175":"stop",
+    "176":"busy_time is not a real objection category; ordinary input yields fact",
+    "197":"motive_living -> fact",
+    "198":"motive_neutral -> fact",
+    "199":"motive_browsing -> clarification",
+    "200":"action_answer -> clarification",
+    "201":"action_variants_video -> clarification"
+  },
+  "overridden_review_ids": [9,55,57,208,209,383,386,388],
+  "ppv_probe": {
+    "input":"Не хочу видео",
+    "event":"NEXT_STEP_RESISTANCE",
+    "state_ppv_count":1,
+    "redetected_count":2,
+    "localObjection_text":"Понял. Видеопоказ пока не фиксируем. Вернёмся к нему только когда вам будет комфортно.",
+    "consequence":"Repeated-response branch overrides first-response PPV compositions in the App caller"
+  },
+  "session5_review": {
+    "turn35":"MEETING_CONTRACT",
+    "channel":"созвон",
+    "agreementStatus":"agreed",
+    "ppvResistanceStatus":"detected",
+    "ppvResistanceEvidence":"s5-11",
+    "ppvClientAgreed":false,
+    "turn37":"No event for Пусть будет 18:00; existing deadline remains завтра",
+    "decision":"Preserve callback agreement and video refusal; update obsolete PPV assertions without expanding channel or time parsing"
+  }
+}

@@ -1,0 +1,438 @@
+{
+  "correction": [
+    {
+      "text": "Бюджет 20 миллионов.",
+      "budget": {
+        "value": "20 млн руб",
+        "evidenceTurnIds": [
+          "correction_1"
+        ],
+        "isFlexible": false
+      },
+      "facts": [
+        {
+          "id": "fact_correction_1_budget",
+          "category": "budget",
+          "value": "20 млн руб",
+          "evidenceQuote": "бюджет 20 миллионов.",
+          "turnId": "correction_1",
+          "confidence": 0.95,
+          "status": "confirmed",
+          "isFlexible": false,
+          "timestamp": 1791002743894,
+          "origin": "client_explicit",
+          "lifecycleStatus": "confirmed",
+          "supersedesFactId": null
+        }
+      ],
+      "rejected": [],
+      "eventAllowed": null,
+      "result": {
+        "rule": "dialogue_policy_goal_ask_goal",
+        "action": "CLARIFY",
+        "event": null,
+        "reply": "Что должно измениться после покупки: переезд, свой формат отдыха или работа капитала?",
+        "shouldSuggest": true
+      },
+      "localAllowed": true
+    },
+    {
+      "text": "Поправлю: бюджет всё-таки 15 миллионов.",
+      "budget": {
+        "value": "15 млн руб",
+        "evidenceTurnIds": [
+          "correction_1",
+          "correction_2"
+        ],
+        "isFlexible": false
+      },
+      "facts": [
+        {
+          "id": "fact_correction_1_budget",
+          "category": "budget",
+          "value": "20 млн руб",
+          "evidenceQuote": "бюджет 20 миллионов.",
+          "turnId": "correction_1",
+          "confidence": 0.95,
+          "status": "confirmed",
+          "isFlexible": false,
+          "timestamp": 1791002743894,
+          "origin": "client_explicit",
+          "lifecycleStatus": "superseded",
+          "supersedesFactId": null
+        },
+        {
+          "id": "fact_correction_2_budget",
+          "category": "budget",
+          "value": "15 млн руб",
+          "evidenceQuote": "15 миллионов.",
+          "turnId": "correction_2",
+          "confidence": 0.95,
+          "status": "confirmed",
+          "isFlexible": false,
+          "timestamp": 1791002744981,
+          "origin": "client_explicit",
+          "lifecycleStatus": "confirmed",
+          "supersedesFactId": "fact_correction_1_budget"
+        }
+      ],
+      "rejected": [],
+      "event": "FACT_CORRECTION",
+      "eventReply": "Принял: 15 млн руб — актуальный предел. Предыдущее значение больше не учитываю.",
+      "eventAllowed": true,
+      "result": {
+        "rule": "dialogue_policy_goal_ask_goal",
+        "action": "CLARIFY",
+        "event": null,
+        "reply": "Что должно измениться после покупки: переезд, свой формат отдыха или работа капитала?",
+        "shouldSuggest": true
+      },
+      "localAllowed": true
+    }
+  ],
+  "video_rejection": [
+    {
+      "text": "Не хочу видео.",
+      "budget": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "facts": [],
+      "rejected": [],
+      "event": "NEXT_STEP_RESISTANCE",
+      "eventReply": "Понял, без давления. Что именно в предложенном формате сейчас не подходит?",
+      "eventAllowed": true,
+      "result": {
+        "rule": "next_step_resistance_ppv",
+        "action": "CLARIFY",
+        "event": "NEXT_STEP_RESISTANCE",
+        "reply": "Понял, без давления. Что именно в предложенном формате сейчас не подходит?",
+        "shouldSuggest": true
+      },
+      "localAllowed": true
+    },
+    {
+      "text": "Тишина и рядом море.",
+      "budget": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "facts": [],
+      "rejected": [],
+      "eventAllowed": null,
+      "result": {
+        "rule": "dialogue_policy_criteria_ask_criteria",
+        "action": "CLARIFY",
+        "event": null,
+        "reply": "Что для вас важнее всего сохранить без компромисса при выборе?",
+        "shouldSuggest": true
+      },
+      "localAllowed": true
+    },
+    {
+      "text": "Бюджет до 15 миллионов.",
+      "budget": {
+        "value": "До 15 млн руб",
+        "evidenceTurnIds": [
+          "video_rejection_5"
+        ],
+        "isFlexible": false,
+        "comment": "Клиент назвал только верхнюю границу бюджета."
+      },
+      "facts": [
+        {
+          "id": "fact_video_rejection_5_budget",
+          "category": "budget",
+          "value": "До 15 млн руб",
+          "evidenceQuote": "до 15 миллионов",
+          "turnId": "video_rejection_5",
+          "confidence": 0.97,
+          "status": "confirmed",
+          "isFlexible": false,
+          "comment": "Клиент назвал только верхнюю границу бюджета.",
+          "timestamp": 1791002745164,
+          "origin": "client_explicit",
+          "lifecycleStatus": "confirmed",
+          "supersedesFactId": null
+        }
+      ],
+      "rejected": [],
+      "eventAllowed": null,
+      "result": {
+        "rule": "dialogue_policy_goal_ask_goal",
+        "action": "CLARIFY",
+        "event": null,
+        "reply": "Что должно измениться после покупки: переезд, свой формат отдыха или работа капитала?",
+        "shouldSuggest": true
+      },
+      "localAllowed": true
+    }
+  ],
+  "video_reopen": [
+    {
+      "text": "Не хочу видео.",
+      "budget": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "facts": [],
+      "rejected": [],
+      "event": "NEXT_STEP_RESISTANCE",
+      "eventReply": "Понял, без давления. Что именно в предложенном формате сейчас не подходит?",
+      "eventAllowed": true,
+      "result": {
+        "rule": "next_step_resistance_ppv",
+        "action": "CLARIFY",
+        "event": "NEXT_STEP_RESISTANCE",
+        "reply": "Понял, без давления. Что именно в предложенном формате сейчас не подходит?",
+        "shouldSuggest": true
+      },
+      "localAllowed": true
+    },
+    {
+      "text": "Теперь готов к видеопоказу.",
+      "budget": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "facts": [],
+      "blocked": [],
+      "rejected": [],
+      "event": "NEXT_STEP_REOPENED",
+      "eventReply": "Хорошо, согласуем следующий шаг. Когда вам удобно?",
+      "eventAllowed": true,
+      "result": {
+        "rule": "next_step_reopened_ppv",
+        "action": "CLARIFY",
+        "event": "NEXT_STEP_REOPENED",
+        "reply": "Хорошо, согласуем следующий шаг. Когда вам удобно?",
+        "shouldSuggest": true
+      },
+      "localAllowed": true
+    }
+  ],
+  "materials": [
+    {
+      "text": "Скиньте цены и планировки.",
+      "budget": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "facts": [],
+      "rejected": [],
+      "event": "MATERIAL_REQUEST",
+      "eventReply": "Понял. Сначала отправлю запрошенные материалы без дополнительного опроса. После просмотра вернёмся к разговору, если это будет полезно.",
+      "eventAllowed": true,
+      "result": {
+        "rule": "material_request",
+        "action": "ANSWER",
+        "event": "MATERIAL_REQUEST",
+        "reply": "Понял. Сначала отправлю запрошенные материалы без дополнительного опроса. После просмотра вернёмся к разговору, если это будет полезно.",
+        "shouldSuggest": true
+      },
+      "localAllowed": true
+    }
+  ],
+  "busy": [
+    {
+      "text": "Мне сейчас некогда.",
+      "budget": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "facts": [],
+      "rejected": [],
+      "event": "TIME_CONSTRAINT",
+      "eventReply": "Понял, не отвлекаю. Когда конкретно вернуться к разговору — сегодня вечером или завтра?",
+      "eventAllowed": true,
+      "result": {
+        "rule": "respect_busy_time",
+        "action": "PROPOSE_NEXT_STEP",
+        "event": "TIME_CONSTRAINT",
+        "reply": "Понял, не отвлекаю. Когда конкретно вернуться к разговору — сегодня вечером или завтра?",
+        "shouldSuggest": true
+      },
+      "localAllowed": true
+    },
+    {
+      "text": "Завтра в 16:00 по Москве.",
+      "budget": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "facts": [],
+      "rejected": [],
+      "nextStep": {
+        "action": "Созвон",
+        "timeOrDeadline": "завтра в 16:00 по Москве",
+        "channel": "созвон",
+        "basisTurnId": "busy_3",
+        "status": "agreed"
+      },
+      "event": "MEETING_CONTRACT",
+      "eventReply": "Отлично, тогда созвонимся завтра в 16:00 по Москве. Зафиксировал.",
+      "eventAllowed": true,
+      "result": {
+        "rule": "boundary_safe_liveness",
+        "action": "RESPECT_STOP",
+        "event": "MEETING_CONTRACT",
+        "reply": "Понял. Не буду расширять разговор: зафиксирую сказанное и вернёмся к одному следующему шагу, когда вам будет удобно.",
+        "shouldSuggest": true
+      },
+      "localAllowed": true
+    }
+  ],
+  "direct_price": [
+    {
+      "text": "Сколько стоит?",
+      "budget": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "facts": [],
+      "rejected": [],
+      "event": "DIRECT_QUESTION",
+      "eventReply": "По цене отвечу прямо, но не буду придумывать цифру без актуальной базы: диапазон сильно зависит от формата и локации. Назову проверенную вилку и дальше сравним, за что реально есть смысл доплачивать.",
+      "eventAllowed": true,
+      "result": {
+        "rule": "direct_question_price",
+        "action": "ANSWER",
+        "event": "DIRECT_QUESTION",
+        "reply": "По цене отвечу прямо, но не буду придумывать цифру без актуальной базы: диапазон сильно зависит от формата и локации. Назову проверенную вилку и дальше сравним, за что реально есть смысл доплачивать.",
+        "shouldSuggest": true
+      },
+      "localAllowed": true
+    }
+  ],
+  "self_service": [
+    {
+      "text": "Я сам посмотрю.",
+      "budget": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "facts": [],
+      "rejected": [],
+      "event": "CLIENT_PREFERENCE",
+      "eventReply": "Понял. Посмотрите в удобном темпе; если понадобится, помогу сравнить конкретные варианты.",
+      "eventAllowed": true,
+      "result": {
+        "rule": "client_preference_self_service",
+        "action": "WAIT",
+        "event": "CLIENT_PREFERENCE",
+        "reply": "Понял. Посмотрите в удобном темпе; если понадобится, помогу сравнить конкретные варианты.",
+        "shouldSuggest": true
+      },
+      "localAllowed": true
+    }
+  ],
+  "research": [
+    {
+      "text": "Пока просто интересно.",
+      "budget": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "facts": [],
+      "rejected": [],
+      "eventAllowed": null,
+      "result": {
+        "rule": null,
+        "action": "CLARIFY",
+        "event": null,
+        "reply": "Вы уже сравниваете конкретные варианты в Сочи или пока просто изучаете рынок?",
+        "shouldSuggest": true
+      },
+      "localAllowed": true
+    }
+  ],
+  "irritation": [
+    {
+      "text": "Хватит вопросов, вы меня раздражаете.",
+      "budget": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "facts": [],
+      "rejected": [],
+      "eventAllowed": null,
+      "result": {
+        "rule": null,
+        "action": "CLARIFY",
+        "event": null,
+        "reply": "Рынок Сочи давно отслеживаете или интерес появился недавно?",
+        "shouldSuggest": true
+      },
+      "localAllowed": true
+    }
+  ],
+  "spouses": [
+    {
+      "text": "Мне важна тишина, а супруге — центр и инфраструктура.",
+      "budget": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "facts": [],
+      "rejected": [],
+      "eventAllowed": null,
+      "result": {
+        "rule": "dialogue_policy_finance_ask_budget",
+        "action": "CLARIFY",
+        "event": null,
+        "reply": "Какой бюджет для вас комфортный, а где уже начинается жёсткий потолок?",
+        "shouldSuggest": true
+      },
+      "localAllowed": true
+    }
+  ],
+  "agreed": [
+    {
+      "text": "Да, договорились.",
+      "budget": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "facts": [],
+      "rejected": [],
+      "eventAllowed": null,
+      "result": {
+        "rule": "intentional_no_new",
+        "action": "WAIT",
+        "event": null,
+        "reply": null,
+        "shouldSuggest": false
+      },
+      "localAllowed": false
+    },
+    {
+      "text": "Тишина для меня важна.",
+      "budget": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "facts": [],
+      "rejected": [],
+      "eventAllowed": null,
+      "result": {
+        "rule": "state_validator_no_replacement",
+        "action": "WAIT",
+        "event": null,
+        "reply": null,
+        "shouldSuggest": false
+      },
+      "localAllowed": false
+    }
+  ],
+  "time_warning": {
+    "candidate": {
+      "text": "Время почти вышло: завершите текущую мысль и зафиксируйте один конкретный следующий шаг.",
+      "basedOnRevision": 2,
+      "eventType": "TIME_CONTRACT_WARNING",
+      "candidateRuleId": "time_contract_warning",
+      "actionType": "PROPOSE_NEXT_STEP",
+      "priority": 108
+    },
+    "allowed": true
+  }
+}

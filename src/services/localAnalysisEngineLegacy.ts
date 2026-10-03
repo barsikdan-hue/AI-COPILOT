@@ -747,6 +747,8 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
   if (
     workingState.dialogueControl?.clientBoundaryActive &&
     workingState.dialogueControl?.boundaryMode !== 'limited_active_window' &&
+    workingState.nextStepAgreement?.status !== 'agreed' &&
+    !workingState.agreedNextStep?.value &&
     lastClientTurn
   ) {
     const boundaryCandidateIsSafe =
@@ -755,6 +757,7 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
       actionType === 'ANSWER' ||
       dominantEvent?.type === 'SOFT_RESISTANCE' ||
       dominantEvent?.type === 'TIME_CONSTRAINT' ||
+      dominantEvent?.type === 'MEETING_CONTRACT' ||
       dominantEvent?.type === 'NEXT_STEP_RESISTANCE' ||
       dominantEvent?.type === 'DIRECT_QUESTION';
 

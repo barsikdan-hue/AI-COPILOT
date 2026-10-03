@@ -1,0 +1,30 @@
+
+> ai-copilot-realtor@4.0.2-rc.5.4 build
+> vite build && esbuild server-entry.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs
+
+vite v8.3.0 building client environment for production...
+transforming...
+✓ 1703 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               1.61 kB │ gzip:   0.74 kB
+dist/assets/index-Cn5R40J6.css               42.26 kB │ gzip:   8.11 kB
+dist/assets/x-BHNtGQQr.js                     0.14 kB │ gzip:   0.14 kB
+dist/assets/hard-drive-Bdb40iKY.js            0.55 kB │ gzip:   0.33 kB
+dist/assets/HistoryDrawer-BTJXkAbE.js         4.58 kB │ gzip:   1.80 kB
+dist/assets/DiagnosticsDrawer-DrbPfgjo.js    10.13 kB │ gzip:   2.88 kB
+dist/assets/SummaryModal-Bz5nsRB-.js         16.53 kB │ gzip:   4.24 kB
+dist/assets/CallSimulatorModal-CNLCnVqX.js   19.69 kB │ gzip:   6.79 kB
+dist/assets/index-C7j8D40Q.js               853.90 kB │ gzip: 233.46 kB
+
+✓ built in 1.96s
+[plugin builtin:vite-reporter]
+(!) Some chunks are larger than 550 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+
+  dist\server.cjs      918.3kb
+  dist\server.cjs.map    1.6mb
+
+Done in 157ms

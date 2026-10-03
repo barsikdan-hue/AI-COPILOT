@@ -1,0 +1,67 @@
+{
+  "total": 412,
+  "counts": {
+    "LIVE_SPEECH": 219,
+    "POST_CALL_COACHING": 17,
+    "DECISION_GUIDANCE": 65,
+    "OVERRIDDEN": 20,
+    "MANUAL_QUESTION_BANK": 61,
+    "INACTIVE": 30
+  },
+  "exact_duplicate_groups": 15,
+  "duplicate_excess": 19,
+  "semantic_review_groups": 10,
+  "unmatched_local_sources": [
+    {
+      "id": 7,
+      "source": "src/App.tsx:430",
+      "type": "DECISION_GUIDANCE"
+    },
+    {
+      "id": 393,
+      "source": "src/services/spinEngineLegacy.ts:737",
+      "type": "OVERRIDDEN"
+    },
+    {
+      "id": 394,
+      "source": "src/services/spinEngineLegacy.ts:737",
+      "type": "OVERRIDDEN"
+    },
+    {
+      "id": 395,
+      "source": "src/services/spinEngineLegacy.ts:737",
+      "type": "OVERRIDDEN"
+    },
+    {
+      "id": 396,
+      "source": "src/services/spinEngineLegacy.ts:737",
+      "type": "OVERRIDDEN"
+    },
+    {
+      "id": 397,
+      "source": "src/services/spinEngineLegacy.ts:737",
+      "type": "OVERRIDDEN"
+    },
+    {
+      "id": 398,
+      "source": "src/services/spinEngineLegacy.ts:737",
+      "type": "OVERRIDDEN"
+    }
+  ],
+  "live_issues": [
+    {
+      "id": 95,
+      "source": "src/services/conversationEventEngineLegacy.ts:1274",
+      "issues": [
+        "internal_state_wording_deferred_by_stop_condition"
+      ]
+    },
+    {
+      "id": 96,
+      "source": "src/services/conversationEventEngineLegacy.ts:1275",
+      "issues": [
+        "internal_state_wording_deferred_by_stop_condition"
+      ]
+    }
+  ]
+}

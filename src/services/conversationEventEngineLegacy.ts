@@ -795,7 +795,7 @@ function directQuestionReply(intent: DirectQuestionIntent, text: string): string
     return slot ? `Да, ${slot}. Зафиксирую.` : 'Да, подходит. Зафиксирую договорённость.';
   }
   if (intent === 'documents') return 'Проверю именно этот пункт по актуальным документам конкретного объекта и дам точный ответ — без догадок.';
-  if (intent === 'price') return 'По цене отвечу прямо, но не буду придумывать цифру без актуальной базы: диапазон сильно зависит от формата и локации. Назову проверенную вилку и дальше сравним, за что реально есть смысл доплачивать.';
+  if (intent === 'price') return 'Точную цену нужно проверить по актуальному предложению. Какой объект или формат вас интересует?';
   if (intent === 'yield_comparison') return 'Без конкретного объекта честную доходность не назову. Считать нужно чистый денежный поток, возможный рост цены и риски, а затем сравнить это с депозитом. Какая планка для вас будет минимально приемлемой?';
   if (intent === 'financing') return 'По этому финансовому вопросу лучше дать точный расчёт по вашим параметрам — проверю условия, не буду гадать.';
   if (intent === 'materials_request') return 'Да. Отправлю 2–3 варианта с ценами и планировками без длинной презентации. После просмотра коротко сверим, что из этого действительно оставлять.';
@@ -983,8 +983,8 @@ function detectMeetingContract(
     evidenceQuote: turn.text,
     suppressesAnalysis: true,
     stage: 'next_step_agreement',
-    closesMetric: 'ppv',
-    closesMetricLabel: 'Контракт видеовстречи',
+    closesMetric: channel === 'видео' ? 'ppv' : null,
+    closesMetricLabel: channel === 'видео' ? 'Контракт видеовстречи' : null,
     meetingConsentQuality: quality,
     meetingContract: { dateOrDay, time, channel, participants, expectedResult, durationMinutes },
   };
@@ -1238,8 +1238,8 @@ export function detectConversationEvent(
   const correction = extractCorrection(turn.text);
   if (correction && hasConfirmedFactReplacement(turn, recentTurns, state)) {
     const correctedBudget = /миллион|млн|бюджет|предел/iu.test(turn.text) && state.budget?.value
-      ? `Принял: ${state.budget.value} — актуальный предел. Предыдущее значение больше не учитываю.`
-      : 'Принял поправку. Дальше опираемся на новую версию факта, старую не учитываю.';
+      ? `Понял, тогда ориентируемся на бюджет ${state.budget.value}.`
+      : 'Спасибо, ориентируемся на то, что вы сейчас уточнили.';
     return {
       type: 'FACT_CORRECTION',
       priority: 104,
@@ -1471,7 +1471,7 @@ export function applyConversationEvent(
       // Canonical meeting state must be the source of truth for all downstream
       // metrics; an old refusal must not keep PPV permanently unresolved.
       const priorPpv = control.nextStepResistanceHistory?.ppv;
-      if (priorPpv) {
+      if (priorPpv && contract.channel === 'видео') {
         const handledPpv = {
           ...priorPpv,
           count: 0,
@@ -1484,7 +1484,7 @@ export function applyConversationEvent(
         control.blockedNextSteps = (control.blockedNextSteps || []).filter((item) => item !== 'ppv');
         next.dialogueControl = control;
       }
-      if (next.activeObjection?.target === 'ppv') {
+      if (next.activeObjection?.target === 'ppv' && contract.channel === 'видео') {
         next.activeObjection = {
           ...next.activeObjection,
           status: 'handled',

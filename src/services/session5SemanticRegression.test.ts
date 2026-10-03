@@ -116,8 +116,11 @@ describe('session 5 semantic core regression', () => {
     expect(state.scriptProgress?.metrics.ppi.value).toMatch(/не требуется|исключена/iu);
 
     expect(state.nextStepAgreement?.status).toBe('agreed');
-    expect(state.scriptProgress?.metrics.ppv.status).toBe('confirmed');
-    expect(state.scriptProgress?.ppv.clientAgreed).toBe(true);
+    expect(state.nextStepAgreement?.channel).toBe('созвон');
+    // A callback after video refusal does not establish renewed video consent.
+    expect(state.dialogueControl?.nextStepResistanceHistory?.ppv?.status).not.toBe('handled');
+    expect(state.scriptProgress?.metrics.ppv.status).not.toBe('confirmed');
+    expect(state.scriptProgress?.ppv.clientAgreed).toBe(false);
   });
 
   it('handles active objections without forcing a card for every substantive turn', () => {

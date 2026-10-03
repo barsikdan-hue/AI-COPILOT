@@ -177,12 +177,20 @@ export function decideRecommendationOutcome(
 
 /** Branch constraints apply to both local and cloud candidates before display. */
 export function isSuggestionAllowedByState(candidate: Partial<SuggestedReply>, state: ConversationState, latestRevision = state.revision): boolean {
+  // The time budget reminder is internal guidance, displayed separately by App.
+  if (candidate.eventType === 'TIME_CONTRACT_WARNING' || candidate.candidateRuleId === 'time_contract_warning') return false;
   applyLiveSuggestionPresentationPolicy(candidate, state);
 
   if (candidate.basedOnRevision != null && candidate.basedOnRevision < latestRevision) return false;
   const text = candidate.text || '';
   const lower = text.toLocaleLowerCase('ru-RU');
-  const blocked = state.dialogueControl?.blockedNextSteps || [];
+  const videoResistance = state.dialogueControl?.nextStepResistanceHistory?.ppv;
+  // The existing lifecycle requires client reopening even after the first refusal.
+  // Its count-2 escalation must not grant permission to pitch video in between.
+  const blocked = [
+    ...(state.dialogueControl?.blockedNextSteps || []),
+    ...(videoResistance && videoResistance.status !== 'handled' ? ['ppv'] : []),
+  ];
   if (candidate.closesMetric && blocked.includes(candidate.closesMetric)) return false;
   const proposes = /давайте|предлагаю|подключ|назнач|провед|провести|запиш|удобн|готов|сравним|подойд|рассмотр|рекоменд/iu.test(text);
   if (blocked.includes('ppi') && proposes && /брокер|специалист|ипотечн.*консультац/iu.test(text) && !/видео|показ|специалист.{0,5}застройщик/iu.test(text)) return false;
