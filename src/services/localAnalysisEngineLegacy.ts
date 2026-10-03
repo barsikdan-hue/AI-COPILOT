@@ -201,7 +201,12 @@ function sanitizeLiveFacts(
 
   const asksFirstPayment = /(?:средств\p{L}*\s+для\s+первого\s+платежа|первоначальн\p{L}*\s+взнос|первый\s+взнос|сумма\s+зависит\s+от\s+выбранной\s+схемы)/iu.test(previousAgentText || '');
   const hasDownPaymentFact = sanitized.some((fact) => fact.field === 'downPayment' || fact.category === 'downPayment');
-  const availabilityQuote = asksFirstPayment ? text.match(/(?:в\s+целом\s+)?доступн(?:ы|а|о)/iu)?.[0] || null : null;
+  const availabilityMatch = asksFirstPayment
+    ? text.match(/(?<!\p{L})(?:в\s+целом\s+)?доступн(?:ы|а|о)(?!\p{L})/iu) : null;
+  // A contextual readiness answer must not turn "недоступны" or "не доступны"
+  // into positive evidence merely because both contain the word stem.
+  const availabilityQuote = availabilityMatch && !/(?<!\p{L})не\s*$/iu.test(text.slice(0, availabilityMatch.index))
+    ? availabilityMatch[0] : null;
   if (!hasDownPaymentFact && availabilityQuote) {
     sanitized = [
       ...sanitized,
