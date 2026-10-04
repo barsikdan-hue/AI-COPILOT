@@ -3,8 +3,8 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
-  effectivePolicy, loadContract, projectCore, selectObservations,
-  type CaseBinding, type ScoutContract,
+  effectivePolicy, loadContract, projectCore, selectObservations, normalizeOutput, encodeRequests, importResponses,
+  type CaseBinding, type ScoutContract, type ScoutRequest, type BatchManifest, type ResponseManifest,
 } from '../../../.agents/skills/ai-copilot-semantic-scout/scripts/scout';
 import { EXPANDED_REGRESSION_SCENARIOS } from '../test-fixtures/expandedRegressionScenarios';
 import { MASS_REGRESSION_GOLDEN_CASES } from '../test-fixtures/massRegressionGoldenCases';
@@ -357,6 +357,250 @@ describe('contract-policy-comparability', () => {
     expect(selected.eligible.map((item) => item.mode)).toEqual(['ACTIVE_SHADOW', 'ACTIVE_SHADOW']);
     expect(selected.eligible.map((item) => item.core.status === 'COMPARABLE' ? item.core.value : null)).toEqual(['NO', 'NO']);
   }, 30_000);
+});
+
+// Protocol test fixtures are private unit inputs, not additions to the semantic oracle.
+function protocolHash(value: unknown): string {
+  const sorted = (item: unknown): unknown => Array.isArray(item) ? item.map(sorted)
+    : item !== null && typeof item === 'object'
+      ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([key, nested]) => [key, sorted(nested)]))
+      : item;
+  return createHash('sha256').update(JSON.stringify(sorted(value))).digest('hex');
+}
+
+function batchFixture(rows: unknown[] = [
+  { id: 'opaque-a', status: 'OK', raw_output: ' NO\n', latency_ms: 2, claimed_prediction: 'NO' },
+  { id: 'opaque-b', status: 'OK', raw_output: 'UNKNOWN', latency_ms: null },
+]): { manifest: BatchManifest; responseManifest: ResponseManifest; jsonl: string; requests: ScoutRequest[] } {
+  const contract = loadContract(scoutContractPath);
+  const requests: ScoutRequest[] = ['opaque-a', 'opaque-b'].map((id) => ({
+    id, turns: [{ speaker: 'client', text: 'Ипотека мне не нужна.' }], question: contract.questionRegistry.mortgage_permission,
+  }));
+  const input = requests.map((request) => JSON.stringify(request)).join('\n') + '\n';
+  const hash = (bytes: string | Buffer) => createHash('sha256').update(bytes).digest('hex');
+  const jsonl = rows.length ? rows.map((row) => JSON.stringify(row)).join('\n') + '\n' : '';
+  const manifest: BatchManifest = {
+    schemaVersion: 1, runId: 'unit-run', sourceHead: '5cc9b0def768a9f068c0daee9c2e48263b0404d7',
+    sourceHashes: { ...contract.bindings[0].sourceHashes }, inputSha256: hash(input), requestIds: ['opaque-a', 'opaque-b'],
+    contractSha256: hash(readFileSync(scoutContractPath)), model: { ...contract.model },
+    promptHash: contract.promptHash, settingsHash: contract.settingsHash,
+    policyVersion: contract.policyVersion, policyHash: protocolHash({ policy: contract.policy, questionPolicy: contract.questionPolicy, slicePolicy: contract.slicePolicy }),
+    projectionHash: protocolHash(contract.projections), questionRegistryHash: protocolHash(contract.questionRegistry),
+    fingerprintVersion: contract.fingerprintVersion, fingerprintHash: protocolHash({ version: contract.fingerprintVersion }),
+    runnerIdentity: 'transformers-batch-v1', selection: { observed: 3, selected: 2, rejected: 1 },
+  };
+  const responseManifest: ResponseManifest = {
+    schemaVersion: 1, runId: manifest.runId, inputSha256: manifest.inputSha256,
+    contractSha256: manifest.contractSha256, model: { ...manifest.model }, promptHash: manifest.promptHash,
+    settingsHash: manifest.settingsHash, responsesSha256: hash(jsonl),
+    runtimeIdentity: { runner: manifest.runnerIdentity, runtimeReferenceHash: contract.runtimeReferenceHash, versions: { python: 'unit', transformers: 'unit' } },
+  };
+  return { manifest, responseManifest, jsonl, requests };
+}
+
+describe('batch-contract', () => {
+  it.each([
+    [' YES ', 'YES'], ['NO\r\n', 'NO'], [' UNKNOWN\n', 'UNKNOWN'],
+    ['yes', 'INVALID'], ['YES because', 'INVALID'], ['NO UNKNOWN', 'INVALID'], ['', 'INVALID'],
+    ['prefix YES', 'INVALID'], ['YЕS', 'INVALID'],
+  ])('normalizes only whole exact labels in %j', (raw, expected) => {
+    expect(normalizeOutput(raw)).toBe(expected);
+  });
+
+  it('encodes only exact request payloads as LF-terminated Unicode JSONL', () => {
+    const { requests } = batchFixture();
+    expect(encodeRequests(requests)).toBe(requests.map((request) => JSON.stringify(request)).join('\n') + '\n');
+    expect(JSON.parse(encodeRequests(requests).split('\n')[0])).toEqual({
+      id: 'opaque-a', turns: [{ speaker: 'client', text: 'Ипотека мне не нужна.' }], question: requests[0].question,
+    });
+    expect(encodeRequests([])).toBe('');
+  });
+
+  it.each([
+    { id: '' }, { turns: [] },
+    { turns: [{ speaker: 'system', text: 'x' }] },
+    { turns: [{ speaker: 'client', text: 1 }] },
+    { turns: [{ speaker: 'client', text: 'x', core: 'NO' }] },
+    { question: { text: 'x' } }, { question: '' },
+  ])('rejects malformed request roles/question/payload %j', (override) => {
+    const { requests } = batchFixture();
+    expect(() => encodeRequests([{ ...requests[0], ...override } as unknown as ScoutRequest])).toThrow();
+  });
+
+  it('rejects duplicate request ids, extra comparator fields and unregistered questions', () => {
+    const { requests } = batchFixture();
+    expect(() => encodeRequests([requests[0], requests[0]])).toThrow();
+    expect(() => encodeRequests([{ ...requests[0], gold: 'YES' } as ScoutRequest])).toThrow();
+    expect(() => encodeRequests([{ ...requests[0], question: 'Answer-informed question' }])).toThrow();
+  });
+
+  it('rejects absent slots in the submitted requests array rather than dropping records', () => {
+    const { requests } = batchFixture();
+    expect(() => encodeRequests(new Array<ScoutRequest>(1))).toThrow('SCOUT_REQUEST_SCHEMA');
+    const sparse = new Array<ScoutRequest>(3);
+    sparse[0] = requests[0];
+    sparse[2] = requests[1];
+    expect(() => encodeRequests(sparse)).toThrow('SCOUT_REQUEST_SCHEMA');
+  });
+
+  it('rejects absent turn slots rather than serializing a null dialogue turn', () => {
+    const { requests } = batchFixture();
+    const sparse = new Array<ScoutRequest['turns'][number]>(2);
+    sparse[1] = requests[0].turns[0];
+    expect(() => encodeRequests([{ ...requests[0], turns: sparse }])).toThrow('SCOUT_REQUEST_SCHEMA');
+    expect(() => encodeRequests([{ ...requests[0], turns: new Array(1) }])).toThrow('SCOUT_REQUEST_SCHEMA');
+  });
+
+  it('stops a sparse manifest requestIds array rather than losing case accounting', () => {
+    const fixture = batchFixture([]);
+    const result = importResponses({ ...fixture.manifest, requestIds: new Array<string>(1),
+      selection: { observed: 1, selected: 1, rejected: 0 },
+    }, fixture.responseManifest, fixture.jsonl);
+    expect(result.status).toBe('STOP');
+    expect(result.errors).toEqual(['BATCH_MANIFEST_SCHEMA']);
+  });
+
+  it('rejects inherited array slots at every request protocol boundary', () => {
+    const fixture = batchFixture([]);
+    const inheritedSlot = <T,>(item: T): T[] => Object.setPrototypeOf(new Array<T>(1),
+      Object.assign(Object.create(Array.prototype), { 0: item }));
+    expect(() => encodeRequests(inheritedSlot(fixture.requests[0]))).toThrow('SCOUT_REQUEST_SCHEMA');
+    expect(() => encodeRequests([{ ...fixture.requests[0], turns: inheritedSlot(fixture.requests[0].turns[0]) }])).toThrow('SCOUT_REQUEST_SCHEMA');
+    expect(importResponses({ ...fixture.manifest, requestIds: inheritedSlot('opaque-a'),
+      selection: { observed: 1, selected: 1, rejected: 0 },
+    }, fixture.responseManifest, fixture.jsonl).errors).toEqual(['BATCH_MANIFEST_SCHEMA']);
+  });
+
+  it('retains semantic NO/UNKNOWN and returns responses in submitted order', () => {
+    const { manifest, responseManifest, jsonl } = batchFixture([
+      { id: 'opaque-b', status: 'OK', raw_output: 'UNKNOWN', latency_ms: null },
+      { id: 'opaque-a', status: 'OK', raw_output: ' NO\n', latency_ms: 2, claimed_prediction: 'NO' },
+    ]);
+    expect(importResponses(manifest, responseManifest, jsonl)).toEqual({
+      status: 'COMPLETE', responses: [
+        { id: 'opaque-a', status: 'OK', raw_output: ' NO\n', latency_ms: 2, claimed_prediction: 'NO', prediction: 'NO' },
+        { id: 'opaque-b', status: 'OK', raw_output: 'UNKNOWN', latency_ms: null, prediction: 'UNKNOWN' },
+      ], missingIds: [], errors: [],
+    });
+  });
+
+  it('accounts missing ids explicitly without creating UNKNOWN', () => {
+    const { manifest, responseManifest, jsonl } = batchFixture([{ id: 'opaque-a', status: 'OK', raw_output: 'NO', latency_ms: 0 }]);
+    const result = importResponses(manifest, responseManifest, jsonl);
+    expect(result.status).toBe('PARTIAL');
+    expect(result.missingIds).toEqual(['opaque-b']);
+    expect(result.responses.map((row) => row.prediction)).toEqual(['NO']);
+    expect(result.errors).toContain('MISSING_RESPONSE:opaque-b');
+    const empty = batchFixture([]);
+    expect(importResponses(empty.manifest, empty.responseManifest, empty.jsonl).missingIds).toEqual(['opaque-a', 'opaque-b']);
+  });
+
+  it.each(['TIMEOUT', 'ERROR', 'INPUT_LIMIT'])('retains %s with null prediction and explicit error accounting', (status) => {
+    const { manifest, responseManifest, jsonl } = batchFixture([
+      { id: 'opaque-a', status, raw_output: null, latency_ms: 30_000 },
+      { id: 'opaque-b', status: 'OK', raw_output: 'NO', latency_ms: 1 },
+    ]);
+    const result = importResponses(manifest, responseManifest, jsonl);
+    expect(result.status).toBe('COMPLETE');
+    expect(result.responses[0].prediction).toBeNull();
+    expect(result.responses[0].status).toBe(status);
+    expect(result.errors).toContain(`${status}:opaque-a`);
+    expect(result.missingIds).toEqual([]);
+  });
+
+  it('allows redacted runtime INVALID but never OK with null output', () => {
+    const valid = batchFixture([{ id: 'opaque-a', status: 'INVALID', raw_output: null, latency_ms: 2, claimed_prediction: 'INVALID' }]);
+    expect(importResponses(valid.manifest, valid.responseManifest, valid.jsonl).responses[0].prediction).toBe('INVALID');
+    const invalid = batchFixture([{ id: 'opaque-a', status: 'OK', raw_output: null, latency_ms: 2 }]);
+    expect(importResponses(invalid.manifest, invalid.responseManifest, invalid.jsonl).status).toBe('STOP');
+  });
+
+  it('recomputes raw labels and rejects forged claimed predictions', () => {
+    for (const row of [
+      { id: 'opaque-a', status: 'OK', raw_output: 'NO', latency_ms: 1, claimed_prediction: 'YES' },
+      { id: 'opaque-a', status: 'INVALID', raw_output: 'NO', latency_ms: 1 },
+      { id: 'opaque-a', status: 'TIMEOUT', raw_output: null, latency_ms: null, claimed_prediction: 'UNKNOWN' },
+    ]) {
+      const fixture = batchFixture([row]);
+      expect(importResponses(fixture.manifest, fixture.responseManifest, fixture.jsonl).status).toBe('STOP');
+    }
+    const fixture = batchFixture([{ id: 'opaque-a', status: 'OK', raw_output: 'YES because', latency_ms: 1 }]);
+    expect(importResponses(fixture.manifest, fixture.responseManifest, fixture.jsonl).responses[0].prediction).toBe('INVALID');
+  });
+
+  it.each(['runId', 'inputSha256', 'contractSha256', 'promptHash', 'settingsHash', 'responsesSha256'])('stops wrong response provenance %s', (key) => {
+    const fixture = batchFixture();
+    const changed = { ...fixture.responseManifest, [key]: key === 'runId' ? 'another-run' : 'a'.repeat(64) };
+    const result = importResponses(fixture.manifest, changed, fixture.jsonl);
+    expect(result.status).toBe('STOP');
+    expect(result.responses).toEqual([]);
+    expect(result.errors.some((error) => error.startsWith('MALFORMED_JSONL'))).toBe(false);
+  });
+
+  it('checks provenance before parsing even a rehashed malformed response file', () => {
+    const fixture = batchFixture();
+    const result = importResponses(fixture.manifest, { ...fixture.responseManifest,
+      inputSha256: 'a'.repeat(64), responsesSha256: createHash('sha256').update('not JSON\n').digest('hex'),
+    }, 'not JSON\n');
+    expect(result.errors).toEqual(['PROVENANCE_MISMATCH:inputSha256']);
+  });
+
+  it('stops wrong model/revision/runtime and forged matching local provenance', () => {
+    const fixture = batchFixture();
+    for (const changed of [
+      { ...fixture.responseManifest, model: { ...fixture.responseManifest.model, id: 'replacement' } },
+      { ...fixture.responseManifest, model: { ...fixture.responseManifest.model, revision: 'a'.repeat(40) } },
+      { ...fixture.responseManifest, runtimeIdentity: { ...fixture.responseManifest.runtimeIdentity, runner: 'replacement' } },
+      { ...fixture.responseManifest, runtimeIdentity: { ...fixture.responseManifest.runtimeIdentity, runtimeReferenceHash: 'a'.repeat(64) } },
+    ]) expect(importResponses(fixture.manifest, changed, fixture.jsonl).status).toBe('STOP');
+    for (const key of ['contractSha256', 'promptHash', 'settingsHash'] as const) {
+      expect(importResponses({ ...fixture.manifest, [key]: 'a'.repeat(64) }, { ...fixture.responseManifest, [key]: 'a'.repeat(64) }, fixture.jsonl).status).toBe('STOP');
+    }
+  });
+
+  it.each(['policyHash', 'projectionHash', 'questionRegistryHash', 'fingerprintHash'])('stops forged %s frozen metadata', (key) => {
+    const fixture = batchFixture();
+    expect(importResponses({ ...fixture.manifest, [key]: 'a'.repeat(64) }, fixture.responseManifest, fixture.jsonl).status).toBe('STOP');
+  });
+
+  it('stops response byte edits even when JSON meaning is unchanged', () => {
+    const fixture = batchFixture();
+    expect(importResponses(fixture.manifest, fixture.responseManifest, fixture.jsonl.replace('"id":', '"id": ')).status).toBe('STOP');
+  });
+
+  it.each([
+    ['duplicate', [{ id: 'opaque-a', status: 'OK', raw_output: 'NO', latency_ms: 0 }, { id: 'opaque-a', status: 'OK', raw_output: 'NO', latency_ms: 0 }]],
+    ['unexpected', [{ id: 'external-id', status: 'OK', raw_output: 'NO', latency_ms: 0 }]],
+    ['malformed timing', [{ id: 'opaque-a', status: 'OK', raw_output: 'NO', latency_ms: '1' }]],
+    ['overflow timing', [{ id: 'opaque-a', status: 'OK', raw_output: 'NO', latency_ms: 1e309 }]],
+    ['negative timing', [{ id: 'opaque-a', status: 'OK', raw_output: 'NO', latency_ms: -1 }]],
+    ['wrong output type', [{ id: 'opaque-a', status: 'OK', raw_output: 1, latency_ms: 0 }]],
+    ['external Core authority', [{ id: 'opaque-a', status: 'OK', raw_output: 'NO', latency_ms: 0, core: 'YES' }]],
+    ['external gold authority', [{ id: 'opaque-a', status: 'OK', raw_output: 'NO', latency_ms: 0, gold: 'YES' }]],
+  ])('stops %s rows', (_name, rows) => {
+    const fixture = batchFixture(rows as unknown[]);
+    // JSON.stringify converts non-finite numbers to null; use a legal JSON numeric overflow lexeme.
+    const jsonl = _name === 'overflow timing' ? fixture.jsonl.replace('"latency_ms":null', '"latency_ms":1e309') : fixture.jsonl;
+    const responseManifest = { ...fixture.responseManifest, responsesSha256: createHash('sha256').update(jsonl).digest('hex') };
+    const result = importResponses(fixture.manifest, responseManifest, jsonl);
+    expect(result.status).toBe('STOP');
+    expect(result.errors.length).toBeGreaterThan(0);
+  });
+
+  it.each(['{}', '{}\n\n', '\n', '\ufeff{}\n', '{}\r\n', 'not JSON\n', '[]\n', 'null\n'])('stops malformed LF JSONL %j with matching byte hash', (jsonl) => {
+    const fixture = batchFixture();
+    const responseManifest = { ...fixture.responseManifest, responsesSha256: createHash('sha256').update(jsonl).digest('hex') };
+    expect(importResponses(fixture.manifest, responseManifest, jsonl).status).toBe('STOP');
+  });
+
+  it('rejects unknown manifest keys, duplicate submitted ids and impossible selection totals', () => {
+    const fixture = batchFixture();
+    for (const manifest of [
+      { ...fixture.manifest, gold: 'YES' }, { ...fixture.manifest, requestIds: ['opaque-a', 'opaque-a'] },
+      { ...fixture.manifest, selection: { observed: 1, selected: 2, rejected: 0 } },
+    ]) expect(importResponses(manifest, fixture.responseManifest, fixture.jsonl).status).toBe('STOP');
+    expect(importResponses(fixture.manifest, { ...fixture.responseManifest, gold: 'YES' } as ResponseManifest, fixture.jsonl).status).toBe('STOP');
+  });
 });
 
 describe('observer-expanded', () => {
