@@ -6,6 +6,7 @@ import { createInitialState } from '../conversationStore';
 import { advanceLocalConversation, buildLocalAnalysisResponse } from '../localAnalysisEngine';
 import { isSuggestionAllowedByState, shouldReplaceSuggestion } from '../suggestionLifecycle';
 import { aggregateFinalTurn, isDuplicateFinalTurn } from '../sttDedup';
+import { emitRegressionObservation, type RegressionObservationOptions } from './regressionObservation';
 import {
   MASS_REGRESSION_GOLDEN_CASES,
   MASS_REGRESSION_SEED,
@@ -159,7 +160,7 @@ function checkHint(failures: BaselineFailure[], testCase: CaseMeta, variation: n
   if (INTERNAL_SPEECH.test(hint)) addFailure(failures, { ...testCase, invariant: 'INV_NO_INTERNAL_SPEECH' }, variation, input, 'agent-speakable text without internal terms', hint, 'recommendation presentation', ['src/services/localAnalysisEngine.ts']);
 }
 
-function runCase(testCase: GoldenCase, variation: number, failures: BaselineFailure[]): number {
+function runCase(testCase: GoldenCase, variation: number, failures: BaselineFailure[], options: RegressionObservationOptions = {}): number {
   const input = surfaceVariation(testCase.text, variation, testCase.id);
   const before = failures.length;
   let assertions = 0;
@@ -180,6 +181,7 @@ function runCase(testCase: GoldenCase, variation: number, failures: BaselineFail
 
   if (testCase.kind === 'fact') {
     const result = pipeline(`mass-${testCase.id}-${variation}`, input, testCase.previousAgentText, testCase.previousClientText);
+    if (options.observation) emitRegressionObservation({ harness: 'original', caseId: testCase.id, variation, instance: 'primary', turnCutoff: result.turns.length }, result, options);
     const value = fieldValue(result.state, testCase.field);
     if (testCase.expectedValue) {
       assertions += 1;
@@ -209,6 +211,7 @@ function runCase(testCase: GoldenCase, variation: number, failures: BaselineFail
 
   if (testCase.kind === 'analysis') {
     const result = pipeline(`mass-${testCase.id}-${variation}`, input, testCase.previousAgentText);
+    if (options.observation) emitRegressionObservation({ harness: 'original', caseId: testCase.id, variation, instance: 'primary', turnCutoff: result.turns.length }, result, options);
     const hint = result.analysis.suggestedReply || '';
     assertions += 1;
     if (testCase.forbiddenHint.test(hint)) addFailure(failures, testCase, variation, input, `hint does not match ${testCase.forbiddenHint}`, hint, 'next-action/recommendation selection', ['src/services/localAnalysisEngine.ts', 'src/services/dialoguePolicyEngine.ts']);
@@ -224,6 +227,10 @@ function runCase(testCase: GoldenCase, variation: number, failures: BaselineFail
     const first = pipeline(`mass-a-${testCase.id}-${variation}`, input);
     const otherInput = surfaceVariation(testCase.otherText, variation, `${testCase.id}.other`);
     const second = pipeline(`mass-b-${testCase.id}-${variation}`, otherInput);
+    if (options.observation) {
+      emitRegressionObservation({ harness: 'original', caseId: testCase.id, variation, instance: 'isolation-a', turnCutoff: first.turns.length }, first, options);
+      emitRegressionObservation({ harness: 'original', caseId: testCase.id, variation, instance: 'isolation-b', turnCutoff: second.turns.length }, second, options);
+    }
     const firstValue = fieldValue(first.state, testCase.field);
     const secondValue = fieldValue(second.state, testCase.field);
     assertions += 3;
@@ -309,13 +316,13 @@ function clusterFailures(failures: BaselineFailure[]): FailureCluster[] {
   return [...clusters.values()].sort((a, b) => a.priority.localeCompare(b.priority) || b.count - a.count || a.key.localeCompare(b.key));
 }
 
-export function runMassRegressionBaseline(): MassRegressionReport {
+export function runMassRegressionBaseline(options: RegressionObservationOptions = {}): MassRegressionReport {
   const failures: BaselineFailure[] = [];
   let assertions = 0;
   for (const testCase of MASS_REGRESSION_GOLDEN_CASES) {
     for (let variation = 0; variation < VARIATIONS_PER_CASE; variation += 1) {
       const before = failures.length;
-      const passedAssertions = runCase(testCase, variation, failures);
+      const passedAssertions = runCase(testCase, variation, failures, options);
       assertions += passedAssertions + (failures.length - before);
     }
   }
