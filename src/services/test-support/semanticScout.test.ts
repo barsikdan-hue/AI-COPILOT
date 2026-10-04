@@ -1,11 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync, existsSync, readdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import {
   effectivePolicy, loadContract, projectCore, selectObservations, normalizeOutput, encodeRequests, importResponses,
   comparePairs, fingerprintDisagreement, deduplicateDisagreements,
-  type CaseBinding, type ScoutContract, type ScoutRequest, type BatchManifest, type ResponseManifest, type ComparisonPair,
+  prepareBatch, reportBatch, main,
+  type CaseBinding, type ScoutContract, type ScoutRequest, type ScoutResponse, type BatchManifest, type ResponseManifest, type RuntimeStatus, type ComparisonPair,
 } from '../../../.agents/skills/ai-copilot-semantic-scout/scripts/scout';
 import { EXPANDED_REGRESSION_SCENARIOS } from '../test-fixtures/expandedRegressionScenarios';
 import { MASS_REGRESSION_GOLDEN_CASES } from '../test-fixtures/massRegressionGoldenCases';
@@ -756,4 +759,255 @@ describe('observer-expanded', () => {
       { caseId: 'session_isolation.payment.cash-mortgage', code: 'OBSERVATION_ERROR' },
     ]);
   }, 600_000);
+});
+
+describe('workflow-skip-report', () => {
+  const head = () => execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+  function observations(): RegressionObservation[] {
+    const contract = loadContract(scoutContractPath);
+    const expanded = EXPANDED_REGRESSION_SCENARIOS.find((item) => item.id === contract.bindings[1].identity.caseId)!;
+    return [observation(), observation({ identity: contract.bindings[1].identity,
+      turns: expanded.turns.map((turn, index) => ({ ...turn, id: `e${index + 1}` })) })];
+  }
+  function prepared(values = observations()) {
+    return prepareBatch({ runId: 'private-test-run', sourceHead: head(), observations: values, contract: loadContract(scoutContractPath) });
+  }
+  function bundle(manifest: BatchManifest, rows: ScoutResponse[] = manifest.requestIds.map((id) => ({ id, status: 'OK', raw_output: 'YES', latency_ms: 1 }))) {
+    const jsonl = rows.map((row) => JSON.stringify(row) + '\n').join('');
+    const contract = loadContract(scoutContractPath);
+    const responseManifest: ResponseManifest = {
+      schemaVersion: 1, runId: manifest.runId, inputSha256: manifest.inputSha256, contractSha256: manifest.contractSha256,
+      model: manifest.model, promptHash: manifest.promptHash, settingsHash: manifest.settingsHash,
+      responsesSha256: createHash('sha256').update(jsonl).digest('hex'),
+      runtimeIdentity: { runner: manifest.runnerIdentity, runtimeReferenceHash: contract.runtimeReferenceHash, versions: { unit: 'stub' } },
+    };
+    return { jsonl, responseManifest };
+  }
+  function runtimeSkip(manifest: BatchManifest): RuntimeStatus {
+    const contract = loadContract(scoutContractPath);
+    return { schemaVersion: 1, status: 'SKIP', reason: 'CUDA_UNAVAILABLE', runId: manifest.runId,
+      inputSha256: manifest.inputSha256, contractSha256: manifest.contractSha256, model: manifest.model,
+      promptHash: manifest.promptHash, settingsHash: manifest.settingsHash,
+      runtimeIdentity: { runner: manifest.runnerIdentity, runtimeReferenceHash: contract.runtimeReferenceHash } };
+  }
+  async function withExport(test: (dir: string, run: string) => Promise<void>) {
+    const dir = mkdtempSync(resolve(tmpdir(), 'scout-workflow-'));
+    const run = resolve(dir, 'new-private-run');
+    const original = vi.spyOn(await import('./massRegressionHarness'), 'runMassRegressionBaseline').mockImplementation((options) => {
+      const good = observations()[0];
+      expect(options?.observation?.select(good.identity)).toBe(true);
+      expect(options?.observation?.select({ ...good.identity, variation: 1 })).toBe(false);
+      expect(options?.observation?.select({ ...good.identity, instance: 'isolation-a' })).toBe(false);
+      options?.observation?.onObservation(good);
+      options?.observation?.onError?.(good.identity, 'UNIT_OBSERVER_ERROR');
+      return { unit: 'original-deterministic-report' } as unknown as ReturnType<typeof runMassRegressionBaseline>;
+    });
+    const expanded = vi.spyOn(await import('./expandedRegressionHarness'), 'runExpandedRegression').mockImplementation((options) => {
+      options?.observation?.onObservation(observations()[1]);
+      return { unit: 'expanded-deterministic-report' } as unknown as ReturnType<typeof runExpandedRegression>;
+    });
+    try {
+      expect(await main(['export', '--contract', scoutContractPath, '--out', run])).toBe(0);
+      expect(original).toHaveBeenCalledTimes(1); expect(expanded).toHaveBeenCalledTimes(1);
+      await test(dir, run);
+    } finally { original.mockRestore(); expanded.mockRestore(); rmSync(dir, { recursive: true, force: true }); }
+  }
+  async function responsesAt(dir: string, run: string, bytes?: Buffer) {
+    const manifest = JSON.parse(readFileSync(resolve(run, 'manifest.json'), 'utf8')) as BatchManifest;
+    const response = bundle(manifest);
+    const responses = resolve(dir, 'responses.jsonl'); const responseManifest = resolve(dir, 'response-manifest.json');
+    writeFileSync(responses, bytes ?? response.jsonl);
+    if (bytes) response.responseManifest.responsesSha256 = createHash('sha256').update(bytes).digest('hex');
+    writeFileSync(responseManifest, JSON.stringify(response.responseManifest));
+    return ['import', '--run', run, '--responses', responses, '--response-manifest', responseManifest];
+  }
+  it('selects before serialization and freezes only minimal requests and comparable private local observations', () => {
+    const missing = observation({ core: { rejectedBranches: [] } });
+    const privateUnreviewed = observation({ identity: { ...observation().identity, caseId: 'private-unit' },
+      turns: [{ id: 'p1', speaker: 'client', text: 'PRIVATE-SECRET' }] });
+    const ready = prepared([...observations(), missing, privateUnreviewed]);
+    expect(ready.manifest.selection).toEqual({ observed: 4, selected: 2, rejected: 2 });
+    expect(ready.requestsJsonl).not.toMatch(/PRIVATE-SECRET|core|gold|domain|sourceReferences|rejectedBranches/u);
+    expect(ready.requestsJsonl.trim().split('\n').map((line) => Object.keys(JSON.parse(line)))).toEqual([['id', 'turns', 'question'], ['id', 'turns', 'question']]);
+    expect(ready.localObservations).toHaveLength(2);
+    expect(Object.isFrozen(ready.localObservations[0].core.rejectedBranches)).toBe(true);
+    expect(reportBatch({ manifest: ready.manifest, observations: [...observations(), missing, privateUnreviewed],
+      contract: loadContract(scoutContractPath), imported: null })).toMatchObject({ status: 'SKIP', counts: { observed: 4, selected: 2, rejected: 2, notComparable: 2 } });
+    expect(prepared([missing]).selection.status).toBe('SKIP');
+    const contract = loadContract(scoutContractPath);
+    for (const bindingChange of [{ privacyApproved: false }, { questionId: 'dp_current_available_some' }]) {
+      const changed = { ...contract, bindings: [{ ...contract.bindings[0], ...bindingChange }] };
+      expect(prepareBatch({ runId: 'r', sourceHead: head(), observations: [observation()], contract: changed }).selection.status).toBe('STOP');
+    }
+  });
+  it('uses deterministic opaque wire ids with exact private occurrence-to-source mapping', () => {
+    const ready = prepared();
+    const rows = ready.requestsJsonl.trim().split('\n').map((line) => JSON.parse(line));
+    const values = observations();
+    expect(rows.map(({ id }) => id)).toEqual(values.map(({ identity }) => protocolHash(identity)));
+    expect(rows.every(({ id }) => /^[a-f0-9]{64}$/u.test(id))).toBe(true);
+    expect(ready.manifest.requestIds).toEqual(prepared().manifest.requestIds);
+    for (const { id } of rows) expect(id).not.toMatch(/fact|payment|mortgage|negation|original|expanded|primary|no-|YES|NO|UNKNOWN/u);
+    const response = bundle(ready.manifest);
+    const report = reportBatch({ manifest: ready.manifest, observations: ready.localObservations, contract: loadContract(scoutContractPath),
+      imported: importResponses(ready.manifest, response.responseManifest, response.jsonl) });
+    expect(report.occurrences.map((item) => item.observation_id)).toEqual(ready.manifest.requestIds);
+    expect(report.occurrences.map((item) => item.local_observation_id)).toEqual(values.map(({ identity }) =>
+      `${identity.harness}:${identity.caseId}:${identity.variation}:${identity.instance}:${identity.turnCutoff}`));
+    expect(report.candidates[0].occurrence_ids).toEqual([...ready.manifest.requestIds].sort());
+    expect(report.candidates[0].source_references.map((item) => item.observation_id)).toEqual(expect.arrayContaining(ready.manifest.requestIds));
+  });
+  it('counts two raw mismatches as one advisory group with every occurrence and zero proven outcomes', () => {
+    const ready = prepared(); const response = bundle(ready.manifest);
+    const imported = importResponses(ready.manifest, response.responseManifest, response.jsonl);
+    const report = reportBatch({ manifest: ready.manifest, observations: ready.localObservations, contract: loadContract(scoutContractPath), imported });
+    expect(report.status).toBe('COMPLETE');
+    expect(report.counts).toMatchObject({ submitted: 2, valid: 2, comparisons: 2, eligibleDisagreements: 2, candidates: 1, suppressedRepeats: 1,
+      provenCoreBugs: 0, provenScoutFalseAlarms: 0, unresolved: 1, selectedSourceGroups: 2, disagreementSourceGroups: 2 });
+    expect(report.candidates[0].source_references).toHaveLength(8);
+    expect(report.occurrences).toHaveLength(2);
+    expect(report).not.toHaveProperty('accuracy');
+    expect(reportBatch({ manifest: ready.manifest, observations: ready.localObservations, contract: loadContract(scoutContractPath), imported: null }).status).toBe('SKIP');
+  });
+  it('retains partial/invalid/timeout denominators and blocks every STOP comparison', () => {
+    const ready = prepared(); const response = bundle(ready.manifest, [{ id: ready.manifest.requestIds[0], status: 'TIMEOUT', raw_output: null, latency_ms: 30 }]);
+    const imported = importResponses(ready.manifest, response.responseManifest, response.jsonl);
+    const input = { manifest: ready.manifest, observations: ready.localObservations, contract: loadContract(scoutContractPath), imported };
+    expect(reportBatch(input)).toMatchObject({ status: 'PARTIAL', counts: { returned: 1, missing: 1, timedOut: 1, valid: 0, candidates: 0 } });
+    expect(reportBatch({ ...input, imported: { ...imported, status: 'STOP' } })).toMatchObject({ status: 'STOP', counts: { comparisons: 0, candidates: 0 } });
+    expect(reportBatch({ ...input, contract: { ...input.contract, policyVersion: 'drift' } })).toMatchObject({ status: 'STOP', counts: { comparisons: 0 } });
+    const invalid = bundle(ready.manifest, [{ id: ready.manifest.requestIds[0], status: 'OK', raw_output: 'maybe', latency_ms: 1 }]);
+    expect(reportBatch({ ...input, imported: importResponses(ready.manifest, invalid.responseManifest, invalid.jsonl) }).counts.invalid).toBe(1);
+  });
+  it.each(['policyHash', 'projectionHash', 'promptHash', 'sourceHead'])('report STOP on local manifest %s drift even without runtime', (key) => {
+    const ready = prepared();
+    expect(reportBatch({ manifest: { ...ready.manifest, [key]: 'a'.repeat(key === 'sourceHead' ? 40 : 64) },
+      observations: ready.localObservations, contract: loadContract(scoutContractPath), imported: null })).toMatchObject({ status: 'STOP', counts: { comparisons: 0, candidates: 0 } });
+  });
+  it('exports through existing hooks, byte-copies authority, preserves reports/errors, then imports without execution', async () => {
+    await withExport(async (dir, run) => {
+      expect(readFileSync(resolve(run, 'contract.json'))).toEqual(readFileSync(scoutContractPath));
+      expect(JSON.parse(readFileSync(resolve(run, 'harness-reports.json'), 'utf8'))).toEqual({ original: { unit: 'original-deterministic-report' }, expanded: { unit: 'expanded-deterministic-report' } });
+      expect(readFileSync(resolve(run, 'observer-errors.json'), 'utf8')).toContain('UNIT_OBSERVER_ERROR');
+      const original = vi.spyOn(await import('./massRegressionHarness'), 'runMassRegressionBaseline');
+      const expanded = vi.spyOn(await import('./expandedRegressionHarness'), 'runExpandedRegression');
+      original.mockClear(); expanded.mockClear();
+      expect(await main(await responsesAt(dir, run))).toBe(0);
+      expect(original).not.toHaveBeenCalled(); expect(expanded).not.toHaveBeenCalled();
+      expect(JSON.parse(readFileSync(resolve(run, 'results/report.json'), 'utf8')).counts.candidates).toBe(1);
+      expect(existsSync(resolve(run, 'results/occurrences.json'))).toBe(true);
+      expect(existsSync(resolve(run, 'results/candidates.json'))).toBe(true);
+      const saved = readFileSync(resolve(run, 'manifest.json'));
+      expect(await main(['export', '--contract', scoutContractPath, '--out', run])).toBe(2);
+      expect(await main(await responsesAt(dir, run))).toBe(2);
+      expect(readFileSync(resolve(run, 'manifest.json'))).toEqual(saved);
+    });
+  });
+  it('missing runtime bundle is SKIP and leaves deterministic reports byte-identical', async () => {
+    await withExport(async (dir, run) => {
+      const saved = readFileSync(resolve(run, 'harness-reports.json'));
+      expect(await main(['import', '--run', run, '--responses', resolve(dir, 'absent'), '--response-manifest', resolve(dir, 'absent-manifest')])).toBe(0);
+      expect(JSON.parse(readFileSync(resolve(run, 'results/report.json'), 'utf8')).status).toBe('SKIP');
+      expect(readFileSync(resolve(run, 'harness-reports.json'))).toEqual(saved);
+    });
+  });
+  it.each(['direct', 'sibling'])('validates explicit %s runtime SKIP marker and preserves reason/provenance without rows', async (mode) => {
+    await withExport(async (dir, run) => {
+      const manifest = JSON.parse(readFileSync(resolve(run, 'manifest.json'), 'utf8'));
+      const marker = runtimeSkip(manifest);
+      const markerPath = resolve(dir, 'runtime-status.json');
+      writeFileSync(markerPath, JSON.stringify(marker));
+      const deterministic = readFileSync(resolve(run, 'harness-reports.json'));
+      expect(await main(['import', '--run', run, '--responses', resolve(dir, 'absent-responses.jsonl'),
+        '--response-manifest', mode === 'direct' ? markerPath : resolve(dir, 'absent-response-manifest.json')])).toBe(0);
+      const report = JSON.parse(readFileSync(resolve(run, 'results/report.json'), 'utf8'));
+      expect(report).toMatchObject({ status: 'SKIP', runtimeStatus: marker, reasons: expect.arrayContaining(['CUDA_UNAVAILABLE']),
+        counts: { returned: 0, valid: 0, comparisons: 0, candidates: 0 } });
+      expect(JSON.parse(readFileSync(resolve(run, 'results/occurrences.json'), 'utf8'))).toEqual([]);
+      expect(JSON.parse(readFileSync(resolve(run, 'results/candidates.json'), 'utf8'))).toEqual([]);
+      expect(readFileSync(resolve(run, 'harness-reports.json'))).toEqual(deterministic);
+    });
+  });
+  it.each(['runId', 'inputSha256', 'contractSha256', 'promptHash', 'settingsHash', 'model', 'runtimeReferenceHash', 'runner', 'status', 'extra'])('STOP on tampered runtime SKIP %s provenance', async (key) => {
+    await withExport(async (dir, run) => {
+      const manifest = JSON.parse(readFileSync(resolve(run, 'manifest.json'), 'utf8'));
+      const marker = runtimeSkip(manifest) as unknown as Record<string, unknown>;
+      if (key === 'model') marker.model = { ...manifest.model, revision: 'a'.repeat(40) };
+      else if (key === 'runtimeReferenceHash' || key === 'runner') marker.runtimeIdentity = {
+        ...(marker.runtimeIdentity as Record<string, unknown>), [key]: key === 'runner' ? 'different-runner' : 'a'.repeat(64) };
+      else marker[key] = key === 'runId' ? 'foreign-run' : key === 'status' ? 'COMPLETE' : 'a'.repeat(64);
+      const markerPath = resolve(dir, 'runtime-status.json'); writeFileSync(markerPath, JSON.stringify(marker));
+      expect(await main(['import', '--run', run, '--responses', resolve(dir, 'absent'), '--response-manifest', markerPath])).toBe(2);
+      expect(existsSync(resolve(run, 'results/candidates.json'))).toBe(false);
+    });
+  });
+  it('STOP on ambiguous runtime SKIP plus responses rather than silently ignoring either', async () => {
+    await withExport(async (dir, run) => {
+      const argv = await responsesAt(dir, run);
+      const manifest = JSON.parse(readFileSync(resolve(run, 'manifest.json'), 'utf8'));
+      writeFileSync(resolve(dir, 'runtime-status.json'), JSON.stringify(runtimeSkip(manifest)));
+      expect(await main(argv)).toBe(2);
+      expect(existsSync(resolve(run, 'results/candidates.json'))).toBe(false);
+    });
+  });
+  it.each(['requests.jsonl', 'local-observations.json', 'manifest.json', 'contract.json', 'harness-reports.json'])('STOP on changed saved %s before comparison', async (artifact) => {
+    await withExport(async (dir, run) => {
+      const argv = await responsesAt(dir, run);
+      writeFileSync(resolve(run, artifact), readFileSync(resolve(run, artifact)).toString('utf8') + ' ');
+      expect(await main(argv)).toBe(2);
+      expect(existsSync(resolve(run, 'results/candidates.json'))).toBe(false);
+    });
+  });
+  it('STOP on validly rehashed local turn/cutoff drift and malformed UTF-8 response bytes', async () => {
+    await withExport(async (dir, run) => {
+      const argv = await responsesAt(dir, run);
+      const observationsPath = resolve(run, 'local-observations.json');
+      const values = JSON.parse(readFileSync(observationsPath, 'utf8'));
+      values[0].turns[0].speaker = 'agent'; values[0].identity.turnCutoff = 2;
+      writeFileSync(observationsPath, JSON.stringify(values));
+      const freezePath = resolve(run, 'freeze.json'); const frozen = JSON.parse(readFileSync(freezePath, 'utf8'));
+      frozen.artifactHashes['local-observations.json'] = createHash('sha256').update(readFileSync(observationsPath)).digest('hex');
+      writeFileSync(freezePath, JSON.stringify(frozen));
+      expect(await main(argv)).toBe(2);
+      expect(existsSync(resolve(run, 'results/candidates.json'))).toBe(false);
+    });
+    await withExport(async (dir, run) => {
+      expect(await main(await responsesAt(dir, run, Buffer.from([0xc3, 0x28, 0x0a])))).toBe(2);
+      expect(existsSync(resolve(run, 'results/candidates.json'))).toBe(false);
+    });
+  });
+  it.each(['head', 'requests', 'source-bytes'])('independently rejects rehashed %s evidence without comparison', async (change) => {
+    await withExport(async (dir, run) => {
+      const argv = await responsesAt(dir, run);
+      const manifestPath = resolve(run, 'manifest.json');
+      const freezePath = resolve(run, 'freeze.json');
+      const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+      const frozen = JSON.parse(readFileSync(freezePath, 'utf8'));
+      const source = resolve('.agents/skills/ai-copilot-semantic-scout/scripts/scout.ts');
+      const originalBytes = readFileSync(source);
+      try {
+        if (change === 'head') manifest.sourceHead = 'a'.repeat(40);
+        if (change === 'requests') {
+          const requestPath = resolve(run, 'requests.jsonl');
+          const rows = readFileSync(requestPath, 'utf8').trim().split('\n').map((line) => JSON.parse(line));
+          rows.reverse();
+          writeFileSync(requestPath, rows.map((row) => JSON.stringify(row) + '\n').join(''));
+          manifest.inputSha256 = createHash('sha256').update(readFileSync(requestPath)).digest('hex');
+          frozen.artifactHashes['requests.jsonl'] = manifest.inputSha256;
+        }
+        if (change === 'source-bytes') writeFileSync(source, Buffer.concat([originalBytes, Buffer.from('\n// unit source-byte drift\n')]));
+        writeFileSync(manifestPath, JSON.stringify(manifest));
+        frozen.artifactHashes['manifest.json'] = createHash('sha256').update(readFileSync(manifestPath)).digest('hex');
+        writeFileSync(freezePath, JSON.stringify(frozen));
+        expect(await main(argv)).toBe(2);
+        expect(existsSync(resolve(run, 'results/candidates.json'))).toBe(false);
+      } finally { if (change === 'source-bytes') writeFileSync(source, originalBytes); }
+    });
+  });
+  it('rejects unsupported modes and incomplete arguments without creating artifacts or executing hooks', async () => {
+    expect(await main([])).toBe(2); expect(await main(['auto'])).toBe(2);
+    expect(await main(['export', '--contract', scoutContractPath])).toBe(2);
+    expect(await main(['import', '--run', tmpdir()])).toBe(2);
+    expect(readdirSync(tmpdir()).some((name) => name === 'scout-unexpected-runtime')).toBe(false);
+  });
 });

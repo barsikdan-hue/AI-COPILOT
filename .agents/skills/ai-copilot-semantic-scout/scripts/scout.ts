@@ -1,6 +1,7 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { resolve } from 'node:path';
+import { resolve, relative, isAbsolute, basename, dirname } from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import type { RegressionIdentity, RegressionObservation } from '../../../../src/services/test-support/regressionObservation';
 
@@ -90,6 +91,19 @@ export interface ResponseManifest {
   settingsHash: string;
   responsesSha256: string;
   runtimeIdentity: { runner: string; runtimeReferenceHash: string; versions: Record<string, string> };
+}
+// An unavailable runtime has no response rows or observed library versions.
+export interface RuntimeStatus {
+  schemaVersion: 1;
+  status: 'SKIP';
+  reason: string;
+  runId: string;
+  inputSha256: string;
+  contractSha256: string;
+  model: { id: string; revision: string };
+  promptHash: string;
+  settingsHash: string;
+  runtimeIdentity: { runner: string; runtimeReferenceHash: string };
 }
 export interface BatchImport {
   status: 'COMPLETE' | 'PARTIAL' | 'STOP';
@@ -202,6 +216,10 @@ export function projectCore(observation: RegressionObservation, binding: CaseBin
 
 function observationId(identity: RegressionIdentity): string {
   return `${identity.harness}:${identity.caseId}:${identity.variation}:${identity.instance}:${identity.turnCutoff}`;
+}
+function wireId(identity: RegressionIdentity): string {
+  // Readable fixture annotations stay in private identities/occurrences, never in exported ids.
+  return sha256(canonical(identity));
 }
 
 export function selectObservations(observations: readonly RegressionObservation[], contract: ScoutContract): {
@@ -534,4 +552,304 @@ export function importResponses(manifest: BatchManifest, responseManifest: Respo
   errors.push(...missingIds.map((id) => `MISSING_RESPONSE:${id}`));
   return { status: malformed ? 'STOP' : missingIds.length ? 'PARTIAL' : 'COMPLETE',
     responses: manifest.requestIds.flatMap((id) => accepted.has(id) ? [accepted.get(id)!] : []), missingIds, errors };
+}
+
+export interface ScoutReport {
+  status: 'COMPLETE' | 'PARTIAL' | 'SKIP' | 'STOP';
+  reasons: string[];
+  provenance: { runId: string; sourceHead: string; contractSha256: string; inputSha256: string };
+  counts: Record<string, number>;
+  labels: { core: Record<Label, number>; scout: Record<Label, number> };
+  domains: Record<string, { selected: number; comparisons: number; agreements: number; disagreements: number }>;
+  candidates: Candidate[];
+  occurrences: Array<{ observation_id: string; local_observation_id: string; source_group_id: string; fingerprint: string; source_references: string[] }>;
+  runtimeStatus?: RuntimeStatus;
+}
+export function prepareBatch(input: { runId: string; sourceHead: string; observations: readonly RegressionObservation[]; contract: ScoutContract }): {
+  manifest: BatchManifest; requestsJsonl: string; localObservations: RegressionObservation[]; selection: ScoutReport;
+} {
+  if (!nonempty(input.runId) || !/^[a-f0-9]{40}$/u.test(input.sourceHead)) throw new Error('SCOUT_RUN_IDENTITY');
+  const { contract } = input;
+  const selected = selectObservations(input.observations, contract);
+  const ids = selected.eligible.map(({ observation }) => wireId(observation.identity));
+  if (new Set(ids).size !== ids.length) throw new Error('SCOUT_DUPLICATE_OBSERVATION');
+  // Privacy/policy/comparability gates precede copying or encoding any case.
+  const localObservations = selected.eligible.map(({ observation }) => freeze(structuredClone(observation)));
+  const requestsJsonl = encodeRequests(selected.eligible.map(({ observation, binding }) => requestFor(observation, binding, contract)));
+  const manifest: BatchManifest = freeze({
+    schemaVersion: 1, runId: input.runId, sourceHead: input.sourceHead, sourceHashes: captureSourceHashes(contract),
+    inputSha256: sha256(requestsJsonl), requestIds: ids, contractSha256: CONTRACT_SHA256, model: { ...contract.model },
+    promptHash: contract.promptHash, settingsHash: contract.settingsHash, policyVersion: contract.policyVersion,
+    policyHash: sha256(canonical({ policy: contract.policy, questionPolicy: contract.questionPolicy, slicePolicy: contract.slicePolicy })),
+    projectionHash: sha256(canonical(contract.projections)), questionRegistryHash: sha256(canonical(contract.questionRegistry)),
+    fingerprintVersion: contract.fingerprintVersion, fingerprintHash: sha256(canonical({ version: contract.fingerprintVersion })),
+    runnerIdentity: 'transformers-batch-v1', selection: { observed: input.observations.length, selected: ids.length, rejected: selected.rejected.length },
+  });
+  const selection = reportBatch({ manifest, observations: localObservations, contract, imported: null });
+  selection.reasons.push(...selected.rejected.map(({ id, reason }) => `${reason}:${id}`));
+  selection.counts.disabled = selected.rejected.filter(({ reason }) => reason === 'POLICY_DISABLED').length;
+  selection.counts.notComparable = selected.rejected.filter(({ reason }) => reason !== 'POLICY_DISABLED').length;
+  if (!hasAuthority(contract)) { selection.status = 'STOP'; selection.reasons = ['CONTRACT_DRIFT']; }
+  return { manifest, requestsJsonl, localObservations: freeze(localObservations), selection };
+}
+
+function requestFor(observation: RegressionObservation, binding: CaseBinding, contract: ScoutContract): ScoutRequest {
+  return { id: wireId(observation.identity), question: contract.questionRegistry[binding.questionId],
+    turns: observation.turns.map(({ speaker, text }) => {
+      if (speaker !== 'agent' && speaker !== 'client') throw new Error('SCOUT_REQUEST_ROLE');
+      return { speaker, text };
+    }) };
+}
+
+function captureSourceHashes(contract: ScoutContract): Record<string, string> {
+  const paths = new Set([
+    ...Object.keys(contract.sourceArtifactHashes), ...contract.bindings.flatMap((binding) => Object.keys(binding.sourceHashes)),
+    'src/services/test-support/massRegressionHarness.ts', 'src/services/test-support/expandedRegressionHarness.ts',
+    'src/services/test-support/regressionObservation.ts', '.agents/skills/ai-copilot-semantic-scout/scripts/scout.ts',
+  ]);
+  // Preserve exact current source bytes, including uncommitted DEV code. Historical research docs HEAD is not runtime authority.
+  const tracked = execFileSync('git', ['ls-files', '-z', '--', 'src', 'package.json', 'package-lock.json', 'tsconfig.json'], { cwd: sourceRoot, encoding: 'utf8' });
+  for (const path of tracked.split('\0').filter(Boolean)) paths.add(path);
+  return Object.fromEntries([...paths].sort().map((path) => [path, sha256(readFileSync(sourcePath(path)))]));
+}
+function sourcePath(path: string): string {
+  const absolute = resolve(sourceRoot, path);
+  const within = relative(sourceRoot, absolute);
+  if (isAbsolute(path) || within.startsWith('..') || isAbsolute(within)) throw new Error('SCOUT_SOURCE_PATH');
+  return absolute;
+}
+
+function emptyReport(manifest: BatchManifest): ScoutReport {
+  return {
+    status: 'SKIP', reasons: [], provenance: { runId: manifest.runId, sourceHead: manifest.sourceHead,
+      contractSha256: manifest.contractSha256, inputSha256: manifest.inputSha256 },
+    counts: Object.fromEntries(['observed', 'selected', 'rejected', 'disabled', 'notComparable', 'submitted', 'returned', 'missing', 'valid', 'invalid',
+      'timedOut', 'failed', 'inputLimit', 'comparisons', 'agreements', 'observeOnlyDisagreements', 'eligibleDisagreements', 'candidates',
+      'suppressedRepeats', 'provenCoreBugs', 'provenScoutFalseAlarms', 'unresolved', 'selectedSourceGroups', 'comparedSourceGroups',
+      'disagreementSourceGroups'].map((key) => [key, 0])),
+    labels: { core: { YES: 0, NO: 0, UNKNOWN: 0 }, scout: { YES: 0, NO: 0, UNKNOWN: 0 } }, domains: {}, candidates: [], occurrences: [],
+  };
+}
+export function reportBatch(input: { manifest: BatchManifest; observations: readonly RegressionObservation[]; contract: ScoutContract; imported: BatchImport | null }): ScoutReport {
+  const { manifest, contract, imported } = input;
+  const result = emptyReport(manifest);
+  const stop = (reason: string): ScoutReport => { result.status = 'STOP'; result.reasons.push(reason); return result; };
+  if (!validManifest(manifest)) return stop('BATCH_MANIFEST_SCHEMA');
+  Object.assign(result.counts, manifest.selection, { submitted: manifest.requestIds.length });
+  if (!hasAuthority(contract) || manifest.contractSha256 !== CONTRACT_SHA256) return stop('CONTRACT_DRIFT');
+  if (manifest.promptHash !== contract.promptHash || manifest.settingsHash !== contract.settingsHash
+    || canonical(manifest.model) !== canonical(contract.model) || manifest.policyVersion !== contract.policyVersion
+    || manifest.policyHash !== sha256(canonical({ policy: contract.policy, questionPolicy: contract.questionPolicy, slicePolicy: contract.slicePolicy }))
+    || manifest.projectionHash !== sha256(canonical(contract.projections)) || manifest.questionRegistryHash !== sha256(canonical(contract.questionRegistry))
+    || manifest.fingerprintVersion !== contract.fingerprintVersion
+    || manifest.fingerprintHash !== sha256(canonical({ version: contract.fingerprintVersion }))) return stop('FROZEN_METADATA_DRIFT');
+  try {
+    if (manifest.sourceHead !== currentHead() || canonical(manifest.sourceHashes) !== canonical(captureSourceHashes(contract))) return stop('SOURCE_PROVENANCE_DRIFT');
+  } catch { return stop('SOURCE_PROVENANCE_UNAVAILABLE'); }
+  const selected = selectObservations(input.observations, contract);
+  const requests = selected.eligible.map(({ observation, binding }) => requestFor(observation, binding, contract));
+  const completeSelection = input.observations.length === manifest.selection.observed && selected.rejected.length === manifest.selection.rejected;
+  const selectedOnly = input.observations.length === manifest.selection.selected && selected.rejected.length === 0;
+  if ((!completeSelection && !selectedOnly) || canonical(requests.map(({ id }) => id)) !== canonical(manifest.requestIds)
+    || sha256(encodeRequests(requests)) !== manifest.inputSha256) return stop('LOCAL_OBSERVATION_DRIFT');
+  result.reasons.push(...selected.rejected.map(({ id, reason }) => `${reason}:${id}`));
+  result.counts.disabled = selected.rejected.filter(({ reason }) => reason === 'POLICY_DISABLED').length;
+  result.counts.notComparable = selected.rejected.filter(({ reason }) => reason !== 'POLICY_DISABLED').length;
+  const groupCount = (items: readonly { binding: CaseBinding }[]) => new Set(items.map(({ binding }) => binding.sourceGroupId)).size;
+  result.counts.selectedSourceGroups = groupCount(selected.eligible);
+  for (const { binding } of selected.eligible) {
+    const domain = result.domains[binding.domain] ??= { selected: 0, comparisons: 0, agreements: 0, disagreements: 0 };
+    domain.selected += 1;
+  }
+  if (manifest.requestIds.length === 0) { result.reasons.push('NO_ELIGIBLE_INPUTS'); return result; }
+  if (!imported) { result.reasons.push('RUNTIME_OR_RESPONSE_BUNDLE_UNAVAILABLE'); return result; }
+  result.reasons.push(...imported.errors);
+  result.counts.returned = imported.responses.length; result.counts.missing = imported.missingIds.length;
+  for (const response of imported.responses) {
+    if (response.prediction === 'INVALID') result.counts.invalid += 1;
+    else if (response.status === 'OK' && response.prediction && normalizeOutput(response.raw_output ?? '') === response.prediction) {
+      result.counts.valid += 1; result.labels.scout[response.prediction] += 1;
+    } else if (response.status === 'TIMEOUT') result.counts.timedOut += 1;
+    else if (response.status === 'INPUT_LIMIT') result.counts.inputLimit += 1;
+    else result.counts.failed += 1;
+  }
+  if (imported.status === 'STOP') return stop('RESPONSE_IMPORT_STOP');
+  const byId = new Map(imported.responses.map((response) => [response.id, response]));
+  if (byId.size !== imported.responses.length || imported.responses.some(({ id }) => !manifest.requestIds.includes(id))) return stop('RESPONSE_ACCOUNTING_DRIFT');
+  const pairs: ComparisonPair[] = selected.eligible.flatMap(({ observation, binding }) => {
+    const id = wireId(observation.identity); const response = byId.get(id);
+    return response ? [{ id, runId: manifest.runId, binding, core: projectCore(observation, binding, contract), response }] : [];
+  });
+  const comparisons = comparePairs(pairs, contract);
+  const compared = [...comparisons.agreements, ...comparisons.observeOnlyDisagreements, ...comparisons.eligibleDisagreements.map(({ pair }) => pair)];
+  result.status = imported.status;
+  result.counts.comparisons = compared.length; result.counts.agreements = comparisons.agreements.length;
+  result.counts.observeOnlyDisagreements = comparisons.observeOnlyDisagreements.length;
+  result.counts.eligibleDisagreements = comparisons.eligibleDisagreements.length;
+  result.counts.comparedSourceGroups = groupCount(compared);
+  result.counts.disagreementSourceGroups = groupCount([...comparisons.observeOnlyDisagreements, ...comparisons.eligibleDisagreements.map(({ pair }) => pair)]);
+  for (const pair of compared) {
+    if (pair.core.status === 'COMPARABLE') result.labels.core[pair.core.value] += 1;
+    const domain = result.domains[pair.binding.domain]; domain.comparisons += 1;
+    if (pair.core.status === 'COMPARABLE' && pair.core.value === pair.response.prediction) domain.agreements += 1; else domain.disagreements += 1;
+  }
+  result.reasons.push(...comparisons.rejected.map(({ id, reason }) => `${reason}:${id}`));
+  result.candidates = deduplicateDisagreements(manifest.runId, comparisons.eligibleDisagreements);
+  const localIds = new Map(selected.eligible.map(({ observation }) => [wireId(observation.identity), observationId(observation.identity)]));
+  result.occurrences = comparisons.eligibleDisagreements.map(({ pair, fingerprint }) => ({
+    observation_id: pair.id, local_observation_id: localIds.get(pair.id)!, source_group_id: pair.binding.sourceGroupId,
+    fingerprint: fingerprint.sha256, source_references: [...pair.binding.sourceReferences],
+  }));
+  result.counts.candidates = result.candidates.length;
+  result.counts.suppressedRepeats = result.counts.eligibleDisagreements - result.counts.candidates;
+  result.counts.unresolved = result.candidates.length;
+  // No gold-equivalence evidence or independent investigation proof is accepted by this interface.
+  return result;
+}
+
+const runFiles = ['contract.json', 'manifest.json', 'requests.jsonl', 'local-observations.json', 'selection.json', 'observer-errors.json', 'harness-reports.json'] as const;
+interface RunFreeze { schemaVersion: 1; artifactHashes: Record<string, string> }
+function strictText(bytes: Buffer): string {
+  try { return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes); }
+  catch { throw new Error('SCOUT_INVALID_UTF8'); }
+}
+function readJson(path: string): unknown {
+  try { return JSON.parse(strictText(readFileSync(path))); }
+  catch (error) { if (error instanceof Error && error.message === 'SCOUT_INVALID_UTF8') throw error; throw new Error('SCOUT_JSON_ARTIFACT'); }
+}
+function writeJson(path: string, value: unknown): void { writeFileSync(path, JSON.stringify(value, null, 2) + '\n', { flag: 'wx' }); }
+function newDirectory(path: string): void {
+  if (existsSync(path)) throw new Error('SCOUT_DESTINATION_EXISTS');
+  mkdirSync(dirname(path), { recursive: true });
+  mkdirSync(path); // Exclusive final directory creation; a concurrent destination is never reused.
+}
+function currentHead(): string { return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: sourceRoot, encoding: 'utf8' }).trim(); }
+function checkedRuntimeStatus(value: unknown, manifest: BatchManifest, contract: ScoutContract): RuntimeStatus {
+  if (!fields(value, ['schemaVersion', 'status', 'reason', 'runId', 'inputSha256', 'contractSha256', 'model', 'promptHash', 'settingsHash', 'runtimeIdentity'])
+    || value.schemaVersion !== 1 || value.status !== 'SKIP' || !nonempty(value.reason) || !nonempty(value.runId)
+    || !validModel(value.model) || !['inputSha256', 'contractSha256', 'promptHash', 'settingsHash'].every((key) => hashValue(value[key]))
+    || !fields(value.runtimeIdentity, ['runner', 'runtimeReferenceHash']) || !nonempty(value.runtimeIdentity.runner)
+    || !hashValue(value.runtimeIdentity.runtimeReferenceHash)) throw new Error('SCOUT_RUNTIME_STATUS_SCHEMA');
+  if ((['runId', 'inputSha256', 'contractSha256', 'promptHash', 'settingsHash'] as const).some((key) => value[key] !== manifest[key])
+    || canonical(value.model) !== canonical(manifest.model) || canonical(value.model) !== canonical(contract.model)
+    || value.runtimeIdentity.runner !== manifest.runnerIdentity
+    || value.runtimeIdentity.runtimeReferenceHash !== contract.runtimeReferenceHash) throw new Error('SCOUT_RUNTIME_STATUS_PROVENANCE');
+  return freeze(structuredClone(value)) as unknown as RuntimeStatus;
+}
+function validateRun(run: string): { manifest: BatchManifest; observations: RegressionObservation[]; contract: ScoutContract; selection: ScoutReport } {
+  const frozen = readJson(resolve(run, 'freeze.json'));
+  if (!fields(frozen, ['schemaVersion', 'artifactHashes']) || frozen.schemaVersion !== 1
+    || !fields(frozen.artifactHashes, runFiles) || !stringMap(frozen.artifactHashes, hashValue)) throw new Error('SCOUT_FREEZE_SCHEMA');
+  for (const name of runFiles) if (sha256(readFileSync(resolve(run, name))) !== frozen.artifactHashes[name]) throw new Error('SCOUT_SAVED_ARTIFACT_DRIFT');
+  const contract = loadContract(resolve(run, 'contract.json'));
+  const manifest = readJson(resolve(run, 'manifest.json'));
+  if (!validManifest(manifest)) throw new Error('SCOUT_MANIFEST_SCHEMA');
+  if (currentHead() !== manifest.sourceHead) throw new Error('SCOUT_SOURCE_HEAD_DRIFT');
+  const actualHashes = captureSourceHashes(contract);
+  if (canonical(actualHashes) !== canonical(manifest.sourceHashes)) throw new Error('SCOUT_SOURCE_BYTES_DRIFT');
+  for (const [path, hash] of Object.entries(contract.sourceArtifactHashes)) if (actualHashes[path] !== hash) throw new Error('SCOUT_AUTHORITY_SOURCE_DRIFT');
+  const requests = readFileSync(resolve(run, 'requests.jsonl'));
+  if (sha256(requests) !== manifest.inputSha256) throw new Error('SCOUT_SAVED_REQUEST_DRIFT');
+  const observations = readJson(resolve(run, 'local-observations.json')) as RegressionObservation[];
+  if (!denseArray(observations)) throw new Error('SCOUT_LOCAL_OBSERVATIONS_SCHEMA');
+  const regenerated = prepareBatch({ runId: manifest.runId, sourceHead: manifest.sourceHead, observations, contract });
+  if (regenerated.selection.status === 'STOP' || regenerated.localObservations.length !== observations.length
+    || regenerated.requestsJsonl !== strictText(requests)) throw new Error('SCOUT_ORDERED_PREFIX_DRIFT');
+  // The selection report holds pre-serialization rejections; only selected cases live in local-observations.
+  const regeneratedManifest = { ...regenerated.manifest, selection: manifest.selection };
+  if (canonical(regeneratedManifest) !== canonical(manifest)) throw new Error('SCOUT_MANIFEST_DRIFT');
+  const selection = readJson(resolve(run, 'selection.json')) as ScoutReport;
+  if (!record(selection) || !record(selection.counts) || !Array.isArray(selection.reasons)
+    || selection.counts.observed !== manifest.selection.observed || selection.counts.selected !== manifest.selection.selected
+    || selection.counts.rejected !== manifest.selection.rejected) throw new Error('SCOUT_SELECTION_DRIFT');
+  return { manifest, observations, contract, selection };
+}
+
+export async function main(argv: readonly string[]): Promise<number> {
+  try {
+    const [mode, ...args] = argv;
+    if (mode !== 'export' && mode !== 'import') throw new Error('SCOUT_MODE_REQUIRED');
+    const allowed = mode === 'export' ? ['--contract', '--out'] : ['--run', '--responses', '--response-manifest', '--out'];
+    const options = new Map<string, string>();
+    for (let i = 0; i < args.length; i += 2) {
+      if (!allowed.includes(args[i]) || options.has(args[i]) || !nonempty(args[i + 1]) || args[i + 1].startsWith('--')) throw new Error('SCOUT_ARGUMENTS');
+      options.set(args[i], resolve(args[i + 1]));
+    }
+    const required = mode === 'export' ? ['--contract', '--out'] : ['--run', '--responses', '--response-manifest'];
+    if (required.some((key) => !options.has(key))) throw new Error('SCOUT_ARGUMENTS');
+    if (mode === 'export') {
+      const out = options.get('--out')!;
+      if (existsSync(out)) throw new Error('SCOUT_DESTINATION_EXISTS');
+      const contractBytes = readFileSync(options.get('--contract')!); // Never reserialize: frozen settings preserve original 1.0 lexeme.
+      const contract = loadContract(options.get('--contract')!);
+      for (const [path, hash] of Object.entries(contract.sourceArtifactHashes)) if (sha256(readFileSync(sourcePath(path))) !== hash) throw new Error('SCOUT_AUTHORITY_SOURCE_DRIFT');
+      const sourceHead = currentHead(); const beforeHashes = captureSourceHashes(contract);
+      const observations: RegressionObservation[] = []; const observerErrors: Array<{ identity: RegressionIdentity; code: string }> = [];
+      const hook = { observation: {
+        select: (identity: Readonly<RegressionIdentity>) => identity.variation === 0 && identity.instance === 'primary'
+          && contract.bindings.some((binding) => effectivePolicy(binding, contract) !== 'DISABLED' && canonical(binding.identity) === canonical(identity)),
+        onObservation: (value: Readonly<RegressionObservation>) => { observations.push(value); },
+        onError: (identity: Readonly<RegressionIdentity>, code: string) => { observerErrors.push({ identity: { ...identity }, code }); },
+      } };
+      // Lazy imports keep module import and import mode free of Harness execution or model/runtime loading.
+      const { runMassRegressionBaseline } = await import('../../../../src/services/test-support/massRegressionHarness');
+      const original = runMassRegressionBaseline(hook);
+      const { runExpandedRegression } = await import('../../../../src/services/test-support/expandedRegressionHarness');
+      const expanded = runExpandedRegression(hook);
+      const prepared = prepareBatch({ runId: basename(out), sourceHead, observations, contract });
+      if (prepared.selection.status === 'STOP' || currentHead() !== sourceHead
+        || canonical(beforeHashes) !== canonical(prepared.manifest.sourceHashes)) throw new Error('SCOUT_EXPORT_SOURCE_DRIFT');
+      newDirectory(out);
+      writeFileSync(resolve(out, 'contract.json'), contractBytes, { flag: 'wx' });
+      writeFileSync(resolve(out, 'requests.jsonl'), prepared.requestsJsonl, { flag: 'wx' });
+      writeJson(resolve(out, 'manifest.json'), prepared.manifest); writeJson(resolve(out, 'local-observations.json'), prepared.localObservations);
+      writeJson(resolve(out, 'selection.json'), prepared.selection); writeJson(resolve(out, 'observer-errors.json'), observerErrors);
+      writeJson(resolve(out, 'harness-reports.json'), { original, expanded });
+      const frozen: RunFreeze = { schemaVersion: 1, artifactHashes: Object.fromEntries(runFiles.map((name) => [name, sha256(readFileSync(resolve(out, name)))])) };
+      writeJson(resolve(out, 'freeze.json'), frozen);
+      return 0;
+    }
+    const run = options.get('--run')!; const out = options.get('--out') ?? resolve(run, 'results');
+    if (existsSync(out)) throw new Error('SCOUT_DESTINATION_EXISTS');
+    const { manifest, observations, contract, selection } = validateRun(run);
+    let imported: BatchImport | null = null;
+    let runtimeStatus: RuntimeStatus | undefined;
+    const responsesPath = options.get('--responses')!;
+    const responseManifestPath = options.get('--response-manifest')!;
+    const siblingPath = resolve(dirname(responseManifestPath), 'runtime-status.json');
+    const suppliedManifest = existsSync(responseManifestPath) ? readJson(responseManifestPath) : undefined;
+    const directMarker = suppliedManifest !== undefined && (basename(responseManifestPath) === 'runtime-status.json'
+      || (record(suppliedManifest) && Object.hasOwn(suppliedManifest, 'status')));
+    const siblingMarker = siblingPath !== responseManifestPath && existsSync(siblingPath);
+    if (directMarker || siblingMarker) {
+      if (existsSync(responsesPath) || (siblingMarker && suppliedManifest !== undefined)) throw new Error('SCOUT_RUNTIME_STATUS_AMBIGUOUS');
+      runtimeStatus = checkedRuntimeStatus(directMarker ? suppliedManifest : readJson(siblingPath), manifest, contract);
+    } else if (existsSync(responsesPath) && suppliedManifest !== undefined) {
+      const responseBytes = readFileSync(responsesPath);
+      const responseManifest = suppliedManifest as ResponseManifest;
+      if (!validResponseManifest(responseManifest) || sha256(responseBytes) !== responseManifest.responsesSha256) throw new Error('SCOUT_RESPONSE_BYTES_DRIFT');
+      imported = importResponses(manifest, responseManifest, strictText(responseBytes));
+    }
+    const report = reportBatch({ manifest, observations, contract, imported });
+    if (runtimeStatus && report.status !== 'STOP') {
+      report.runtimeStatus = runtimeStatus;
+      report.reasons = report.reasons.filter((reason) => reason !== 'RUNTIME_OR_RESPONSE_BUNDLE_UNAVAILABLE');
+      report.reasons.push(runtimeStatus.reason);
+    }
+    report.reasons.push(...selection.reasons.filter((reason) => reason !== 'RUNTIME_OR_RESPONSE_BUNDLE_UNAVAILABLE'));
+    report.counts.disabled = selection.counts.disabled; report.counts.notComparable = selection.counts.notComparable;
+    newDirectory(out); writeJson(resolve(out, 'report.json'), report);
+    if (report.status === 'STOP') return 2;
+    writeJson(resolve(out, 'occurrences.json'), report.occurrences); writeJson(resolve(out, 'candidates.json'), report.candidates);
+    return 0;
+  } catch (error) {
+    // Error messages in this module are opaque codes; never print dialogue, paths or arbitrary exception content.
+    const code = error instanceof Error && /^[A-Z_]+$/u.test(error.message) ? error.message : 'SCOUT_WORKFLOW_STOP';
+    console.error(code);
+    return 2;
+  }
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  void main(process.argv.slice(2)).then((code) => { process.exitCode = code; });
 }
