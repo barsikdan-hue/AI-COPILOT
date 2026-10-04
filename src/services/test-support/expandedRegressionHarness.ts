@@ -7,6 +7,7 @@ import { chooseDialoguePolicyTarget } from '../dialoguePolicyEngine';
 import { advanceLocalConversation, buildLocalAnalysisResponse } from '../localAnalysisEngine';
 import { isSuggestionAllowedByState, shouldReplaceSuggestion } from '../suggestionLifecycle';
 import { aggregateFinalTurn, isDuplicateFinalTurn } from '../sttDedup';
+import { emitRegressionObservation, type RegressionObservationOptions } from './regressionObservation';
 import {
   EXPANDED_EXECUTIONS_PER_SCENARIO,
   EXPANDED_REGRESSION_SCENARIOS,
@@ -389,7 +390,7 @@ function clusterFailures(failures: ExpandedFailure[]): ExpandedFailureCluster[] 
   return [...clusters.values()].sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity] || b.count - a.count || a.id.localeCompare(b.id));
 }
 
-export function runExpandedRegression(): ExpandedRegressionReport {
+export function runExpandedRegression(options: RegressionObservationOptions = {}): ExpandedRegressionReport {
   const failures: ExpandedFailure[] = [];
   let assertions = 0;
   const coverageByDomain = Object.fromEntries([
@@ -407,6 +408,9 @@ export function runExpandedRegression(): ExpandedRegressionReport {
         if (hint.length > 220) addFailure(failures, scenario, variation, replayed, '<= 220 characters', `${hint.length} chars: ${hint}`, 'INV_HINT_LENGTH');
         if (INTERNAL_SPEECH.test(hint)) addFailure(failures, scenario, variation, replayed, 'agent-speakable text without internal terms', hint, 'INV_NO_INTERNAL_SPEECH');
       }
+      if (options.observation) emitRegressionObservation({
+        harness: 'expanded', caseId: scenario.id, variation, instance: 'primary', turnCutoff: replayed.turns.length,
+      }, replayed, options);
     }
   }
 

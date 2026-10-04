@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { TranscriptTurn } from '../../types';
 import { createInitialState } from '../conversationStore';
 import * as localAnalysisEngine from '../localAnalysisEngine';
+import { runExpandedRegression } from './expandedRegressionHarness';
 import { runMassRegressionBaseline } from './massRegressionHarness';
 import {
   emitRegressionObservation,
@@ -195,4 +196,52 @@ describe('observer-original', () => {
     expect([...isolationSessions].sort()).toEqual(['mass-a-isolation.payment-0', 'mass-b-isolation.payment-0']);
     expect([...selectedCaseIds].every((id) => /^(?:fact|analysis|isolation)\./u.test(id))).toBe(true);
   }, 360_000);
+});
+
+describe('observer-expanded', () => {
+  it('exports the actual primary prefixes and isolates throwing callbacks from the report', () => {
+    const baseline = runExpandedRegression();
+    const captured: RegressionObservation[] = [];
+    const errors: Array<{ caseId: string; code: string }> = [];
+    const observedReport = runExpandedRegression({ observation: {
+      select(identity) {
+        return identity.variation === 0 && (
+          identity.caseId === 'negation.payment.mortgage'
+          || identity.caseId === 'session_isolation.payment.cash-mortgage'
+        );
+      },
+      onObservation(value) {
+        captured.push(value);
+        throw new Error('observer cannot change Expanded results');
+      },
+      onError(identity, code) {
+        errors.push({ caseId: identity.caseId, code });
+        throw new Error('error callback cannot change Expanded results');
+      },
+    } });
+
+    expect(observedReport).toEqual(baseline);
+    expect(captured).toHaveLength(2);
+    const mortgage = captured.find((value) => value.identity.caseId === 'negation.payment.mortgage');
+    expect(mortgage?.identity).toEqual({
+      harness: 'expanded', caseId: 'negation.payment.mortgage', variation: 0,
+      instance: 'primary', turnCutoff: 1,
+    });
+    expect(mortgage?.turns).toEqual([
+      { id: 'negation.payment.mortgage-t1', speaker: 'client', text: 'Кредит и ипотека мне не подходят.' },
+    ]);
+    const isolation = captured.find((value) => value.identity.caseId === 'session_isolation.payment.cash-mortgage');
+    expect(isolation?.identity).toEqual({
+      harness: 'expanded', caseId: 'session_isolation.payment.cash-mortgage', variation: 0,
+      instance: 'primary', turnCutoff: 1,
+    });
+    expect(isolation?.turns).toEqual([
+      { id: 'session_isolation.payment.cash-mortgage-t1', speaker: 'client', text: 'Покупаю за собственные средства.' },
+    ]);
+    expect(captured.flatMap((value) => value.turns.map((turn) => turn.text))).not.toContain('Оформляю ипотеку.');
+    expect(errors).toEqual([
+      { caseId: 'negation.payment.mortgage', code: 'OBSERVATION_ERROR' },
+      { caseId: 'session_isolation.payment.cash-mortgage', code: 'OBSERVATION_ERROR' },
+    ]);
+  }, 600_000);
 });
