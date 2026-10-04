@@ -4,7 +4,8 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
   effectivePolicy, loadContract, projectCore, selectObservations, normalizeOutput, encodeRequests, importResponses,
-  type CaseBinding, type ScoutContract, type ScoutRequest, type BatchManifest, type ResponseManifest,
+  comparePairs, fingerprintDisagreement, deduplicateDisagreements,
+  type CaseBinding, type ScoutContract, type ScoutRequest, type BatchManifest, type ResponseManifest, type ComparisonPair,
 } from '../../../.agents/skills/ai-copilot-semantic-scout/scripts/scout';
 import { EXPANDED_REGRESSION_SCENARIOS } from '../test-fixtures/expandedRegressionScenarios';
 import { MASS_REGRESSION_GOLDEN_CASES } from '../test-fixtures/massRegressionGoldenCases';
@@ -223,6 +224,112 @@ function observation(overrides: Partial<RegressionObservation> = {}): Regression
     ...overrides,
   };
 }
+
+function pair(contract: ScoutContract, overrides: Partial<ComparisonPair> = {}): ComparisonPair {
+  const source = contract.bindings[0];
+  return {
+    id: 'c1', runId: 'run-a', binding: source,
+    core: { status: 'COMPARABLE', value: 'NO', projectionId: source.projectionId, dimensions: { ...source.dimensions } },
+    response: { id: 'c1', status: 'OK', raw_output: 'YES', latency_ms: 1, prediction: 'YES' },
+    ...overrides,
+  };
+}
+
+describe('compare-dedup', () => {
+  it('creates only advisory disagreements from comparable valid active mismatches', () => {
+    const contract = loadContract(scoutContractPath);
+    const active = pair(contract);
+    const agreement = pair(contract, { id: 'agree', response: { ...active.response, id: 'agree', raw_output: 'NO', prediction: 'NO' } });
+    const observe = pair(contract, { id: 'observe', binding: { ...active.binding, policySlices: ['corrections'] },
+      response: { ...active.response, id: 'observe' } });
+    const disabled = pair(contract, { id: 'disabled', binding: { ...active.binding, privacyApproved: false },
+      response: { ...active.response, id: 'disabled' } });
+    const notComparable = pair(contract, { id: 'nc', core: { status: 'NOT_COMPARABLE', reason: 'NO_PROJECTION' },
+      response: { ...active.response, id: 'nc' } });
+    const invalid = pair(contract, { id: 'invalid', response: { ...active.response, id: 'invalid', raw_output: 'maybe', prediction: 'INVALID' } });
+    const error = pair(contract, { id: 'error', response: { ...active.response, id: 'error', status: 'ERROR', raw_output: null, prediction: null } });
+    const result = comparePairs([active, agreement, observe, disabled, notComparable, invalid, error], contract);
+    expect(result.agreements.map(({ id }) => id)).toEqual(['agree']);
+    expect(result.observeOnlyDisagreements.map(({ id }) => id)).toEqual(['observe']);
+    expect(result.eligibleDisagreements.map(({ pair: value }) => value.id)).toEqual(['c1']);
+    expect(result.rejected.map(({ id }) => id)).toEqual(['disabled', 'nc', 'invalid', 'error']);
+    expect(deduplicateDisagreements('run-a', result.eligibleDisagreements)).toMatchObject([
+      { run_id: 'run-a', occurrence_count: 1, occurrence_ids: ['c1'], representative_ids: ['c1'] },
+    ]);
+    expect(() => fingerprintDisagreement(agreement, contract)).toThrow();
+    expect(() => fingerprintDisagreement(observe, contract)).toThrow();
+  });
+
+  it('deduplicates five sorted occurrences, retains all private references, and ignores repeated import', () => {
+    const contract = loadContract(scoutContractPath);
+    const ids = ['c5', 'c1', 'c3', 'c2', 'c4'];
+    const pairs = ids.map((id) => pair(contract, { id, response: { ...pair(contract).response, id },
+      binding: { ...contract.bindings[0], sourceGroupId: `source-${id}`, sourceReferences: [`private/${id}`] } }));
+    const values = comparePairs(pairs, contract).eligibleDisagreements;
+    // The immutable binding gate means these test-local source variations are checked at the dedup boundary.
+    const certified = pairs.map((value) => ({ pair: value, fingerprint: fingerprintDisagreement(pair(contract), contract) }));
+    expect(values).toHaveLength(0);
+    const first = deduplicateDisagreements('run-a', certified);
+    expect(first).toMatchObject([{ occurrence_count: 5, occurrence_ids: ['c1', 'c2', 'c3', 'c4', 'c5'],
+      representative_ids: ['c1', 'c2', 'c3'] }]);
+    expect(first[0].source_references).toEqual(ids.sort().map((id) => ({
+      observation_id: id, source_group_id: `source-${id}`, reference: `private/${id}`,
+    })));
+    expect(deduplicateDisagreements('run-a', [...certified].reverse())).toEqual(first);
+    expect(deduplicateDisagreements('run-a', [...certified, certified[0]])[0].occurrence_count).toBe(5);
+    const newRun = certified.map((value) => ({ ...value, pair: { ...value.pair, runId: 'run-b' } }));
+    expect(deduplicateDisagreements('run-b', newRun)[0]).toMatchObject({ run_id: 'run-b', occurrence_count: 5 });
+  });
+
+  it('separates direction and reviewed owner/time dimensions, and conservatively isolates missing dimensions', () => {
+    const contract = loadContract(scoutContractPath);
+    const base = pair(contract);
+    const swapped = pair(contract, { id: 'swap', core: { ...base.core, value: 'YES' } as ComparisonPair['core'],
+      response: { ...base.response, id: 'swap', raw_output: 'NO', prediction: 'NO' } });
+    const relative = pair(contract, { id: 'relative', core: { ...base.core,
+      dimensions: { ...base.binding.dimensions, owner: 'relative' } } as ComparisonPair['core'], response: { ...base.response, id: 'relative' } });
+    const future = pair(contract, { id: 'future', core: { ...base.core,
+      dimensions: { ...base.binding.dimensions, time: 'future' } } as ComparisonPair['core'], response: { ...base.response, id: 'future' } });
+    const missing1 = pair(contract, { id: 'missing-1', core: { ...base.core,
+      dimensions: { owner: 'client', predicate: 'mortgage_permission', correctionScope: 'none' } } as ComparisonPair['core'], response: { ...base.response, id: 'missing-1' } });
+    const missing2 = pair(contract, { id: 'missing-2', core: missing1.core, response: { ...base.response, id: 'missing-2' } });
+    const values = [base, swapped, relative, future, missing1, missing2].map((value) => ({
+      pair: value, fingerprint: fingerprintDisagreement(value, contract),
+    }));
+    expect(deduplicateDisagreements('run-a', values)).toHaveLength(6);
+    expect(values[4].fingerprint.payload).toHaveProperty('missingObservationDiscriminator');
+    expect(JSON.stringify(values[4].fingerprint.payload)).not.toContain('missing-1');
+  });
+
+  it('rejects unreviewed question/projection/version, unsafe dimensions, and excludes secret-bearing fields', () => {
+    const contract = loadContract(scoutContractPath);
+    const base = pair(contract);
+    const payload = fingerprintDisagreement(base, contract).payload;
+    for (const changed of [
+      { questionId: 'mortgage_use' }, { projectionVersion: 'v2' }, { projectionId: 'other' },
+    ]) expect(() => fingerprintDisagreement(pair(contract, { binding: { ...base.binding, ...changed } }), contract)).toThrow();
+    for (const dimensions of [
+      { ...base.binding.dimensions, owner: 1.5 },
+      { ...base.binding.dimensions, owner: 20_000_000 },
+      { ...base.binding.dimensions, owner: 'private/secret' },
+    ]) expect(() => fingerprintDisagreement(pair(contract, { core: { ...base.core, dimensions } as ComparisonPair['core'] }), contract)).toThrow();
+    const secretPair = pair(contract, { binding: { ...base.binding, sourceReferences: ['private/secret'], sourceHashes: { secret: 'abc' } },
+      response: { ...base.response, claimed_prediction: 'YES' } });
+    expect(JSON.stringify(payload)).not.toMatch(/private|secret|sourceReferences|sourceHashes|raw_output|latency_ms/u);
+    expect(() => fingerprintDisagreement(secretPair, contract)).toThrow();
+    const extraPrivate = pair(contract, { core: { ...base.core, dimensions: {
+      ...base.binding.dimensions, rawText: 'Private Person', amount: 20_000_000, sourcePath: 'private/secret',
+    } } as ComparisonPair['core'] });
+    expect(fingerprintDisagreement(extraPrivate, contract)).toEqual(fingerprintDisagreement(base, contract));
+    const reordered = pair(contract, { core: { ...base.core, dimensions: {
+      correctionScope: 'none', predicate: 'mortgage_permission', time: 'current', owner: 'client',
+    } } as ComparisonPair['core'] });
+    expect(fingerprintDisagreement(reordered, contract)).toEqual(fingerprintDisagreement(base, contract));
+    expect(JSON.stringify(payload)).toContain('Клиент сейчас');
+    const canonicalBytes = '{"coreAnswer":"NO","dimensions":{"correctionScope":"none","owner":"client","predicate":"mortgage_permission","time":"current"},"domain":"negation","fingerprintVersion":"semantic-scout/v1","policyVersion":"semantic-scout-initial/v1","projection":{"id":"mortgage-rejected-branch","version":"v1"},"question":{"id":"mortgage_permission","wording":"Клиент сейчас допускает рассмотрение ипотеки для своей покупки?"},"scoutAnswer":"YES","semanticContract":{"schemaVersion":1,"sourceSha256":"fb3f482766b3858815cbac5ce39061cd17022bbb9e75db16386e13a5e2f56020"}}';
+    expect(fingerprintDisagreement(base, contract).sha256).toBe(createHash('sha256').update(Buffer.from(canonicalBytes, 'utf8')).digest('hex'));
+  });
+});
 
 describe('contract-policy-comparability', () => {
   it('freezes semantic meaning and proven runtime values without historical task authority', () => {

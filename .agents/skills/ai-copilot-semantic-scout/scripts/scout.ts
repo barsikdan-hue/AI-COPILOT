@@ -118,6 +118,13 @@ export interface Candidate {
   source_references: Array<{ observation_id: string; source_group_id: string; reference: string }>;
 }
 
+export interface PairComparison {
+  agreements: ComparisonPair[];
+  observeOnlyDisagreements: ComparisonPair[];
+  eligibleDisagreements: Disagreement[];
+  rejected: Array<{ id: string; reason: string }>;
+}
+
 // Byte hash belongs to this composed authority, not to its historical source.
 const CONTRACT_SHA256 = '9f86d71b239c2d865167764a8351f76e69124113b87739088beed028730aaf2f';
 const AUTHORITY_SIGNATURE = 'e6ad9121f5ee53212954edd2b261b9dcda226ad52d9c8df06e721003fd4a492b';
@@ -215,6 +222,173 @@ export function selectObservations(observations: readonly RegressionObservation[
     eligible.push({ observation, binding, mode, core });
   }
   return { eligible, rejected };
+}
+
+function validUnicode(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code >= 0xd800 && code <= 0xdbff) {
+      const next = value.charCodeAt(++index);
+      if (!(next >= 0xdc00 && next <= 0xdfff)) return false;
+    } else if (code >= 0xdc00 && code <= 0xdfff) return false;
+  }
+  return true;
+}
+
+function codePointOrder(left: string, right: string): number {
+  const a = Array.from(left);
+  const b = Array.from(right);
+  for (let index = 0; index < Math.min(a.length, b.length); index += 1) {
+    const difference = a[index].codePointAt(0)! - b[index].codePointAt(0)!;
+    if (difference !== 0) return difference;
+  }
+  return a.length - b.length;
+}
+
+function canonicalFingerprint(value: unknown): string {
+  if (typeof value === 'string') {
+    if (!validUnicode(value)) throw new Error('SCOUT_FINGERPRINT_UNICODE');
+    return JSON.stringify(value);
+  }
+  if (value === null || typeof value === 'boolean') return JSON.stringify(value);
+  if (typeof value === 'number') {
+    if (!Number.isSafeInteger(value)) throw new Error('SCOUT_FINGERPRINT_INTEGER');
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    if (!denseArray(value)) throw new Error('SCOUT_FINGERPRINT_ARRAY');
+    return `[${value.map(canonicalFingerprint).join(',')}]`;
+  }
+  if (record(value)) {
+    return `{${Object.keys(value).sort(codePointOrder).map((key) =>
+      `${canonicalFingerprint(key)}:${canonicalFingerprint(value[key])}`).join(',')}}`;
+  }
+  throw new Error('SCOUT_FINGERPRINT_VALUE');
+}
+
+function reviewedBinding(binding: CaseBinding, contract: ScoutContract): boolean {
+  const approved = contract.bindings.find((candidate) => canonical(candidate.identity) === canonical(binding.identity));
+  return approved !== undefined && canonical(approved) === canonical(binding);
+}
+
+function comparableReason(value: ComparisonPair, contract: ScoutContract): string | null {
+  if (!hasAuthority(contract)) return 'CONTRACT_DRIFT';
+  if (!nonempty(value.id) || !nonempty(value.runId) || value.response.id !== value.id) return 'PAIR_ID_MISMATCH';
+  if (value.core.status !== 'COMPARABLE') return 'NOT_COMPARABLE';
+  const projection = contract.projections[value.binding.projectionId];
+  if (!projection || value.core.projectionId !== value.binding.projectionId
+    || projection.version !== value.binding.projectionVersion || projection.questionId !== value.binding.questionId
+    || canonical(projection.requiredDimensions) !== canonical(value.binding.requiredDimensions)
+    || !Object.hasOwn(contract.questionRegistry, value.binding.questionId)) return 'UNREVIEWED_PROJECTION';
+  if (!['YES', 'NO', 'UNKNOWN'].includes(value.core.value)) return 'INVALID_CORE_LABEL';
+  if (value.response.status !== 'OK' || typeof value.response.raw_output !== 'string'
+    || !['YES', 'NO', 'UNKNOWN'].includes(value.response.prediction as string)
+    || normalizeOutput(value.response.raw_output) !== value.response.prediction) return 'INVALID_SCOUT_RESPONSE';
+  return null;
+}
+
+const reviewedDimensionValues: Readonly<Record<string, readonly string[]>> = {
+  owner: ['client', 'relative'],
+  time: ['current', 'future'],
+  predicate: ['mortgage_permission'],
+  correctionScope: ['none', 'explicit', 'revocation'],
+};
+
+function safeDimension(key: string, value: unknown, binding: CaseBinding): value is string | boolean | number | null {
+  if (typeof value === 'number') return typeof binding.dimensions[key] === 'number'
+    && Number.isSafeInteger(value) && Number.isSafeInteger(binding.dimensions[key]);
+  if (typeof value === 'string') return reviewedDimensionValues[key]?.includes(value) === true;
+  return value === binding.dimensions[key] && (value === null || typeof value === 'boolean');
+}
+
+export function fingerprintDisagreement(value: ComparisonPair, contract: ScoutContract): { payload: Record<string, unknown>; sha256: string } {
+  const reason = comparableReason(value, contract);
+  if (reason) throw new Error(`SCOUT_FINGERPRINT_${reason}`);
+  if (effectivePolicy(value.binding, contract) !== 'ACTIVE_SHADOW' || !reviewedBinding(value.binding, contract)) {
+    throw new Error('SCOUT_FINGERPRINT_UNREVIEWED_ACTIVE_BINDING');
+  }
+  if (value.core.status !== 'COMPARABLE' || value.core.value === value.response.prediction) {
+    throw new Error('SCOUT_FINGERPRINT_NOT_MISMATCH');
+  }
+  const required = contract.projections[value.binding.projectionId].requiredDimensions;
+  if (!record(value.core.dimensions)) throw new Error('SCOUT_FINGERPRINT_DIMENSIONS');
+  const dimensions: Record<string, string | boolean | number | null> = {};
+  const missing: string[] = [];
+  for (const key of required) {
+    if (!Object.hasOwn(value.core.dimensions, key)) { missing.push(key); continue; }
+    const dimension = value.core.dimensions[key];
+    if (!safeDimension(key, dimension, value.binding)) throw new Error('SCOUT_FINGERPRINT_UNSAFE_DIMENSION');
+    dimensions[key] = dimension;
+  }
+  const payload: Record<string, unknown> = {
+    fingerprintVersion: contract.fingerprintVersion,
+    semanticContract: { schemaVersion: contract.schemaVersion, sourceSha256: contract.semanticSourceHash },
+    question: { id: value.binding.questionId, wording: contract.questionRegistry[value.binding.questionId] },
+    domain: value.binding.domain,
+    policyVersion: contract.policyVersion,
+    projection: { id: value.binding.projectionId, version: value.binding.projectionVersion },
+    coreAnswer: value.core.value,
+    scoutAnswer: value.response.prediction,
+    dimensions,
+  };
+  if (missing.length > 0) {
+    payload.missingDimensions = missing;
+    if (!validUnicode(value.id)) throw new Error('SCOUT_FINGERPRINT_UNICODE');
+    payload.missingObservationDiscriminator = sha256(value.id);
+  }
+  return { payload, sha256: sha256(Buffer.from(canonicalFingerprint(payload), 'utf8')) };
+}
+
+export function comparePairs(pairs: readonly ComparisonPair[], contract: ScoutContract): PairComparison {
+  const result: PairComparison = { agreements: [], observeOnlyDisagreements: [], eligibleDisagreements: [], rejected: [] };
+  for (const pair of pairs) {
+    const reason = comparableReason(pair, contract);
+    if (reason) { result.rejected.push({ id: pair.id, reason }); continue; }
+    const mode = effectivePolicy(pair.binding, contract);
+    if (mode === 'DISABLED') { result.rejected.push({ id: pair.id, reason: 'POLICY_DISABLED' }); continue; }
+    if (mode === 'ACTIVE_SHADOW' && !reviewedBinding(pair.binding, contract)) {
+      result.rejected.push({ id: pair.id, reason: 'UNREVIEWED_BINDING' }); continue;
+    }
+    if (pair.core.status !== 'COMPARABLE') continue;
+    if (pair.core.value === pair.response.prediction) { result.agreements.push(pair); continue; }
+    if (mode === 'OBSERVE_ONLY') { result.observeOnlyDisagreements.push(pair); continue; }
+    try { result.eligibleDisagreements.push({ pair, fingerprint: fingerprintDisagreement(pair, contract) }); }
+    catch { result.rejected.push({ id: pair.id, reason: 'UNSAFE_FINGERPRINT' }); }
+  }
+  return result;
+}
+
+export function deduplicateDisagreements(runId: string, values: readonly Disagreement[]): Candidate[] {
+  if (!nonempty(runId)) throw new Error('SCOUT_DEDUP_RUN_ID');
+  const groups = new Map<string, { fingerprint: Disagreement['fingerprint']; pairs: Map<string, ComparisonPair[]> }>();
+  for (const value of values) {
+    if (value.pair.runId !== runId || !nonempty(value.pair.id)) throw new Error('SCOUT_DEDUP_RUN_MISMATCH');
+    const serialized = canonicalFingerprint(value.fingerprint.payload);
+    if (sha256(Buffer.from(serialized, 'utf8')) !== value.fingerprint.sha256) throw new Error('SCOUT_DEDUP_FINGERPRINT_MISMATCH');
+    // Canonical tuple equality remains explicit even if two digest strings collide.
+    const key = `${value.fingerprint.sha256}:${serialized}`;
+    let group = groups.get(key);
+    if (!group) {
+      group = { fingerprint: value.fingerprint, pairs: new Map() };
+      groups.set(key, group);
+    }
+    const observations = group.pairs.get(value.pair.id) ?? [];
+    observations.push(value.pair);
+    group.pairs.set(value.pair.id, observations);
+  }
+  return [...groups.values()].map(({ fingerprint, pairs }) => {
+    const occurrence_ids = [...pairs.keys()].sort(codePointOrder);
+    const references = new Map<string, Candidate['source_references'][number]>();
+    for (const id of occurrence_ids) for (const pair of pairs.get(id)!) for (const reference of pair.binding.sourceReferences) {
+      const item = { observation_id: id, source_group_id: pair.binding.sourceGroupId, reference };
+      references.set(canonicalFingerprint(item), item);
+    }
+    return {
+      run_id: runId, fingerprint: fingerprint.sha256, payload: fingerprint.payload,
+      occurrence_count: occurrence_ids.length, representative_ids: occurrence_ids.slice(0, 3), occurrence_ids,
+      source_references: [...references.values()].sort((left, right) => codePointOrder(canonicalFingerprint(left), canonicalFingerprint(right))),
+    };
+  }).sort((left, right) => codePointOrder(left.fingerprint, right.fingerprint));
 }
 
 export function normalizeOutput(raw: string): Label | 'INVALID' {
