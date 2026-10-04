@@ -508,6 +508,65 @@ function batchFixture(rows: unknown[] = [
   return { manifest, responseManifest, jsonl, requests };
 }
 
+describe('portable-adapter-contract', () => {
+  // Provider-independent wire examples: no Python/package/GPU invocation in Vitest.
+  // These catch loss of ordered inputs or interpreting operational failure as UNKNOWN.
+  function adapterFixture() {
+    const fixture = batchFixture([]);
+    const requests: ScoutRequest[] = ['a', 'b', 'c', 'd', 'e'].map((letter) => ({
+      id: letter.repeat(64), question: fixture.requests[0].question,
+      turns: [{ speaker: 'agent', text: 'Рассмотрим ипотеку?' }, { speaker: 'client', text: 'Нет.' }],
+    }));
+    const input = encodeRequests(requests);
+    const manifest: BatchManifest = { ...fixture.manifest, requestIds: requests.map(({ id }) => id),
+      inputSha256: createHash('sha256').update(input).digest('hex'), selection: { observed: 5, selected: 5, rejected: 0 } };
+    // Matches Python's compact, sorted-key UTF-8 LF rows; invalid reasoning is absent.
+    const jsonl = [
+      `{"id":"${'a'.repeat(64)}","latency_ms":1.5,"raw_output":"NO","status":"OK"}`,
+      `{"id":"${'b'.repeat(64)}","latency_ms":2,"raw_output":null,"status":"INVALID"}`,
+      `{"id":"${'c'.repeat(64)}","latency_ms":30001,"raw_output":null,"status":"TIMEOUT"}`,
+      `{"id":"${'d'.repeat(64)}","latency_ms":null,"raw_output":null,"status":"ERROR"}`,
+      `{"id":"${'e'.repeat(64)}","latency_ms":3,"raw_output":null,"status":"INPUT_LIMIT"}`,
+    ].join('\n') + '\n';
+    const responseManifest: ResponseManifest = { ...fixture.responseManifest,
+      inputSha256: manifest.inputSha256, responsesSha256: createHash('sha256').update(jsonl).digest('hex'),
+      runtimeIdentity: { ...fixture.responseManifest.runtimeIdentity, versions: { python: 'stdlib-fixture',
+        torch: 'provider-fixture', transformers: 'provider-fixture', cuda: 'provider-fixture',
+        dtype: 'float16', device: 'cuda:0', attention: 'sdpa', settings: '{"repetition_penalty":1.0}' } } };
+    return { requests, input, manifest, jsonl, responseManifest };
+  }
+
+  it('exports opaque ids and exact ordered agent/client turns with one atomic question', () => {
+    const fixture = adapterFixture();
+    const rows = fixture.input.trimEnd().split('\n').map((line) => JSON.parse(line));
+    expect(rows).toHaveLength(5);
+    expect(rows[0]).toEqual({ id: 'a'.repeat(64), question: 'Клиент сейчас допускает рассмотрение ипотеки для своей покупки?',
+      turns: [{ speaker: 'agent', text: 'Рассмотрим ипотеку?' }, { speaker: 'client', text: 'Нет.' }] });
+    expect(rows.every((row) => Object.keys(row).sort().join(',') === 'id,question,turns')).toBe(true);
+    expect(createHash('sha256').update(Buffer.from(fixture.input, 'utf8')).digest('hex')).toBe(fixture.manifest.inputSha256);
+  });
+
+  it('imports complete adapter accounting while failed ids have no semantic answer', () => {
+    const fixture = adapterFixture();
+    const imported = importResponses(fixture.manifest, fixture.responseManifest, fixture.jsonl);
+    expect(imported.status).toBe('COMPLETE');
+    expect(imported.missingIds).toEqual([]);
+    expect(imported.responses.map(({ id }) => id)).toEqual(fixture.manifest.requestIds);
+    expect(imported.responses.map(({ prediction }) => prediction)).toEqual(['NO', 'INVALID', null, null, null]);
+    expect(imported.responses.slice(1).every(({ raw_output }) => raw_output === null)).toBe(true);
+    expect(imported.errors).toEqual([`INVALID:${'b'.repeat(64)}`, `TIMEOUT:${'c'.repeat(64)}`,
+      `ERROR:${'d'.repeat(64)}`, `INPUT_LIMIT:${'e'.repeat(64)}`]);
+  });
+
+  it('detects a truncated adapter bundle through raw byte hash before accepting rows', () => {
+    const fixture = adapterFixture();
+    const imported = importResponses(fixture.manifest, fixture.responseManifest, fixture.jsonl.slice(0, -1));
+    expect(imported.status).toBe('STOP');
+    expect(imported.responses).toEqual([]);
+    expect(imported.errors).toEqual(['RESPONSES_BYTE_HASH_MISMATCH']);
+  });
+});
+
 describe('batch-contract', () => {
   it.each([
     [' YES ', 'YES'], ['NO\r\n', 'NO'], [' UNKNOWN\n', 'UNKNOWN'],
