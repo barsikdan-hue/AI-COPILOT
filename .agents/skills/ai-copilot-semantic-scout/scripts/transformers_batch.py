@@ -18,13 +18,13 @@ from unittest.mock import patch
 
 
 CONTRACT_SHA256 = "9f86d71b239c2d865167764a8351f76e69124113b87739088beed028730aaf2f"
-AUTHORITY_SIGNATURE = "e6ad9121f5ee53212954edd2b261b9dcda226ad52d9c8df06e721003fd4a492b"
+RUNTIME_CONTRACT_SHA256 = "3f9759e88fa98ff21c40240d8447bfdfb0b0c4efd38e6c6f0257336e743f069b"
+AUTHORITY_SIGNATURE = "bcd2f8e3c0129314632d20c74451caba53e96ccf14341bd9cd6ab1b7ae6d5e44"
 RUNNER = "transformers-batch-v1"
 LABELS = frozenset(("YES", "NO", "UNKNOWN"))
 MANIFEST_FIELDS = frozenset((
-    "schemaVersion", "runId", "sourceHead", "sourceHashes", "inputSha256", "requestIds",
-    "contractSha256", "model", "promptHash", "settingsHash", "policyVersion", "policyHash",
-    "projectionHash", "questionRegistryHash", "fingerprintVersion", "fingerprintHash", "runnerIdentity", "selection",
+    "schemaVersion", "runId", "inputSha256", "requestIds", "contractSha256",
+    "runtimeContractSha256", "model", "promptHash", "settingsHash", "runnerIdentity",
 ))
 
 
@@ -95,9 +95,6 @@ def _hex(value, length=64):
     return isinstance(value, str) and re.fullmatch("[a-f0-9]{" + str(length) + "}", value) is not None
 
 
-def _count(value):
-    return type(value) is int and 0 <= value <= 2**53 - 1
-
 
 def validate_bundle(manifest: dict, requests_bytes: bytes, contract: dict) -> list[dict]:
     """Stdlib-only validation; accepts frozen authority and opaque wire ids only."""
@@ -108,36 +105,25 @@ def validate_bundle(manifest: dict, requests_bytes: bytes, contract: dict) -> li
         raise ValueError("PROMPT_SETTINGS_DRIFT")
     if not _fields(manifest, MANIFEST_FIELDS):
         raise ValueError("BATCH_MANIFEST_SCHEMA")
-    ids, selection = manifest["requestIds"], manifest["selection"]
-    source_hashes = manifest["sourceHashes"]
+    ids = manifest["requestIds"]
     if (type(manifest["schemaVersion"]) is not int or manifest["schemaVersion"] != 1
-            or not _nonempty(manifest["runId"]) or not _hex(manifest["sourceHead"], 40)
-            or not isinstance(source_hashes, dict) or not source_hashes
-            or not all(_nonempty(key) and _hex(value) for key, value in source_hashes.items())
+            or not _nonempty(manifest["runId"])
             or not isinstance(ids, list) or not all(_hex(value) for value in ids) or len(set(ids)) != len(ids)
-            or not _fields(selection, ("observed", "selected", "rejected"))
-            or not all(_count(value) for value in selection.values())
-            or selection["selected"] != len(ids) or selection["observed"] != selection["selected"] + selection["rejected"]
-            or not all(_hex(manifest[key]) for key in ("inputSha256", "contractSha256", "promptHash", "settingsHash", "policyHash", "projectionHash", "questionRegistryHash", "fingerprintHash"))):
+            or not all(_hex(manifest[key]) for key in ("inputSha256", "contractSha256", "runtimeContractSha256", "promptHash", "settingsHash"))):
         raise ValueError("BATCH_MANIFEST_SCHEMA")
-    for key in ("model", "promptHash", "settingsHash", "policyVersion", "fingerprintVersion"):
+    for key in ("model", "promptHash", "settingsHash"):
         if manifest[key] != contract[key]:
             raise ValueError("PROVENANCE_MISMATCH:" + key)
-    if manifest["contractSha256"] != CONTRACT_SHA256 or manifest["runnerIdentity"] != RUNNER:
+    if (manifest["contractSha256"] != CONTRACT_SHA256 or manifest["runnerIdentity"] != RUNNER
+            or manifest["runtimeContractSha256"] != RUNTIME_CONTRACT_SHA256):
         raise ValueError("FROZEN_AUTHORITY_MISMATCH")
-    metadata = {
-        "policyHash": {key: contract[key] for key in ("policy", "questionPolicy", "slicePolicy")},
-        "projectionHash": contract["projections"], "questionRegistryHash": contract["questionRegistry"],
-        "fingerprintHash": {"version": contract["fingerprintVersion"]},
-    }
-    if any(manifest[key] != _metadata_hash(value) for key, value in metadata.items()):
-        raise ValueError("FROZEN_METADATA_MISMATCH")
     if not isinstance(requests_bytes, bytes) or _sha(requests_bytes) != manifest["inputSha256"]:
         raise ValueError("REQUEST_BYTES_DRIFT")
     if requests_bytes and (not requests_bytes.endswith(b"\n") or b"\r" in requests_bytes or requests_bytes.startswith(b"\xef\xbb\xbf")):
         raise ValueError("MALFORMED_JSONL_ENCODING")
     rows = [] if not requests_bytes else [_strict_json(line) for line in requests_bytes[:-1].split(b"\n")]
-    questions = set(contract["questionRegistry"].values())
+    questions = {wording for key, wording in contract["questionRegistry"].items()
+                 if contract["questionPolicy"].get(key) in ("ACTIVE_SHADOW", "OBSERVE_ONLY")}
     for row in rows:
         if (not _fields(row, ("id", "turns", "question")) or not _hex(row["id"])
                 or not isinstance(row["question"], str) or row["question"] not in questions
@@ -260,7 +246,7 @@ def _write_json(path, value):
 def run_batch(manifest_path: Path, requests_path: Path, contract_path: Path, output_dir: Path, *, runtime_factory=None) -> dict:
     manifest = _strict_json(Path(manifest_path).read_bytes())
     contract_bytes = Path(contract_path).read_bytes()
-    if _sha(contract_bytes) != CONTRACT_SHA256:
+    if _sha(contract_bytes) != RUNTIME_CONTRACT_SHA256:
         raise ValueError("CONTRACT_BYTES_DRIFT")
     contract = _strict_json(contract_bytes)
     requests = validate_bundle(manifest, Path(requests_path).read_bytes(), contract)
@@ -268,6 +254,10 @@ def run_batch(manifest_path: Path, requests_path: Path, contract_path: Path, out
     output_dir.mkdir(parents=True, exist_ok=False)
     provenance = {"schemaVersion": 1, **{key: manifest[key] for key in ("runId", "inputSha256", "contractSha256", "model", "promptHash", "settingsHash")}}
     runtime_identity = {"runner": RUNNER, "runtimeReferenceHash": contract["runtimeReferenceHash"]}
+    if not requests:
+        marker = {**provenance, "status": "SKIP", "reason": "NO_ELIGIBLE_INPUTS", "runtimeIdentity": runtime_identity}
+        _write_json(output_dir / "runtime-status.json", marker)
+        return marker
     try:
         infer, versions = (runtime_factory or load_runtime)(contract)
     except RuntimeUnavailable as error:
@@ -291,9 +281,15 @@ def run_batch(manifest_path: Path, requests_path: Path, contract_path: Path, out
 
 def self_test():
     """Protocol/runner behavior, never a GPU smoke or model execution."""
-    authority_path = Path(__file__).parent.parent / "references/semantic-scout-contract.json"
-    contract_bytes = authority_path.read_bytes()
-    authority = json.loads(contract_bytes)
+    local_authority = _strict_json((Path(__file__).parent.parent / "references/semantic-scout-contract.json").read_bytes())
+    authority = {key: local_authority[key] for key in (
+        "schemaVersion", "semanticSourceHash", "model", "systemPrompt", "settings", "promptHash", "settingsHash",
+        "runtimeReferenceHash", "questionRegistry", "questionPolicy")}
+    contract_bytes = (json.dumps(authority, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
+    # Test-local external bundle: actual runner never reads the private local authority.
+    test_root = tempfile.TemporaryDirectory()
+    authority_path = Path(test_root.name) / "runtime-contract.json"
+    authority_path.write_bytes(contract_bytes)
 
     def fixture(requests=None):
         requests = requests if requests is not None else [
@@ -306,25 +302,41 @@ def self_test():
              "question": authority["questionRegistry"]["mortgage_permission"]},
         ]
         digest = lambda value: hashlib.sha256(value).hexdigest()
-        canonical_hash = lambda value: digest(json.dumps(value, ensure_ascii=False, sort_keys=True,
-                                                         separators=(",", ":")).encode("utf-8"))
         data = b"".join((json.dumps(row, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8") for row in requests)
         manifest = {
-            "schemaVersion": 1, "runId": "stdlib-unit", "sourceHead": "d" * 40,
-            "sourceHashes": {"local-source": "e" * 64}, "inputSha256": digest(data),
-            "requestIds": [row["id"] for row in requests], "contractSha256": digest(contract_bytes),
+            "schemaVersion": 1, "runId": "stdlib-unit", "inputSha256": digest(data),
+            "requestIds": [row["id"] for row in requests], "contractSha256": CONTRACT_SHA256,
+            "runtimeContractSha256": digest(contract_bytes),
             "model": authority["model"], "promptHash": authority["promptHash"], "settingsHash": authority["settingsHash"],
-            "policyVersion": authority["policyVersion"],
-            "policyHash": canonical_hash({key: authority[key] for key in ("policy", "questionPolicy", "slicePolicy")}),
-            "projectionHash": canonical_hash(authority["projections"]),
-            "questionRegistryHash": canonical_hash(authority["questionRegistry"]),
-            "fingerprintVersion": authority["fingerprintVersion"],
-            "fingerprintHash": canonical_hash({"version": authority["fingerprintVersion"]}),
-            "runnerIdentity": "transformers-batch-v1", "selection": {"observed": len(requests), "selected": len(requests), "rejected": 0},
+            "runnerIdentity": "transformers-batch-v1",
         }
         return manifest, data, requests
 
     class AdapterTests(unittest.TestCase):
+        def test_disabled_question_stops_before_runtime_or_output(self):
+            requests = fixture()[2]
+            requests[0]["question"] = authority["questionRegistry"]["dp_current_available_some"]
+            manifest, data, _ = fixture(requests)
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+                (root / "requests.jsonl").write_bytes(data)
+                with self.assertRaises(ValueError):
+                    run_batch(root / "manifest.json", root / "requests.jsonl", authority_path, root / "out",
+                              runtime_factory=lambda _: self.fail("runtime reached"))
+                self.assertFalse((root / "out").exists())
+
+        def test_empty_batch_skips_before_runtime_without_fake_rows(self):
+            manifest, data, _ = fixture([])
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+                (root / "requests.jsonl").write_bytes(data)
+                result = run_batch(root / "manifest.json", root / "requests.jsonl", authority_path, root / "out",
+                                   runtime_factory=lambda _: self.fail("runtime reached"))
+                self.assertEqual((result["status"], result["reason"]), ("SKIP", "NO_ELIGIBLE_INPUTS"))
+                self.assertEqual(sorted(path.name for path in (root / "out").iterdir()), ["runtime-status.json"])
+
         def test_required_functions_exist(self):
             for name in ("validate_bundle", "format_messages", "run_batch", "execute_requests", "load_runtime"):
                 self.assertTrue(callable(globals().get(name)), "missing adapter function: " + name)
@@ -346,7 +358,6 @@ def self_test():
             for ids in (["f" * 64], ["a" * 64, "b" * 64], ["a" * 64] * 3, ["fixture:NO"] * 3):
                 manifest, data, _ = fixture()
                 manifest["requestIds"] = ids
-                manifest["selection"] = {"observed": len(ids), "selected": len(ids), "rejected": 0}
                 with self.assertRaises(ValueError):
                     validate_bundle(manifest, data, authority)
 
@@ -364,7 +375,7 @@ def self_test():
                 validate_bundle(manifest, data, authority)
 
         def test_frozen_provenance_and_settings_rejected(self):
-            for key in ("contractSha256", "inputSha256", "promptHash", "settingsHash", "policyHash", "projectionHash", "questionRegistryHash", "fingerprintHash"):
+            for key in ("contractSha256", "inputSha256", "promptHash", "settingsHash", "runtimeContractSha256"):
                 manifest, data, _ = fixture()
                 manifest[key] = "0" * 64
                 with self.assertRaises(ValueError):
@@ -527,7 +538,9 @@ def self_test():
                 self.assertFalse((root / "out" / "runtime-status.json").exists())
 
     suite = unittest.defaultTestLoader.loadTestsFromTestCase(AdapterTests)
-    if not unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful():
+    success = unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful()
+    test_root.cleanup()
+    if not success:
         raise SystemExit(1)
 
 

@@ -142,6 +142,7 @@ export interface PairComparison {
 // Byte hash belongs to this composed authority, not to its historical source.
 const CONTRACT_SHA256 = '9f86d71b239c2d865167764a8351f76e69124113b87739088beed028730aaf2f';
 const AUTHORITY_SIGNATURE = 'e6ad9121f5ee53212954edd2b261b9dcda226ad52d9c8df06e721003fd4a492b';
+const RUNTIME_CONTRACT_SHA256 = '3f9759e88fa98ff21c40240d8447bfdfb0b0c4efd38e6c6f0257336e743f069b';
 const sourceRoot = fileURLToPath(new URL('../../../../', import.meta.url));
 const sha256 = (bytes: string | Buffer): string => createHash('sha256').update(bytes).digest('hex');
 
@@ -172,15 +173,26 @@ function hasAuthority(contract: ScoutContract): boolean {
   try { return sha256(canonical(contract)) === AUTHORITY_SIGNATURE; } catch { return false; }
 }
 
-function sourcesMatch(binding: CaseBinding): boolean {
+type SourceReader = (path: string) => Buffer;
+const readSource: SourceReader = (path) => readFileSync(sourcePath(path));
+function sourcesMatch(binding: CaseBinding, reader: SourceReader = readSource): boolean {
   try {
-    return Object.entries(binding.sourceHashes).every(([path, hash]) => sha256(readFileSync(resolve(sourceRoot, path))) === hash);
+    return Object.entries(binding.sourceHashes).every(([path, hash]) => {
+      const bytes = reader(path);
+      // Frozen binding pins are CRLF. Accept only verified uniform LF/CRLF
+      // representations of those exact bytes; per-run source capture stays raw.
+      const lf = bytes.toString('utf8').replace(/\r\n/gu, '\n');
+      if (lf.includes('\r')) return false;
+      const crlf = Buffer.from(lf.replace(/\n/gu, '\r\n'), 'utf8');
+      if (!bytes.equals(Buffer.from(lf, 'utf8')) && !bytes.equals(crlf)) return false;
+      return sha256(crlf) === hash;
+    });
   } catch { return false; }
 }
 
-export function loadContract(path: string): ScoutContract {
+export function loadContract(path: string, reader: SourceReader = readSource): ScoutContract {
   const contract = readAuthority(path);
-  if (!contract.bindings.every(sourcesMatch)) throw new Error('SCOUT_SOURCE_DRIFT');
+  if (!contract.bindings.every((binding) => sourcesMatch(binding, reader))) throw new Error('SCOUT_SOURCE_DRIFT');
   return contract;
 }
 
@@ -474,7 +486,9 @@ function requestPayload(value: unknown, questions: readonly string[]): value is 
 }
 
 export function encodeRequests(requests: readonly ScoutRequest[]): string {
-  const questions = Object.values(readAuthority(new URL('../references/semantic-scout-contract.json', import.meta.url)).questionRegistry);
+  const authority = readAuthority(new URL('../references/semantic-scout-contract.json', import.meta.url));
+  const questions = Object.entries(authority.questionRegistry).filter(([id]) =>
+    ['ACTIVE_SHADOW', 'OBSERVE_ONLY'].includes(authority.questionPolicy[id])).map(([, wording]) => wording);
   const ids = new Set<string>();
   if (!denseArray(requests)) throw new Error('SCOUT_REQUEST_SCHEMA');
   return requests.map((request) => {
@@ -550,7 +564,7 @@ export function importResponses(manifest: BatchManifest, responseManifest: Respo
   }
   const missingIds = manifest.requestIds.filter((id) => !accepted.has(id));
   errors.push(...missingIds.map((id) => `MISSING_RESPONSE:${id}`));
-  return { status: malformed ? 'STOP' : missingIds.length ? 'PARTIAL' : 'COMPLETE',
+  return { status: malformed ? 'STOP' : errors.length ? 'PARTIAL' : 'COMPLETE',
     responses: manifest.requestIds.flatMap((id) => accepted.has(id) ? [accepted.get(id)!] : []), missingIds, errors };
 }
 
@@ -560,10 +574,11 @@ export interface ScoutReport {
   provenance: { runId: string; sourceHead: string; contractSha256: string; inputSha256: string };
   counts: Record<string, number>;
   labels: { core: Record<Label, number>; scout: Record<Label, number> };
-  domains: Record<string, { selected: number; comparisons: number; agreements: number; disagreements: number }>;
+  domains: Record<string, Record<string, number>>;
   candidates: Candidate[];
   occurrences: Array<{ observation_id: string; local_observation_id: string; source_group_id: string; fingerprint: string; source_references: string[] }>;
   runtimeStatus?: RuntimeStatus;
+  evidence?: { freezeFile: string; freezeSha256: string; artifactHashes: Record<string, string> };
 }
 export function prepareBatch(input: { runId: string; sourceHead: string; observations: readonly RegressionObservation[]; contract: ScoutContract }): {
   manifest: BatchManifest; requestsJsonl: string; localObservations: RegressionObservation[]; selection: ScoutReport;
@@ -585,10 +600,7 @@ export function prepareBatch(input: { runId: string; sourceHead: string; observa
     fingerprintVersion: contract.fingerprintVersion, fingerprintHash: sha256(canonical({ version: contract.fingerprintVersion })),
     runnerIdentity: 'transformers-batch-v1', selection: { observed: input.observations.length, selected: ids.length, rejected: selected.rejected.length },
   });
-  const selection = reportBatch({ manifest, observations: localObservations, contract, imported: null });
-  selection.reasons.push(...selected.rejected.map(({ id, reason }) => `${reason}:${id}`));
-  selection.counts.disabled = selected.rejected.filter(({ reason }) => reason === 'POLICY_DISABLED').length;
-  selection.counts.notComparable = selected.rejected.filter(({ reason }) => reason !== 'POLICY_DISABLED').length;
+  const selection = reportBatch({ manifest, observations: input.observations, contract, imported: null });
   if (!hasAuthority(contract)) { selection.status = 'STOP'; selection.reasons = ['CONTRACT_DRIFT']; }
   return { manifest, requestsJsonl, localObservations: freeze(localObservations), selection };
 }
@@ -603,7 +615,7 @@ function requestFor(observation: RegressionObservation, binding: CaseBinding, co
 
 function captureSourceHashes(contract: ScoutContract): Record<string, string> {
   const paths = new Set([
-    ...Object.keys(contract.sourceArtifactHashes), ...contract.bindings.flatMap((binding) => Object.keys(binding.sourceHashes)),
+    ...contract.bindings.flatMap((binding) => Object.keys(binding.sourceHashes)),
     'src/services/test-support/massRegressionHarness.ts', 'src/services/test-support/expandedRegressionHarness.ts',
     'src/services/test-support/regressionObservation.ts', '.agents/skills/ai-copilot-semantic-scout/scripts/scout.ts',
   ]);
@@ -623,7 +635,7 @@ function emptyReport(manifest: BatchManifest): ScoutReport {
   return {
     status: 'SKIP', reasons: [], provenance: { runId: manifest.runId, sourceHead: manifest.sourceHead,
       contractSha256: manifest.contractSha256, inputSha256: manifest.inputSha256 },
-    counts: Object.fromEntries(['observed', 'selected', 'rejected', 'disabled', 'notComparable', 'submitted', 'returned', 'missing', 'valid', 'invalid',
+    counts: Object.fromEntries(['observed', 'selected', 'rejected', 'disabled', 'notComparable', 'unclassifiedRejected', 'submitted', 'returned', 'missing', 'valid', 'invalid',
       'timedOut', 'failed', 'inputLimit', 'comparisons', 'agreements', 'observeOnlyDisagreements', 'eligibleDisagreements', 'candidates',
       'suppressedRepeats', 'provenCoreBugs', 'provenScoutFalseAlarms', 'unresolved', 'selectedSourceGroups', 'comparedSourceGroups',
       'disagreementSourceGroups'].map((key) => [key, 0])),
@@ -655,23 +667,45 @@ export function reportBatch(input: { manifest: BatchManifest; observations: read
   result.reasons.push(...selected.rejected.map(({ id, reason }) => `${reason}:${id}`));
   result.counts.disabled = selected.rejected.filter(({ reason }) => reason === 'POLICY_DISABLED').length;
   result.counts.notComparable = selected.rejected.filter(({ reason }) => reason !== 'POLICY_DISABLED').length;
+  // A selected-only caller cannot classify rejections absent from its observations.
+  result.counts.unclassifiedRejected = manifest.selection.rejected - selected.rejected.length;
   const groupCount = (items: readonly { binding: CaseBinding }[]) => new Set(items.map(({ binding }) => binding.sourceGroupId)).size;
   result.counts.selectedSourceGroups = groupCount(selected.eligible);
+  const domainCounts = (name: Domain) => result.domains[name] ??= { ...emptyReport(manifest).counts,
+    disagreements: 0, coreYES: 0, coreNO: 0, coreUNKNOWN: 0, scoutYES: 0, scoutNO: 0, scoutUNKNOWN: 0 };
   for (const { binding } of selected.eligible) {
-    const domain = result.domains[binding.domain] ??= { selected: 0, comparisons: 0, agreements: 0, disagreements: 0 };
-    domain.selected += 1;
+    const domain = domainCounts(binding.domain);
+    domain.observed += 1; domain.selected += 1; domain.submitted += 1;
   }
+  for (const rejected of selected.rejected) {
+    const binding = contract.bindings.find((item) => observationId(item.identity) === rejected.id);
+    if (!binding) { result.counts.unclassifiedRejected += 1; continue; }
+    const domain = domainCounts(binding.domain);
+    domain.observed += 1; domain.rejected += 1;
+    domain[rejected.reason === 'POLICY_DISABLED' ? 'disabled' : 'notComparable'] += 1;
+  }
+  for (const [name, domain] of Object.entries(result.domains)) domain.selectedSourceGroups = groupCount(selected.eligible.filter(({ binding }) => binding.domain === name));
   if (manifest.requestIds.length === 0) { result.reasons.push('NO_ELIGIBLE_INPUTS'); return result; }
   if (!imported) { result.reasons.push('RUNTIME_OR_RESPONSE_BUNDLE_UNAVAILABLE'); return result; }
   result.reasons.push(...imported.errors);
   result.counts.returned = imported.responses.length; result.counts.missing = imported.missingIds.length;
+  const bindingById = new Map(selected.eligible.map(({ observation, binding }) => [wireId(observation.identity), binding]));
+  for (const id of imported.missingIds) {
+    const binding = bindingById.get(id); if (binding) domainCounts(binding.domain).missing += 1;
+  }
   for (const response of imported.responses) {
-    if (response.prediction === 'INVALID') result.counts.invalid += 1;
+    const binding = bindingById.get(response.id);
+    const domain = binding ? domainCounts(binding.domain) : undefined;
+    if (domain) domain.returned += 1;
+    let counter: string;
+    if (response.prediction === 'INVALID') counter = 'invalid';
     else if (response.status === 'OK' && response.prediction && normalizeOutput(response.raw_output ?? '') === response.prediction) {
-      result.counts.valid += 1; result.labels.scout[response.prediction] += 1;
-    } else if (response.status === 'TIMEOUT') result.counts.timedOut += 1;
-    else if (response.status === 'INPUT_LIMIT') result.counts.inputLimit += 1;
-    else result.counts.failed += 1;
+      counter = 'valid'; result.labels.scout[response.prediction] += 1;
+      if (domain) domain[`scout${response.prediction}`] += 1;
+    } else if (response.status === 'TIMEOUT') counter = 'timedOut';
+    else if (response.status === 'INPUT_LIMIT') counter = 'inputLimit';
+    else counter = 'failed';
+    result.counts[counter] += 1; if (domain) domain[counter] += 1;
   }
   if (imported.status === 'STOP') return stop('RESPONSE_IMPORT_STOP');
   const byId = new Map(imported.responses.map((response) => [response.id, response]));
@@ -682,14 +716,14 @@ export function reportBatch(input: { manifest: BatchManifest; observations: read
   });
   const comparisons = comparePairs(pairs, contract);
   const compared = [...comparisons.agreements, ...comparisons.observeOnlyDisagreements, ...comparisons.eligibleDisagreements.map(({ pair }) => pair)];
-  result.status = imported.status;
+  result.status = imported.status === 'PARTIAL' || result.counts.valid !== manifest.requestIds.length ? 'PARTIAL' : 'COMPLETE';
   result.counts.comparisons = compared.length; result.counts.agreements = comparisons.agreements.length;
   result.counts.observeOnlyDisagreements = comparisons.observeOnlyDisagreements.length;
   result.counts.eligibleDisagreements = comparisons.eligibleDisagreements.length;
   result.counts.comparedSourceGroups = groupCount(compared);
   result.counts.disagreementSourceGroups = groupCount([...comparisons.observeOnlyDisagreements, ...comparisons.eligibleDisagreements.map(({ pair }) => pair)]);
   for (const pair of compared) {
-    if (pair.core.status === 'COMPARABLE') result.labels.core[pair.core.value] += 1;
+    if (pair.core.status === 'COMPARABLE') { result.labels.core[pair.core.value] += 1; result.domains[pair.binding.domain][`core${pair.core.value}`] += 1; }
     const domain = result.domains[pair.binding.domain]; domain.comparisons += 1;
     if (pair.core.status === 'COMPARABLE' && pair.core.value === pair.response.prediction) domain.agreements += 1; else domain.disagreements += 1;
   }
@@ -703,11 +737,33 @@ export function reportBatch(input: { manifest: BatchManifest; observations: read
   result.counts.candidates = result.candidates.length;
   result.counts.suppressedRepeats = result.counts.eligibleDisagreements - result.counts.candidates;
   result.counts.unresolved = result.candidates.length;
+  for (const [name, domain] of Object.entries(result.domains)) {
+    domain.observeOnlyDisagreements = comparisons.observeOnlyDisagreements.filter(({ binding }) => binding.domain === name).length;
+    domain.eligibleDisagreements = comparisons.eligibleDisagreements.filter(({ pair }) => pair.binding.domain === name).length;
+    domain.comparedSourceGroups = groupCount(compared.filter(({ binding }) => binding.domain === name));
+    domain.disagreementSourceGroups = groupCount([...comparisons.observeOnlyDisagreements, ...comparisons.eligibleDisagreements.map(({ pair }) => pair)].filter(({ binding }) => binding.domain === name));
+    domain.candidates = result.candidates.filter(({ payload }) => payload.domain === name).length;
+    domain.suppressedRepeats = domain.eligibleDisagreements - domain.candidates;
+    domain.unresolved = domain.candidates;
+  }
   // No gold-equivalence evidence or independent investigation proof is accepted by this interface.
   return result;
 }
 
-const runFiles = ['contract.json', 'manifest.json', 'requests.jsonl', 'local-observations.json', 'selection.json', 'observer-errors.json', 'harness-reports.json'] as const;
+function runtimeBundle(manifest: BatchManifest, contract: ScoutContract): { contractBytes: string; manifest: Record<string, unknown> } {
+  if (!hasAuthority(contract)) throw new Error('SCOUT_CONTRACT_DRIFT');
+  const payload = { schemaVersion: 1, semanticSourceHash: contract.semanticSourceHash, model: contract.model,
+    systemPrompt: contract.systemPrompt, settings: contract.settings, promptHash: contract.promptHash,
+    settingsHash: contract.settingsHash, runtimeReferenceHash: contract.runtimeReferenceHash,
+    questionRegistry: contract.questionRegistry, questionPolicy: contract.questionPolicy };
+  // The frozen numeric lexeme is significant to the Python settings hash.
+  const contractBytes = JSON.stringify(payload).replace('"repetition_penalty":1,', '"repetition_penalty":1.0,') + '\n';
+  if (sha256(contractBytes) !== RUNTIME_CONTRACT_SHA256) throw new Error('SCOUT_RUNTIME_CONTRACT_DRIFT');
+  return { contractBytes, manifest: { schemaVersion: 1, runId: manifest.runId, inputSha256: manifest.inputSha256,
+    requestIds: manifest.requestIds, contractSha256: manifest.contractSha256, runtimeContractSha256: RUNTIME_CONTRACT_SHA256,
+    model: manifest.model, promptHash: manifest.promptHash, settingsHash: manifest.settingsHash, runnerIdentity: manifest.runnerIdentity } };
+}
+const runFiles = ['contract.json', 'manifest.json', 'requests.jsonl', 'local-observations.json', 'selection.json', 'observer-errors.json', 'harness-reports.json', 'runtime-contract.json', 'runtime-manifest.json'] as const;
 interface RunFreeze { schemaVersion: 1; artifactHashes: Record<string, string> }
 function strictText(bytes: Buffer): string {
   try { return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes); }
@@ -747,7 +803,6 @@ function validateRun(run: string): { manifest: BatchManifest; observations: Regr
   if (currentHead() !== manifest.sourceHead) throw new Error('SCOUT_SOURCE_HEAD_DRIFT');
   const actualHashes = captureSourceHashes(contract);
   if (canonical(actualHashes) !== canonical(manifest.sourceHashes)) throw new Error('SCOUT_SOURCE_BYTES_DRIFT');
-  for (const [path, hash] of Object.entries(contract.sourceArtifactHashes)) if (actualHashes[path] !== hash) throw new Error('SCOUT_AUTHORITY_SOURCE_DRIFT');
   const requests = readFileSync(resolve(run, 'requests.jsonl'));
   if (sha256(requests) !== manifest.inputSha256) throw new Error('SCOUT_SAVED_REQUEST_DRIFT');
   const observations = readJson(resolve(run, 'local-observations.json')) as RegressionObservation[];
@@ -782,7 +837,6 @@ export async function main(argv: readonly string[]): Promise<number> {
       if (existsSync(out)) throw new Error('SCOUT_DESTINATION_EXISTS');
       const contractBytes = readFileSync(options.get('--contract')!); // Never reserialize: frozen settings preserve original 1.0 lexeme.
       const contract = loadContract(options.get('--contract')!);
-      for (const [path, hash] of Object.entries(contract.sourceArtifactHashes)) if (sha256(readFileSync(sourcePath(path))) !== hash) throw new Error('SCOUT_AUTHORITY_SOURCE_DRIFT');
       const sourceHead = currentHead(); const beforeHashes = captureSourceHashes(contract);
       const observations: RegressionObservation[] = []; const observerErrors: Array<{ identity: RegressionIdentity; code: string }> = [];
       const hook = { observation: {
@@ -801,6 +855,9 @@ export async function main(argv: readonly string[]): Promise<number> {
         || canonical(beforeHashes) !== canonical(prepared.manifest.sourceHashes)) throw new Error('SCOUT_EXPORT_SOURCE_DRIFT');
       newDirectory(out);
       writeFileSync(resolve(out, 'contract.json'), contractBytes, { flag: 'wx' });
+      const runtime = runtimeBundle(prepared.manifest, contract);
+      writeFileSync(resolve(out, 'runtime-contract.json'), runtime.contractBytes, { flag: 'wx' });
+      writeJson(resolve(out, 'runtime-manifest.json'), runtime.manifest);
       writeFileSync(resolve(out, 'requests.jsonl'), prepared.requestsJsonl, { flag: 'wx' });
       writeJson(resolve(out, 'manifest.json'), prepared.manifest); writeJson(resolve(out, 'local-observations.json'), prepared.localObservations);
       writeJson(resolve(out, 'selection.json'), prepared.selection); writeJson(resolve(out, 'observer-errors.json'), observerErrors);
@@ -814,10 +871,13 @@ export async function main(argv: readonly string[]): Promise<number> {
     const { manifest, observations, contract, selection } = validateRun(run);
     let imported: BatchImport | null = null;
     let runtimeStatus: RuntimeStatus | undefined;
+    let incomingResponsesSha256: string | undefined;
+    let retainedResponseManifest: ResponseManifest | undefined;
     const responsesPath = options.get('--responses')!;
     const responseManifestPath = options.get('--response-manifest')!;
     const siblingPath = resolve(dirname(responseManifestPath), 'runtime-status.json');
-    const suppliedManifest = existsSync(responseManifestPath) ? readJson(responseManifestPath) : undefined;
+    const incomingManifestBytes = existsSync(responseManifestPath) ? readFileSync(responseManifestPath) : undefined;
+    const suppliedManifest = incomingManifestBytes ? JSON.parse(strictText(incomingManifestBytes)) as unknown : undefined;
     const directMarker = suppliedManifest !== undefined && (basename(responseManifestPath) === 'runtime-status.json'
       || (record(suppliedManifest) && Object.hasOwn(suppliedManifest, 'status')));
     const siblingMarker = siblingPath !== responseManifestPath && existsSync(siblingPath);
@@ -829,6 +889,11 @@ export async function main(argv: readonly string[]): Promise<number> {
       const responseManifest = suppliedManifest as ResponseManifest;
       if (!validResponseManifest(responseManifest) || sha256(responseBytes) !== responseManifest.responsesSha256) throw new Error('SCOUT_RESPONSE_BYTES_DRIFT');
       imported = importResponses(manifest, responseManifest, strictText(responseBytes));
+      incomingResponsesSha256 = sha256(responseBytes);
+      retainedResponseManifest = structuredClone(responseManifest);
+      // Retain short operational identity only, never oversized free-form text.
+      retainedResponseManifest.runtimeIdentity.versions = Object.fromEntries(Object.entries(responseManifest.runtimeIdentity.versions)
+        .map(([key, value]) => [key, value.length <= 512 ? value : 'REDACTED_OVERSIZED_VERSION']));
     }
     const report = reportBatch({ manifest, observations, contract, imported });
     if (runtimeStatus && report.status !== 'STOP') {
@@ -838,7 +903,28 @@ export async function main(argv: readonly string[]): Promise<number> {
     }
     report.reasons.push(...selection.reasons.filter((reason) => reason !== 'RUNTIME_OR_RESPONSE_BUNDLE_UNAVAILABLE'));
     report.counts.disabled = selection.counts.disabled; report.counts.notComparable = selection.counts.notComparable;
-    newDirectory(out); writeJson(resolve(out, 'report.json'), report);
+    report.counts.unclassifiedRejected = selection.counts.unclassifiedRejected;
+    for (const [name, domain] of Object.entries(selection.domains)) {
+      const target = report.domains[name] ??= { ...domain };
+      for (const key of ['observed', 'rejected', 'disabled', 'notComparable']) target[key] = domain[key];
+    }
+    newDirectory(out);
+    // Freeze private, self-contained provenance and sanitized rows before candidates.
+    const evidenceNames = ['contract.json', 'manifest.json', 'local-observations.json', 'selection.json'];
+    for (const name of evidenceNames) writeFileSync(resolve(out, name), readFileSync(resolve(run, name)), { flag: 'wx' });
+    writeJson(resolve(out, 'response-evidence.json'), { schemaVersion: 1, status: imported?.status ?? 'SKIP',
+      requestIds: manifest.requestIds, responses: (imported?.responses ?? []).map((row) => ({ ...row,
+        raw_output: row.status === 'OK' && row.prediction !== 'INVALID' ? row.prediction : null })),
+      missingIds: imported?.missingIds ?? manifest.requestIds, errors: imported?.errors ?? [] });
+    evidenceNames.push('response-evidence.json');
+    if (retainedResponseManifest) { writeJson(resolve(out, 'response-manifest.json'), retainedResponseManifest); evidenceNames.push('response-manifest.json'); }
+    if (runtimeStatus) { writeJson(resolve(out, 'runtime-status.json'), runtimeStatus); evidenceNames.push('runtime-status.json'); }
+    const artifactHashes = Object.fromEntries(evidenceNames.map((name) => [name, sha256(readFileSync(resolve(out, name)))]));
+    writeJson(resolve(out, 'evidence-freeze.json'), { schemaVersion: 1, artifactHashes,
+      ...(incomingResponsesSha256 ? { incomingResponsesSha256 } : {}),
+      ...(incomingManifestBytes ? { incomingManifestSha256: sha256(incomingManifestBytes) } : {}) });
+    report.evidence = { freezeFile: 'evidence-freeze.json', freezeSha256: sha256(readFileSync(resolve(out, 'evidence-freeze.json'))), artifactHashes };
+    writeJson(resolve(out, 'report.json'), report);
     if (report.status === 'STOP') return 2;
     writeJson(resolve(out, 'occurrences.json'), report.occurrences); writeJson(resolve(out, 'candidates.json'), report.candidates);
     return 0;

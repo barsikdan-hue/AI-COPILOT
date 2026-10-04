@@ -1,4 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
+const sourceAccess = vi.hoisted(() => ({ historyUnavailable: false }));
+vi.mock('node:fs', async (original) => {
+  const actual = await original<typeof import('node:fs')>();
+  return { ...actual, readFileSync: (...args: Parameters<typeof actual.readFileSync>) => {
+    if (sourceAccess.historyUnavailable && String(args[0]).replace(/\\/gu, '/').includes('/diagnostics/')) throw new Error('HISTORICAL_FIXTURE_UNAVAILABLE');
+    return actual.readFileSync(...args);
+  } };
+});
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync, mkdtempSync, rmSync, existsSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -335,21 +343,28 @@ describe('compare-dedup', () => {
 });
 
 describe('contract-policy-comparability', () => {
+  it('loads pinned authority and binding sources through actual LF and Windows Git filters', () => {
+    const path = '.agents/skills/ai-copilot-semantic-scout/references/semantic-scout-contract.json';
+    const root = mkdtempSync(resolve(tmpdir(), 'scout-eol-'));
+    try {
+      for (const autocrlf of ['false', 'true']) {
+        const filtered = execFileSync('git', ['-c', `core.autocrlf=${autocrlf}`, 'cat-file', '--filters', `HEAD:${path}`]);
+        const target = resolve(root, 'contract.json'); writeFileSync(target, filtered);
+        const contract = loadContract(target, (source) => execFileSync('git', ['-c', `core.autocrlf=${autocrlf}`, 'cat-file', '--filters', `HEAD:${source}`]));
+        expect(projectCore(observation(), contract.bindings[0], contract).status).toBe('COMPARABLE');
+      }
+      expect(() => loadContract(resolve(root, 'contract.json'), (source) => Buffer.concat([execFileSync('git', ['show', `HEAD:${source}`]), Buffer.from('// semantic drift')]))).toThrow('SCOUT_SOURCE_DRIFT');
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  });
   it('freezes semantic meaning and proven runtime values without historical task authority', () => {
     const contract = loadContract(scoutContractPath);
-    const semantic = JSON.parse(readFileSync('diagnostics/semantic-gold-benchmark/contract.json', 'utf8'));
-    const runtime = JSON.parse(readFileSync('diagnostics/semantic-three-set-validation-2026-10-04/evaluation-contract.json', 'utf8'));
-    expect(contract.semanticPayload).toEqual({
-      unit: semantic.unit, input_format: semantic.input_format, labels: semantic.labels,
-      ambiguity_gate: semantic.ambiguity_gate, speaker_rule: semantic.speaker_rule,
-      correction_rule: semantic.correction_rule, predicate_notes: semantic.predicate_notes,
-    });
-    expect(contract.questionRegistry).toEqual(semantic.question_registry);
-    expect(contract.systemPrompt).toBe(runtime.system_prompt);
-    expect(contract.settings).toEqual(runtime.settings);
-    expect(contract.model).toEqual({ id: runtime.model.id, revision: runtime.model.revision });
-    expect(contract.semanticSourceHash).toBe(createHash('sha256').update(readFileSync('diagnostics/semantic-gold-benchmark/contract.json')).digest('hex'));
-    expect(contract.runtimeReferenceHash).toBe(createHash('sha256').update(readFileSync('diagnostics/kaggle-semantic-judge/tournament-2026-10-04/run_tournament.py')).digest('hex'));
+    expect(contract.semanticPayload.labels).toHaveProperty('UNKNOWN');
+    expect(contract.questionRegistry.mortgage_permission).toBe('Клиент сейчас допускает рассмотрение ипотеки для своей покупки?');
+    expect(contract.model).toEqual({ id: 'RefalMachine/RuadaptQwen3-4B-Instruct', revision: '684adcaf873c3befcac5629804151a606a1b2d57' });
+    expect(contract.settings).toMatchObject({ repetition_penalty: 1, max_input_tokens: 2048, do_sample: false, thinking: false });
+    expect(contract.semanticSourceHash).toBe('fb3f482766b3858815cbac5ce39061cd17022bbb9e75db16386e13a5e2f56020');
+    expect(contract.runtimeReferenceHash).toBe('fe0bc5cd97fa60f2bdd6c143fcef87746f320efb8e9bc319a3fa9bac01539ff5');
+    expect(Object.keys(contract.sourceArtifactHashes)).toHaveLength(3);
     expect(contract).not.toHaveProperty('inference_allowed_in_this_task');
     expect(contract).not.toHaveProperty('previous_protocol_path');
     expect(contract.semanticPayload).not.toHaveProperty('coverage');
@@ -549,7 +564,7 @@ describe('portable-adapter-contract', () => {
   it('imports complete adapter accounting while failed ids have no semantic answer', () => {
     const fixture = adapterFixture();
     const imported = importResponses(fixture.manifest, fixture.responseManifest, fixture.jsonl);
-    expect(imported.status).toBe('COMPLETE');
+    expect(imported.status).toBe('PARTIAL');
     expect(imported.missingIds).toEqual([]);
     expect(imported.responses.map(({ id }) => id)).toEqual(fixture.manifest.requestIds);
     expect(imported.responses.map(({ prediction }) => prediction)).toEqual(['NO', 'INVALID', null, null, null]);
@@ -670,7 +685,7 @@ describe('batch-contract', () => {
       { id: 'opaque-b', status: 'OK', raw_output: 'NO', latency_ms: 1 },
     ]);
     const result = importResponses(manifest, responseManifest, jsonl);
-    expect(result.status).toBe('COMPLETE');
+    expect(result.status).toBe('PARTIAL');
     expect(result.responses[0].prediction).toBeNull();
     expect(result.responses[0].status).toBe(status);
     expect(result.errors).toContain(`${status}:opaque-a`);
@@ -928,6 +943,103 @@ describe('workflow-skip-report', () => {
     expect(report).not.toHaveProperty('accuracy');
     expect(reportBatch({ manifest: ready.manifest, observations: ready.localObservations, contract: loadContract(scoutContractPath), imported: null }).status).toBe('SKIP');
   });
+  it('exports and imports with historical artifact reads unavailable', async () => {
+    sourceAccess.historyUnavailable = true;
+    try {
+      await withExport(async (dir, run) => {
+        const manifest = JSON.parse(readFileSync(resolve(run, 'manifest.json'), 'utf8'));
+        expect(Object.keys(manifest.sourceHashes).some((path) => path.startsWith('diagnostics/'))).toBe(false);
+        expect(await main(await responsesAt(dir, run))).toBe(0);
+        expect(JSON.parse(readFileSync(resolve(run, 'results/report.json'), 'utf8')).status).toBe('COMPLETE');
+      });
+    } finally { sourceAccess.historyUnavailable = false; }
+  });
+  it('exports a complete minimal external bundle without private comparator/source metadata', async () => {
+    await withExport(async (_dir, run) => {
+      const bytes = readFileSync(resolve(run, 'runtime-contract.json'), 'utf8');
+      const runtime = JSON.parse(bytes);
+      const manifest = JSON.parse(readFileSync(resolve(run, 'runtime-manifest.json'), 'utf8'));
+      const requests = readFileSync(resolve(run, 'requests.jsonl'), 'utf8');
+      expect(Object.keys(runtime).sort()).toEqual(['schemaVersion', 'semanticSourceHash', 'model', 'systemPrompt', 'settings', 'promptHash', 'settingsHash', 'runtimeReferenceHash', 'questionRegistry', 'questionPolicy'].sort());
+      expect(Object.keys(manifest).sort()).toEqual(['schemaVersion', 'runId', 'inputSha256', 'requestIds', 'contractSha256', 'runtimeContractSha256', 'model', 'promptHash', 'settingsHash', 'runnerIdentity'].sort());
+      expect(bytes + JSON.stringify(manifest) + requests).not.toMatch(/fact\.payment|negation\.payment|sourceGroup|sourceReferences|sourceHashes|sourceHead|mortgage-rejected-branch|dimensions|bindings|projections/u);
+      expect(bytes).toContain('"repetition_penalty":1.0');
+      expect(manifest.runtimeContractSha256).toBe(createHash('sha256').update(bytes).digest('hex'));
+      expect(manifest.inputSha256).toBe(createHash('sha256').update(requests).digest('hex'));
+    });
+  });
+  it('retains sanitized immutable response evidence outside the run before candidates', async () => {
+    await withExport(async (dir, run) => {
+      const manifest = JSON.parse(readFileSync(resolve(run, 'manifest.json'), 'utf8')) as BatchManifest;
+      const response = bundle(manifest, [
+        { id: manifest.requestIds[0], status: 'OK', raw_output: 'YES', latency_ms: 1 },
+        { id: manifest.requestIds[1], status: 'OK', raw_output: '<think>PRIVATE_REASONING</think>'.repeat(1000), latency_ms: 2 },
+      ]);
+      const responses = resolve(dir, 'external.jsonl'); const metadata = resolve(dir, 'external-manifest.json');
+      writeFileSync(responses, response.jsonl); writeFileSync(metadata, JSON.stringify(response.responseManifest));
+      const out = resolve(dir, 'independent-results');
+      const args = ['import', '--run', run, '--responses', responses, '--response-manifest', metadata, '--out', out];
+      expect(await main(args)).toBe(0);
+      const report = JSON.parse(readFileSync(resolve(out, 'report.json'), 'utf8'));
+      const frozen = JSON.parse(readFileSync(resolve(out, 'evidence-freeze.json'), 'utf8'));
+      const evidenceBytes = readFileSync(resolve(out, 'response-evidence.json'));
+      const evidence = JSON.parse(evidenceBytes.toString('utf8'));
+      expect(report.status).toBe('PARTIAL');
+      expect(evidence.responses.map((row: { id: string }) => row.id)).toEqual(manifest.requestIds);
+      expect(evidence.responses.map((row: { raw_output: string | null }) => row.raw_output)).toEqual(['YES', null]);
+      expect(evidence.missingIds).toEqual([]);
+      expect(evidenceBytes.toString('utf8')).not.toContain('PRIVATE_REASONING');
+      expect(frozen.incomingResponsesSha256).toBe(response.responseManifest.responsesSha256);
+      expect(frozen.artifactHashes['response-evidence.json']).toBe(createHash('sha256').update(evidenceBytes).digest('hex'));
+      expect(report.evidence.freezeSha256).toBe(createHash('sha256').update(readFileSync(resolve(out, 'evidence-freeze.json'))).digest('hex'));
+      expect(readFileSync(resolve(out, 'contract.json'))).toEqual(readFileSync(scoutContractPath));
+      expect(await main([...args.slice(0, -1), resolve(dir, 'second-results')])).toBe(0);
+      expect(readFileSync(resolve(dir, 'second-results/response-evidence.json'))).toEqual(evidenceBytes);
+      writeFileSync(responses, 'mutated external source'); rmSync(metadata);
+      expect(readFileSync(resolve(out, 'response-evidence.json'))).toEqual(evidenceBytes);
+      expect(await main(args)).toBe(2);
+      expect(readFileSync(resolve(out, 'response-evidence.json'))).toEqual(evidenceBytes);
+    });
+  });
+  it('retains all accepted failed and missing ids in evidence accounting', async () => {
+    await withExport(async (dir, run) => {
+      const manifest = JSON.parse(readFileSync(resolve(run, 'manifest.json'), 'utf8'));
+      const response = bundle(manifest, [{ id: manifest.requestIds[0], status: 'ERROR', raw_output: null, latency_ms: 1 }]);
+      const responses = resolve(dir, 'partial.jsonl'); const metadata = resolve(dir, 'partial-manifest.json');
+      writeFileSync(responses, response.jsonl); writeFileSync(metadata, JSON.stringify(response.responseManifest));
+      expect(await main(['import', '--run', run, '--responses', responses, '--response-manifest', metadata])).toBe(0);
+      const evidence = JSON.parse(readFileSync(resolve(run, 'results/response-evidence.json'), 'utf8'));
+      expect(evidence.responses).toMatchObject([{ id: manifest.requestIds[0], status: 'ERROR', prediction: null }]);
+      expect(evidence.missingIds).toEqual([manifest.requestIds[1]]);
+      expect(evidence.requestIds).toEqual(manifest.requestIds);
+    });
+  });
+  it('reconciles domain operational and dedup denominators with global accounting', () => {
+    const values = [...observations(), observation({ core: { rejectedBranches: [] } }),
+      observation({ identity: { ...observation().identity, caseId: 'unclassified-private' } })];
+    const ready = prepared(values); const contract = loadContract(scoutContractPath);
+    expect(ready.selection.domains.negation).toMatchObject({ observed: 3, selected: 2, rejected: 1, notComparable: 1 });
+    expect(ready.selection.counts.unclassifiedRejected).toBe(1);
+    const failed = bundle(ready.manifest, [{ id: ready.manifest.requestIds[0], status: 'ERROR', raw_output: null, latency_ms: 1 }]);
+    const report = reportBatch({ manifest: ready.manifest, observations: values, contract,
+      imported: importResponses(ready.manifest, failed.responseManifest, failed.jsonl) });
+    expect(report.domains.negation).toMatchObject({ submitted: 2, returned: 1, failed: 1, missing: 1, valid: 0, comparisons: 0, candidates: 0 });
+    const mismatch = bundle(ready.manifest);
+    const dedup = reportBatch({ manifest: ready.manifest, observations: values, contract,
+      imported: importResponses(ready.manifest, mismatch.responseManifest, mismatch.jsonl) });
+    expect(dedup.domains.negation).toMatchObject({ valid: 2, comparisons: 2, eligibleDisagreements: 2, candidates: 1, suppressedRepeats: 1,
+      selectedSourceGroups: 2, comparedSourceGroups: 2, disagreementSourceGroups: 2, provenCoreBugs: 0, provenScoutFalseAlarms: 0, unresolved: 1 });
+    for (const key of ['selected', 'submitted', 'returned', 'failed', 'missing', 'valid', 'comparisons', 'candidates', 'suppressedRepeats']) {
+      expect(Object.values(dedup.domains).reduce((sum, domain) => sum + domain[key], 0)).toBe(dedup.counts[key]);
+    }
+  });
+  it('blocks disabled and unclassified question wording in the low-level encoder', () => {
+    const contract = loadContract(scoutContractPath);
+    for (const question of [contract.questionRegistry.dp_current_available_some, 'unclassified question']) {
+      expect(() => encodeRequests([{ id: 'a'.repeat(64), turns: [{ speaker: 'client', text: 'PRIVATE' }], question }])).toThrow('SCOUT_REQUEST_SCHEMA');
+    }
+    expect(encodeRequests([{ id: 'a'.repeat(64), turns: [{ speaker: 'client', text: 'Later.' }], question: contract.questionRegistry.dp_future_funds_available }])).toContain('Later.');
+  });
   it('retains partial/invalid/timeout denominators and blocks every STOP comparison', () => {
     const ready = prepared(); const response = bundle(ready.manifest, [{ id: ready.manifest.requestIds[0], status: 'TIMEOUT', raw_output: null, latency_ms: 30 }]);
     const imported = importResponses(ready.manifest, response.responseManifest, response.jsonl);
@@ -937,6 +1049,14 @@ describe('workflow-skip-report', () => {
     expect(reportBatch({ ...input, contract: { ...input.contract, policyVersion: 'drift' } })).toMatchObject({ status: 'STOP', counts: { comparisons: 0 } });
     const invalid = bundle(ready.manifest, [{ id: ready.manifest.requestIds[0], status: 'OK', raw_output: 'maybe', latency_ms: 1 }]);
     expect(reportBatch({ ...input, imported: importResponses(ready.manifest, invalid.responseManifest, invalid.jsonl) }).counts.invalid).toBe(1);
+  });
+  it.each(['ERROR', 'TIMEOUT', 'INPUT_LIMIT', 'INVALID'] as const)('reports all returned %s rows as PARTIAL', (status) => {
+    const ready = prepared();
+    const response = bundle(ready.manifest, ready.manifest.requestIds.map((id) => ({ id, status, raw_output: null, latency_ms: 1 })));
+    const imported = importResponses(ready.manifest, response.responseManifest, response.jsonl);
+    expect(imported.status).toBe('PARTIAL');
+    expect(imported.missingIds).toEqual([]);
+    expect(reportBatch({ manifest: ready.manifest, observations: ready.localObservations, contract: loadContract(scoutContractPath), imported })).toMatchObject({ status: 'PARTIAL', counts: { valid: 0, comparisons: 0, candidates: 0 } });
   });
   it.each(['policyHash', 'projectionHash', 'promptHash', 'sourceHead'])('report STOP on local manifest %s drift even without runtime', (key) => {
     const ready = prepared();
