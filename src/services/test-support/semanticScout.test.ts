@@ -1,6 +1,17 @@
 import { describe, expect, it, vi } from 'vitest';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import {
+  effectivePolicy, loadContract, projectCore, selectObservations,
+  type CaseBinding, type ScoutContract,
+} from '../../../.agents/skills/ai-copilot-semantic-scout/scripts/scout';
+import { EXPANDED_REGRESSION_SCENARIOS } from '../test-fixtures/expandedRegressionScenarios';
+import { MASS_REGRESSION_GOLDEN_CASES } from '../test-fixtures/massRegressionGoldenCases';
 import type { TranscriptTurn } from '../../types';
 import { createInitialState } from '../conversationStore';
+import { detectConversationEvent } from '../conversationEventEngine';
+import { chooseDialoguePolicyTarget } from '../dialoguePolicyEngine';
 import * as localAnalysisEngine from '../localAnalysisEngine';
 import { runExpandedRegression } from './expandedRegressionHarness';
 import { runMassRegressionBaseline } from './massRegressionHarness';
@@ -196,6 +207,156 @@ describe('observer-original', () => {
     expect([...isolationSessions].sort()).toEqual(['mass-a-isolation.payment-0', 'mass-b-isolation.payment-0']);
     expect([...selectedCaseIds].every((id) => /^(?:fact|analysis|isolation)\./u.test(id))).toBe(true);
   }, 360_000);
+});
+
+const scoutContractPath = resolve('.agents/skills/ai-copilot-semantic-scout/references/semantic-scout-contract.json');
+
+function binding(contract: ScoutContract, overrides: Partial<CaseBinding> = {}): CaseBinding {
+  return { ...structuredClone(contract.bindings[0]), ...overrides };
+}
+
+function observation(overrides: Partial<RegressionObservation> = {}): RegressionObservation {
+  return {
+    identity: { harness: 'original', caseId: 'fact.payment.no-mortgage', variation: 0, instance: 'primary', turnCutoff: 1 },
+    turns: [{ id: 'c1', speaker: 'client', text: 'Ипотека мне не нужна.' }],
+    core: { rejectedBranches: ['ипотеку'] },
+    ...overrides,
+  };
+}
+
+describe('contract-policy-comparability', () => {
+  it('freezes semantic meaning and proven runtime values without historical task authority', () => {
+    const contract = loadContract(scoutContractPath);
+    const semantic = JSON.parse(readFileSync('diagnostics/semantic-gold-benchmark/contract.json', 'utf8'));
+    const runtime = JSON.parse(readFileSync('diagnostics/semantic-three-set-validation-2026-10-04/evaluation-contract.json', 'utf8'));
+    expect(contract.semanticPayload).toEqual({
+      unit: semantic.unit, input_format: semantic.input_format, labels: semantic.labels,
+      ambiguity_gate: semantic.ambiguity_gate, speaker_rule: semantic.speaker_rule,
+      correction_rule: semantic.correction_rule, predicate_notes: semantic.predicate_notes,
+    });
+    expect(contract.questionRegistry).toEqual(semantic.question_registry);
+    expect(contract.systemPrompt).toBe(runtime.system_prompt);
+    expect(contract.settings).toEqual(runtime.settings);
+    expect(contract.model).toEqual({ id: runtime.model.id, revision: runtime.model.revision });
+    expect(contract.semanticSourceHash).toBe(createHash('sha256').update(readFileSync('diagnostics/semantic-gold-benchmark/contract.json')).digest('hex'));
+    expect(contract.runtimeReferenceHash).toBe(createHash('sha256').update(readFileSync('diagnostics/kaggle-semantic-judge/tournament-2026-10-04/run_tournament.py')).digest('hex'));
+    expect(contract).not.toHaveProperty('inference_allowed_in_this_task');
+    expect(contract).not.toHaveProperty('previous_protocol_path');
+    expect(contract.semanticPayload).not.toHaveProperty('coverage');
+    expect(contract.semanticPayload).not.toHaveProperty('evaluation_constraints');
+    expect(Object.isFrozen(contract.bindings[0].dimensions)).toBe(true);
+  });
+
+  it.each([
+    ['negation', 'ACTIVE_SHADOW'], ['mortgage_intent', 'ACTIVE_SHADOW'],
+    ['budget_ownership', 'OBSERVE_ONLY'], ['ownership', 'OBSERVE_ONLY'],
+    ['corrections', 'OBSERVE_ONLY'], ['down_payment_future', 'OBSERVE_ONLY'],
+    ['down_payment_availability', 'DISABLED'],
+  ] as const)('enforces initial mode for %s', (domain, expected) => {
+    const contract = loadContract(scoutContractPath);
+    expect(effectivePolicy(binding(contract, { domain }), contract)).toBe(expected);
+  });
+
+  it('blocks a DP availability question mislabeled as negation', () => {
+    const contract = loadContract(scoutContractPath);
+    expect(effectivePolicy(binding(contract, { domain: 'negation', questionId: 'dp_current_available_some' }), contract)).toBe('DISABLED');
+  });
+
+  it.each(['toString', '__proto__', 'missing'])('fails closed for unclassified policy key %s', (key) => {
+    const contract = loadContract(scoutContractPath);
+    expect(effectivePolicy(binding(contract, { domain: key as CaseBinding['domain'] }), contract)).toBe('DISABLED');
+    expect(effectivePolicy(binding(contract, { questionId: key }), contract)).toBe('DISABLED');
+    expect(effectivePolicy(binding(contract, { policySlices: [key] }), contract)).toBe('DISABLED');
+  });
+
+  it.each(['financial_certainty', 'financial_availability', 'unknown_sensitive_dp', 'unreviewed_slice'])('blocks restrictive or unknown slice %s', (slice) => {
+    const contract = loadContract(scoutContractPath);
+    expect(effectivePolicy(binding(contract, { policySlices: [slice] }), contract)).toBe('DISABLED');
+  });
+
+  it('keeps mortgage correction scope observe-only across labels', () => {
+    const contract = loadContract(scoutContractPath);
+    expect(effectivePolicy(binding(contract, { domain: 'mortgage_intent', policySlices: ['corrections'] }), contract)).toBe('OBSERVE_ONLY');
+    expect(effectivePolicy(binding(contract, { dimensions: { ...contract.bindings[0].dimensions, correctionScope: 'explicit' } }), contract)).toBe('OBSERVE_ONLY');
+  });
+
+  it.each([{ privacyApproved: false }, { scopeApproved: false }, { domain: 'unclassified' }])('excludes unapproved/unclassified bindings %j', (override) => {
+    const contract = loadContract(scoutContractPath);
+    const changed = binding(contract, override as Partial<CaseBinding>);
+    expect(effectivePolicy(changed, contract)).toBe('DISABLED');
+    const result = selectObservations([observation()], { ...contract, bindings: [changed] });
+    expect(result.eligible).toEqual([]);
+    expect(result.rejected).toHaveLength(1);
+  });
+
+  it('does not infer a semantic answer from branch absence or mortgage use', () => {
+    const contract = loadContract(scoutContractPath);
+    expect(projectCore(observation({ core: { rejectedBranches: [] } }), binding(contract), contract).status).toBe('NOT_COMPARABLE');
+    expect(projectCore(observation(), binding(contract, { questionId: 'mortgage_use' }), contract).status).toBe('NOT_COMPARABLE');
+  });
+
+  it('rejects registry wording drift before export', () => {
+    const contract = loadContract(scoutContractPath);
+    const changed = { ...contract, questionRegistry: { ...contract.questionRegistry, mortgage_permission: 'Будет ли ипотека?' } };
+    expect(selectObservations([observation()], changed).eligible).toEqual([]);
+  });
+
+  it('requires audited binding identity, source metadata, projection and scope', () => {
+    const contract = loadContract(scoutContractPath);
+    for (const changed of [
+      binding(contract, { sourceHashes: {} }), binding(contract, { sourceReferences: [] }),
+      binding(contract, { projectionVersion: 'unreviewed' }),
+      binding(contract, { dimensions: { owner: 'relative', time: 'current', predicate: 'mortgage_permission', correctionScope: 'none' } }),
+      binding(contract, { requiredDimensions: [] }),
+    ]) expect(projectCore(observation(), changed, contract).status).toBe('NOT_COMPARABLE');
+    expect(selectObservations([observation({ identity: { ...observation().identity, variation: 1 } })], contract).eligible).toEqual([]);
+  });
+
+  it('rejects agent wording, later uncertainty and a changed prefix despite a persisted branch', () => {
+    const contract = loadContract(scoutContractPath);
+    for (const turns of [
+      [{ id: 'c1', speaker: 'agent' as const, text: 'Ипотека мне не нужна.' }],
+      [...observation().turns, { id: 'c2', speaker: 'client' as const, text: 'Или всё-таки рассмотрю, пока не решил.' }],
+      [{ id: 'c1', speaker: 'client' as const, text: 'Ипотека брату не нужна.' }],
+    ]) expect(projectCore(observation({ turns }), binding(contract), contract).status).toBe('NOT_COMPARABLE');
+  });
+
+  it('projects only audited actual current client refusals through the public pipeline', () => {
+    const contract = loadContract(scoutContractPath);
+    const actual: RegressionObservation[] = [];
+    const auditSources = [...contract.bindings, binding(contract, { identity: {
+      harness: 'expanded', caseId: 'finance.no-mortgage.rejected', variation: 0, instance: 'primary', turnCutoff: 1,
+    } })];
+    for (const source of auditSources) {
+      const fixture = source.identity.harness === 'original'
+        ? MASS_REGRESSION_GOLDEN_CASES.find((item) => item.id === source.identity.caseId)
+        : EXPANDED_REGRESSION_SCENARIOS.find((item) => item.id === source.identity.caseId);
+      expect(fixture).toBeDefined();
+      const prefix = 'turns' in fixture! ? fixture.turns : [{ speaker: 'client' as const, text: (fixture as { text: string }).text }];
+      let state = createInitialState();
+      const turns: TranscriptTurn[] = prefix.map((turn, index) => ({
+        ...turn, id: source.identity.harness === 'original' ? 'c1' : `${source.identity.caseId}-t${index + 1}`,
+        sessionId: `scout-audit-${source.identity.caseId}`, source: 'call_audio', timestamp: (index + 1) * 1000,
+        isFinal: true, revision: index + 1,
+      }));
+      for (let index = 0; index < turns.length; index += 1) {
+        if (index === turns.length - 1) detectConversationEvent(turns[index], turns, state, turns[index].timestamp);
+        state = localAnalysisEngine.advanceLocalConversation(state, turns[index], turns.slice(0, index + 1)).state;
+      }
+      const beforeAnalysis = [...(state.dialogueControl?.rejectedBranches ?? [])];
+      const latest = turns.at(-1)!;
+      localAnalysisEngine.buildLocalAnalysisResponse({ sessionId: latest.sessionId, revision: latest.revision!, newTurns: [latest], recentTurns: turns, currentState: state });
+      chooseDialoguePolicyTarget(state, turns, state.scriptProgress);
+      expect(state.dialogueControl?.rejectedBranches ?? []).toEqual(beforeAnalysis);
+      emitRegressionObservation(source.identity, { state, turns }, { observation: { select: () => true, onObservation(value) { actual.push(value); } } });
+    }
+    expect(actual).toHaveLength(3);
+    expect(actual.map((item) => item.core.rejectedBranches)).toEqual([['ипотеку'], ['ипотеку'], []]);
+    const selected = selectObservations(actual, contract);
+    expect(selected.rejected).toHaveLength(1);
+    expect(selected.eligible.map((item) => item.mode)).toEqual(['ACTIVE_SHADOW', 'ACTIVE_SHADOW']);
+    expect(selected.eligible.map((item) => item.core.status === 'COMPARABLE' ? item.core.value : null)).toEqual(['NO', 'NO']);
+  }, 30_000);
 });
 
 describe('observer-expanded', () => {
