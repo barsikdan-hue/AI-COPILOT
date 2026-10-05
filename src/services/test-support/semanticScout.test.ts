@@ -347,10 +347,19 @@ describe('contract-policy-comparability', () => {
     const path = '.agents/skills/ai-copilot-semantic-scout/references/semantic-scout-contract.json';
     const root = mkdtempSync(resolve(tmpdir(), 'scout-eol-'));
     try {
+      // Exercise the reviewed current authority even before its local commit.
+      // Writing an immutable Git blob does not alter the index or source files.
+      const authorityBlob = execFileSync('git', ['hash-object', '-w', '--stdin'], { input: readFileSync(scoutContractPath), encoding: 'utf8' }).trim();
       for (const autocrlf of ['false', 'true']) {
-        const filtered = execFileSync('git', ['-c', `core.autocrlf=${autocrlf}`, 'cat-file', '--filters', `HEAD:${path}`]);
+        const filtered = execFileSync('git', ['-c', `core.autocrlf=${autocrlf}`, 'cat-file', '--filters', `--path=${path}`, authorityBlob]);
         const target = resolve(root, 'contract.json'); writeFileSync(target, filtered);
-        const contract = loadContract(target, (source) => execFileSync('git', ['-c', `core.autocrlf=${autocrlf}`, 'cat-file', '--filters', `HEAD:${source}`]));
+        // Expanded bindings share frozen source files. Filter each exact source
+        // once per Git setting; still validate every binding against its bytes.
+        const sources = new Map<string, Buffer>();
+        const contract = loadContract(target, (source) => {
+          if (!sources.has(source)) sources.set(source, execFileSync('git', ['-c', `core.autocrlf=${autocrlf}`, 'cat-file', '--filters', `HEAD:${source}`]));
+          return sources.get(source)!;
+        });
         expect(projectCore(observation(), contract.bindings[0], contract).status).toBe('COMPARABLE');
       }
       expect(() => loadContract(resolve(root, 'contract.json'), (source) => Buffer.concat([execFileSync('git', ['show', `HEAD:${source}`]), Buffer.from('// semantic drift')]))).toThrow('SCOUT_SOURCE_DRIFT');
@@ -449,7 +458,7 @@ describe('contract-policy-comparability', () => {
   it('projects only audited actual current client refusals through the public pipeline', () => {
     const contract = loadContract(scoutContractPath);
     const actual: RegressionObservation[] = [];
-    const auditSources = [...contract.bindings, binding(contract, { identity: {
+    const auditSources = [...contract.bindings.slice(0, 2), binding(contract, { identity: {
       harness: 'expanded', caseId: 'finance.no-mortgage.rejected', variation: 0, instance: 'primary', turnCutoff: 1,
     } })];
     for (const source of auditSources) {

@@ -220,12 +220,453 @@
         "src/services/semanticEvidence.ts": "37b1739c4ba55f686e7bfbd26a62e80a07a3724d2bf1ddf8f5d95658f9c052a4"
       },
       "turnsSha256": "b672eb0a1f422ac8c4925028d4d602af410052288d70306ed4fada44d1257a05"
+    },
+    {
+      "identity": {
+        "harness": "original",
+        "caseId": "fact.payment.mortgage",
+        "variation": 0,
+        "instance": "primary",
+        "turnCutoff": 1
+      },
+      "sourceGroupId": "original.fact.payment.mortgage",
+      "sourceReferences": [
+        "src/services/test-fixtures/massRegressionGoldenCases.ts#fact.payment.mortgage",
+        "src/services/localAnalysisEngine.ts#advanceLocalConversation",
+        "src/services/deterministicFacts.ts#extractDeterministicFacts"
+      ],
+      "questionId": "mortgage_use",
+      "domain": "mortgage_intent",
+      "policySlices": [],
+      "projectionId": "mortgage-payment-method",
+      "projectionVersion": "v1",
+      "privacyApproved": true,
+      "scopeApproved": true,
+      "dimensions": {
+        "owner": "client",
+        "time": "future",
+        "predicate": "mortgage_use",
+        "correctionScope": "none"
+      },
+      "requiredDimensions": [
+        "owner",
+        "time",
+        "predicate",
+        "correctionScope"
+      ],
+      "sourceHashes": {
+        "src/services/test-fixtures/massRegressionGoldenCases.ts": "bb4ae39c70b23e03f6cc00706447cee7574b7ef30d2c5fccb1eb8a6a8cff610b",
+        "src/services/localAnalysisEngine.ts": "d4ea889dff1491e2d23c361ac6506f17a8f810a7f01d3bcafc589f2dd381a228",
+        "src/services/localAnalysisEngineLegacy.ts": "5bd34225654f3aa50592e8fb1916ffd91e3b1aa3dd7589a1d4853257431698cf",
+        "src/services/semanticEvidence.ts": "37b1739c4ba55f686e7bfbd26a62e80a07a3724d2bf1ddf8f5d95658f9c052a4",
+        "src/services/deterministicFacts.ts": "ea7bb272703a3ea182f3d62a757a92927c16cd49caf23e0b971a2db6639c3d76",
+        "src/services/conversationStore.ts": "e31384e81bee0474e076a56518b15c442275d90bd7aa8ba8c3bd16be3fdf40e8"
+      },
+      "turnsSha256": "43c7e0074ff4e13e1168b7b10898bbe549480dea4f53be8f8a1f05ecb780cba2"
+    },
+    {
+      "identity": {
+        "harness": "expanded",
+        "caseId": "finance.mortgage.plan",
+        "variation": 0,
+        "instance": "primary",
+        "turnCutoff": 1
+      },
+      "sourceGroupId": "expanded.finance.mortgage.plan",
+      "sourceReferences": [
+        "src/services/test-fixtures/expandedRegressionScenarios.ts#finance.mortgage.plan",
+        "src/services/localAnalysisEngine.ts#advanceLocalConversation",
+        "src/services/deterministicFacts.ts#extractDeterministicFacts"
+      ],
+      "questionId": "mortgage_use",
+      "domain": "mortgage_intent",
+      "policySlices": [],
+      "projectionId": "mortgage-payment-method",
+      "projectionVersion": "v1",
+      "privacyApproved": true,
+      "scopeApproved": true,
+      "dimensions": {
+        "owner": "client",
+        "time": "future",
+        "predicate": "mortgage_use",
+        "correctionScope": "none"
+      },
+      "requiredDimensions": [
+        "owner",
+        "time",
+        "predicate",
+        "correctionScope"
+      ],
+      "sourceHashes": {
+        "src/services/test-fixtures/expandedRegressionScenarios.ts": "ede5d452a135823a6b324c8a35433a10603be0591c907e8dd68870f061ee551c",
+        "src/services/localAnalysisEngine.ts": "d4ea889dff1491e2d23c361ac6506f17a8f810a7f01d3bcafc589f2dd381a228",
+        "src/services/localAnalysisEngineLegacy.ts": "5bd34225654f3aa50592e8fb1916ffd91e3b1aa3dd7589a1d4853257431698cf",
+        "src/services/semanticEvidence.ts": "37b1739c4ba55f686e7bfbd26a62e80a07a3724d2bf1ddf8f5d95658f9c052a4",
+        "src/services/deterministicFacts.ts": "ea7bb272703a3ea182f3d62a757a92927c16cd49caf23e0b971a2db6639c3d76",
+        "src/services/conversationStore.ts": "e31384e81bee0474e076a56518b15c442275d90bd7aa8ba8c3bd16be3fdf40e8"
+      },
+      "turnsSha256": "db3356a8155d5096c6ae5a1dfc306ffe62a6bddc25f86af2fb3826c415df4133"
+    },
+    {
+      "identity": {
+        "harness": "expanded",
+        "caseId": "correction.children.third-party",
+        "variation": 0,
+        "instance": "primary",
+        "turnCutoff": 2
+      },
+      "sourceGroupId": "expanded.correction.children.third-party",
+      "sourceReferences": [
+        "src/services/test-fixtures/expandedRegressionScenarios.ts#correction.children.third-party",
+        "src/services/localAnalysisEngine.ts#advanceLocalConversation",
+        "src/services/deterministicFacts.ts#extractDeterministicFacts"
+      ],
+      "questionId": "children",
+      "domain": "ownership",
+      "policySlices": [],
+      "projectionId": "client-children-explicit-absence",
+      "projectionVersion": "v1",
+      "privacyApproved": true,
+      "scopeApproved": true,
+      "dimensions": {
+        "owner": "client",
+        "time": "current",
+        "predicate": "children",
+        "correctionScope": "explicit"
+      },
+      "requiredDimensions": [
+        "owner",
+        "time",
+        "predicate",
+        "correctionScope"
+      ],
+      "sourceHashes": {
+        "src/services/test-fixtures/expandedRegressionScenarios.ts": "ede5d452a135823a6b324c8a35433a10603be0591c907e8dd68870f061ee551c",
+        "src/services/localAnalysisEngine.ts": "d4ea889dff1491e2d23c361ac6506f17a8f810a7f01d3bcafc589f2dd381a228",
+        "src/services/localAnalysisEngineLegacy.ts": "5bd34225654f3aa50592e8fb1916ffd91e3b1aa3dd7589a1d4853257431698cf",
+        "src/services/semanticEvidence.ts": "37b1739c4ba55f686e7bfbd26a62e80a07a3724d2bf1ddf8f5d95658f9c052a4",
+        "src/services/deterministicFacts.ts": "ea7bb272703a3ea182f3d62a757a92927c16cd49caf23e0b971a2db6639c3d76",
+        "src/services/conversationStore.ts": "e31384e81bee0474e076a56518b15c442275d90bd7aa8ba8c3bd16be3fdf40e8"
+      },
+      "turnsSha256": "fe9d74c975309d1eb38c2dd1043a30abe618b8fd49205c56c516563be56bcc72"
+    },
+    {
+      "identity": {
+        "harness": "expanded",
+        "caseId": "correction.payment.mortgage-cash",
+        "variation": 0,
+        "instance": "primary",
+        "turnCutoff": 2
+      },
+      "sourceGroupId": "expanded.correction.payment.mortgage-cash",
+      "sourceReferences": [
+        "src/services/test-fixtures/expandedRegressionScenarios.ts#correction.payment.mortgage-cash",
+        "src/services/localAnalysisEngine.ts#advanceLocalConversation",
+        "src/services/deterministicFacts.ts#extractDeterministicFacts"
+      ],
+      "questionId": "mortgage_permission",
+      "domain": "corrections",
+      "policySlices": [],
+      "projectionId": "mortgage-rejected-branch",
+      "projectionVersion": "v1",
+      "privacyApproved": true,
+      "scopeApproved": true,
+      "dimensions": {
+        "owner": "client",
+        "time": "current",
+        "predicate": "mortgage_permission",
+        "correctionScope": "explicit"
+      },
+      "requiredDimensions": [
+        "owner",
+        "time",
+        "predicate",
+        "correctionScope"
+      ],
+      "sourceHashes": {
+        "src/services/test-fixtures/expandedRegressionScenarios.ts": "ede5d452a135823a6b324c8a35433a10603be0591c907e8dd68870f061ee551c",
+        "src/services/localAnalysisEngine.ts": "d4ea889dff1491e2d23c361ac6506f17a8f810a7f01d3bcafc589f2dd381a228",
+        "src/services/localAnalysisEngineLegacy.ts": "5bd34225654f3aa50592e8fb1916ffd91e3b1aa3dd7589a1d4853257431698cf",
+        "src/services/semanticEvidence.ts": "37b1739c4ba55f686e7bfbd26a62e80a07a3724d2bf1ddf8f5d95658f9c052a4",
+        "src/services/deterministicFacts.ts": "ea7bb272703a3ea182f3d62a757a92927c16cd49caf23e0b971a2db6639c3d76",
+        "src/services/conversationStore.ts": "e31384e81bee0474e076a56518b15c442275d90bd7aa8ba8c3bd16be3fdf40e8"
+      },
+      "turnsSha256": "19df75480c73a1ab31dcee320d00fdecb1bd0c08d922924b06745ead04c50ca0"
+    },
+    {
+      "identity": {
+        "harness": "original",
+        "caseId": "fact.correction.budget",
+        "variation": 0,
+        "instance": "primary",
+        "turnCutoff": 2
+      },
+      "sourceGroupId": "original.fact.correction.budget",
+      "sourceReferences": [
+        "src/services/test-fixtures/massRegressionGoldenCases.ts#fact.correction.budget",
+        "src/services/localAnalysisEngine.ts#advanceLocalConversation",
+        "src/services/deterministicFacts.ts#extractDeterministicFacts"
+      ],
+      "questionId": "client20",
+      "domain": "budget_ownership",
+      "policySlices": [],
+      "projectionId": "client-budget20-explicit",
+      "projectionVersion": "v1",
+      "privacyApproved": true,
+      "scopeApproved": true,
+      "dimensions": {
+        "owner": "client",
+        "time": "current",
+        "predicate": "client20",
+        "correctionScope": "explicit"
+      },
+      "requiredDimensions": [
+        "owner",
+        "time",
+        "predicate",
+        "correctionScope"
+      ],
+      "sourceHashes": {
+        "src/services/test-fixtures/massRegressionGoldenCases.ts": "bb4ae39c70b23e03f6cc00706447cee7574b7ef30d2c5fccb1eb8a6a8cff610b",
+        "src/services/localAnalysisEngine.ts": "d4ea889dff1491e2d23c361ac6506f17a8f810a7f01d3bcafc589f2dd381a228",
+        "src/services/localAnalysisEngineLegacy.ts": "5bd34225654f3aa50592e8fb1916ffd91e3b1aa3dd7589a1d4853257431698cf",
+        "src/services/semanticEvidence.ts": "37b1739c4ba55f686e7bfbd26a62e80a07a3724d2bf1ddf8f5d95658f9c052a4",
+        "src/services/deterministicFacts.ts": "ea7bb272703a3ea182f3d62a757a92927c16cd49caf23e0b971a2db6639c3d76",
+        "src/services/conversationStore.ts": "e31384e81bee0474e076a56518b15c442275d90bd7aa8ba8c3bd16be3fdf40e8"
+      },
+      "turnsSha256": "f6015423f32f3cd598eae82318f806350fd34ea79de7be78fcd8c1046cb5730d"
+    },
+    {
+      "identity": {
+        "harness": "expanded",
+        "caseId": "finance.dp.future",
+        "variation": 0,
+        "instance": "primary",
+        "turnCutoff": 1
+      },
+      "sourceGroupId": "expanded.finance.dp.future",
+      "sourceReferences": [
+        "src/services/test-fixtures/expandedRegressionScenarios.ts#finance.dp.future",
+        "src/services/localAnalysisEngine.ts#advanceLocalConversation",
+        "src/services/deterministicFacts.ts#extractDeterministicFacts"
+      ],
+      "questionId": "dp_future_funds_available",
+      "domain": "down_payment_future",
+      "policySlices": [],
+      "projectionId": "dp-future-expectation",
+      "projectionVersion": "v1",
+      "privacyApproved": true,
+      "scopeApproved": true,
+      "dimensions": {
+        "owner": "client",
+        "time": "future",
+        "predicate": "dp_future_funds_available",
+        "correctionScope": "none"
+      },
+      "requiredDimensions": [
+        "owner",
+        "time",
+        "predicate",
+        "correctionScope"
+      ],
+      "sourceHashes": {
+        "src/services/test-fixtures/expandedRegressionScenarios.ts": "ede5d452a135823a6b324c8a35433a10603be0591c907e8dd68870f061ee551c",
+        "src/services/localAnalysisEngine.ts": "d4ea889dff1491e2d23c361ac6506f17a8f810a7f01d3bcafc589f2dd381a228",
+        "src/services/localAnalysisEngineLegacy.ts": "5bd34225654f3aa50592e8fb1916ffd91e3b1aa3dd7589a1d4853257431698cf",
+        "src/services/semanticEvidence.ts": "37b1739c4ba55f686e7bfbd26a62e80a07a3724d2bf1ddf8f5d95658f9c052a4",
+        "src/services/deterministicFacts.ts": "ea7bb272703a3ea182f3d62a757a92927c16cd49caf23e0b971a2db6639c3d76",
+        "src/services/conversationStore.ts": "e31384e81bee0474e076a56518b15c442275d90bd7aa8ba8c3bd16be3fdf40e8"
+      },
+      "turnsSha256": "564032030a08ba38406797423354720003ff876c55496bcab3449cf462dfc28e"
+    },
+    {
+      "identity": {
+        "harness": "expanded",
+        "caseId": "finance.dp.ready",
+        "variation": 0,
+        "instance": "primary",
+        "turnCutoff": 1
+      },
+      "sourceGroupId": "expanded.finance.dp.ready",
+      "sourceReferences": [
+        "src/services/test-fixtures/expandedRegressionScenarios.ts#finance.dp.ready",
+        "src/services/localAnalysisEngine.ts#advanceLocalConversation",
+        "src/services/deterministicFacts.ts#extractDeterministicFacts"
+      ],
+      "questionId": "dp_current_available_some",
+      "domain": "down_payment_availability",
+      "policySlices": [
+        "financial_availability"
+      ],
+      "projectionId": "disabled-dp-control",
+      "projectionVersion": "v1",
+      "privacyApproved": true,
+      "scopeApproved": true,
+      "dimensions": {
+        "owner": "client",
+        "time": "current",
+        "predicate": "dp_current_available_some",
+        "correctionScope": "none"
+      },
+      "requiredDimensions": [
+        "owner",
+        "time",
+        "predicate",
+        "correctionScope"
+      ],
+      "sourceHashes": {
+        "src/services/test-fixtures/expandedRegressionScenarios.ts": "ede5d452a135823a6b324c8a35433a10603be0591c907e8dd68870f061ee551c",
+        "src/services/localAnalysisEngine.ts": "d4ea889dff1491e2d23c361ac6506f17a8f810a7f01d3bcafc589f2dd381a228",
+        "src/services/localAnalysisEngineLegacy.ts": "5bd34225654f3aa50592e8fb1916ffd91e3b1aa3dd7589a1d4853257431698cf",
+        "src/services/semanticEvidence.ts": "37b1739c4ba55f686e7bfbd26a62e80a07a3724d2bf1ddf8f5d95658f9c052a4",
+        "src/services/deterministicFacts.ts": "ea7bb272703a3ea182f3d62a757a92927c16cd49caf23e0b971a2db6639c3d76",
+        "src/services/conversationStore.ts": "e31384e81bee0474e076a56518b15c442275d90bd7aa8ba8c3bd16be3fdf40e8"
+      },
+      "turnsSha256": "71dd71d1e653bc319a6bf0f55b62dd9b25dce1251ecdb73aaf264179cad9f2fd"
+    },
+    {
+      "identity": {
+        "harness": "expanded",
+        "caseId": "finance.dp.none",
+        "variation": 0,
+        "instance": "primary",
+        "turnCutoff": 1
+      },
+      "sourceGroupId": "expanded.finance.dp.none",
+      "sourceReferences": [
+        "src/services/test-fixtures/expandedRegressionScenarios.ts#finance.dp.none",
+        "src/services/localAnalysisEngine.ts#advanceLocalConversation",
+        "src/services/deterministicFacts.ts#extractDeterministicFacts"
+      ],
+      "questionId": "dp_current_available_some",
+      "domain": "down_payment_availability",
+      "policySlices": [
+        "financial_availability"
+      ],
+      "projectionId": "disabled-dp-control",
+      "projectionVersion": "v1",
+      "privacyApproved": true,
+      "scopeApproved": true,
+      "dimensions": {
+        "owner": "client",
+        "time": "current",
+        "predicate": "dp_current_available_some",
+        "correctionScope": "none"
+      },
+      "requiredDimensions": [
+        "owner",
+        "time",
+        "predicate",
+        "correctionScope"
+      ],
+      "sourceHashes": {
+        "src/services/test-fixtures/expandedRegressionScenarios.ts": "ede5d452a135823a6b324c8a35433a10603be0591c907e8dd68870f061ee551c",
+        "src/services/localAnalysisEngine.ts": "d4ea889dff1491e2d23c361ac6506f17a8f810a7f01d3bcafc589f2dd381a228",
+        "src/services/localAnalysisEngineLegacy.ts": "5bd34225654f3aa50592e8fb1916ffd91e3b1aa3dd7589a1d4853257431698cf",
+        "src/services/semanticEvidence.ts": "37b1739c4ba55f686e7bfbd26a62e80a07a3724d2bf1ddf8f5d95658f9c052a4",
+        "src/services/deterministicFacts.ts": "ea7bb272703a3ea182f3d62a757a92927c16cd49caf23e0b971a2db6639c3d76",
+        "src/services/conversationStore.ts": "e31384e81bee0474e076a56518b15c442275d90bd7aa8ba8c3bd16be3fdf40e8"
+      },
+      "turnsSha256": "698780997cfe262ba2c5d789339da85d1379838b03b020cccfd1db592694cf9c"
+    },
+    {
+      "identity": {
+        "harness": "expanded",
+        "caseId": "finance.no-mortgage.rejected",
+        "variation": 0,
+        "instance": "primary",
+        "turnCutoff": 1
+      },
+      "sourceGroupId": "expanded.finance.no-mortgage.rejected",
+      "sourceReferences": [
+        "src/services/test-fixtures/expandedRegressionScenarios.ts#finance.no-mortgage.rejected",
+        "src/services/localAnalysisEngine.ts#advanceLocalConversation",
+        "src/services/deterministicFacts.ts#extractDeterministicFacts"
+      ],
+      "questionId": "mortgage_permission",
+      "domain": "mortgage_intent",
+      "policySlices": [],
+      "projectionId": "mortgage-rejected-branch",
+      "projectionVersion": "v1",
+      "privacyApproved": true,
+      "scopeApproved": true,
+      "dimensions": {
+        "owner": "client",
+        "time": "current",
+        "predicate": "mortgage_permission",
+        "correctionScope": "none"
+      },
+      "requiredDimensions": [
+        "owner",
+        "time",
+        "predicate",
+        "correctionScope"
+      ],
+      "sourceHashes": {
+        "src/services/test-fixtures/expandedRegressionScenarios.ts": "ede5d452a135823a6b324c8a35433a10603be0591c907e8dd68870f061ee551c",
+        "src/services/localAnalysisEngine.ts": "d4ea889dff1491e2d23c361ac6506f17a8f810a7f01d3bcafc589f2dd381a228",
+        "src/services/localAnalysisEngineLegacy.ts": "5bd34225654f3aa50592e8fb1916ffd91e3b1aa3dd7589a1d4853257431698cf",
+        "src/services/semanticEvidence.ts": "37b1739c4ba55f686e7bfbd26a62e80a07a3724d2bf1ddf8f5d95658f9c052a4",
+        "src/services/deterministicFacts.ts": "ea7bb272703a3ea182f3d62a757a92927c16cd49caf23e0b971a2db6639c3d76",
+        "src/services/conversationStore.ts": "e31384e81bee0474e076a56518b15c442275d90bd7aa8ba8c3bd16be3fdf40e8"
+      },
+      "turnsSha256": "a9c8f67bdb635c2ae6a551a3a1c8e4ccb4ba44e8f04c297f134c4c4b90b666dc"
     }
   ],
   "projections": {
     "mortgage-rejected-branch": {
       "version": "v1",
       "questionId": "mortgage_permission",
+      "requiredDimensions": [
+        "owner",
+        "time",
+        "predicate",
+        "correctionScope"
+      ]
+    },
+    "mortgage-payment-method": {
+      "version": "v1",
+      "questionId": "mortgage_use",
+      "requiredDimensions": [
+        "owner",
+        "time",
+        "predicate",
+        "correctionScope"
+      ]
+    },
+    "client-children-explicit-absence": {
+      "version": "v1",
+      "questionId": "children",
+      "requiredDimensions": [
+        "owner",
+        "time",
+        "predicate",
+        "correctionScope"
+      ]
+    },
+    "client-budget20-explicit": {
+      "version": "v1",
+      "questionId": "client20",
+      "requiredDimensions": [
+        "owner",
+        "time",
+        "predicate",
+        "correctionScope"
+      ]
+    },
+    "dp-future-expectation": {
+      "version": "v1",
+      "questionId": "dp_future_funds_available",
+      "requiredDimensions": [
+        "owner",
+        "time",
+        "predicate",
+        "correctionScope"
+      ]
+    },
+    "disabled-dp-control": {
+      "version": "v1",
+      "questionId": "dp_current_available_some",
       "requiredDimensions": [
         "owner",
         "time",

@@ -140,8 +140,8 @@ export interface PairComparison {
 }
 
 // Byte hash belongs to this composed authority, not to its historical source.
-const CONTRACT_SHA256 = '9f86d71b239c2d865167764a8351f76e69124113b87739088beed028730aaf2f';
-const AUTHORITY_SIGNATURE = 'e6ad9121f5ee53212954edd2b261b9dcda226ad52d9c8df06e721003fd4a492b';
+const CONTRACT_SHA256 = 'b11fc071a1f24fa198acb8e8f02050c7bfc355ace425492137344fca0ee39a37';
+const AUTHORITY_SIGNATURE = 'd25acdbaeb51c4bd1d0ddc0292216442b7b5c30c0c5d8c3bef5f83c9e0fccfa3';
 const RUNTIME_CONTRACT_SHA256 = '3f9759e88fa98ff21c40240d8447bfdfb0b0c4efd38e6c6f0257336e743f069b';
 const sourceRoot = fileURLToPath(new URL('../../../../', import.meta.url));
 const sha256 = (bytes: string | Buffer): string => createHash('sha256').update(bytes).digest('hex');
@@ -214,16 +214,34 @@ export function projectCore(observation: RegressionObservation, binding: CaseBin
   if (canonical(observation.identity) !== canonical(binding.identity)) return reject('IDENTITY_MISMATCH');
   if (!sourcesMatch(binding)) return reject('SOURCE_DRIFT');
   const projection = contract.projections[binding.projectionId];
-  if (binding.projectionId !== 'mortgage-rejected-branch' || projection?.version !== binding.projectionVersion
-    || binding.questionId !== 'mortgage_permission' || projection.questionId !== binding.questionId) return reject('UNSUPPORTED_PROJECTION');
+  if (!projection || projection.version !== binding.projectionVersion
+    || projection.questionId !== binding.questionId) return reject('UNSUPPORTED_PROJECTION');
   if (canonical(binding.requiredDimensions) !== canonical(projection.requiredDimensions)
     || binding.requiredDimensions.some((key) => binding.dimensions[key] === undefined)) return reject('UNREVIEWED_SCOPE');
   if (observation.turns.length !== observation.identity.turnCutoff) return reject('CUTOFF_MISMATCH');
   // The exact ordered speaker/text prefix excludes Core results and turn ids.
   const prefix = observation.turns.map(({ speaker, text }) => ({ speaker, text }));
   if (sha256(canonical(prefix)) !== binding.turnsSha256) return reject('PREFIX_MISMATCH');
-  if (!observation.core.rejectedBranches.includes('ипотеку')) return reject('NO_EXPLICIT_REJECTED_BRANCH');
-  return { status: 'COMPARABLE', value: 'NO', projectionId: binding.projectionId, dimensions: { ...binding.dimensions } };
+  let value: Label;
+  if (binding.projectionId === 'mortgage-rejected-branch' && binding.questionId === 'mortgage_permission') {
+    if (!observation.core.rejectedBranches.includes('ипотеку')) return reject('NO_EXPLICIT_REJECTED_BRANCH');
+    value = 'NO';
+  } else {
+    // Existing canonical values only; no text classifier or missing-fact label.
+    const supported: Record<string, { questionId: string; category: string; canonicalValue: string; answer: Label }> = {
+      'mortgage-payment-method': { questionId: 'mortgage_use', category: 'paymentMethod', canonicalValue: 'Ипотека', answer: 'YES' },
+      'client-children-explicit-absence': { questionId: 'children', category: 'familyMortgage', canonicalValue: 'Детей нет (семейная ипотека не применима)', answer: 'NO' },
+      'client-budget20-explicit': { questionId: 'client20', category: 'budget', canonicalValue: '20 млн руб', answer: 'YES' },
+      'dp-future-expectation': { questionId: 'dp_future_funds_available', category: 'downPayment', canonicalValue: 'Средства на первоначальный взнос будут доступны позже; сейчас готовность не подтверждена', answer: 'YES' },
+    };
+    const rule = supported[binding.projectionId];
+    if (!rule || rule.questionId !== binding.questionId) return reject('UNSUPPORTED_PROJECTION');
+    const facts = observation.core.facts?.filter(fact => fact.category === rule.category) ?? [];
+    if (facts.length !== 1 || facts[0].value !== rule.canonicalValue
+      || !observation.turns.some(turn => turn.id === facts[0].turnId && turn.speaker === 'client')) return reject('NO_EXPLICIT_CANONICAL_FACT');
+    value = rule.answer;
+  }
+  return { status: 'COMPARABLE', value, projectionId: binding.projectionId, dimensions: { ...binding.dimensions } };
 }
 
 function observationId(identity: RegressionIdentity): string {
@@ -320,7 +338,7 @@ function comparableReason(value: ComparisonPair, contract: ScoutContract): strin
 const reviewedDimensionValues: Readonly<Record<string, readonly string[]>> = {
   owner: ['client', 'relative'],
   time: ['current', 'future'],
-  predicate: ['mortgage_permission'],
+  predicate: ['mortgage_permission', 'mortgage_use', 'children', 'client20', 'dp_future_funds_available'],
   correctionScope: ['none', 'explicit', 'revocation'],
 };
 

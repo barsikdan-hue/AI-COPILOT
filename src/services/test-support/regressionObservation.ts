@@ -11,7 +11,12 @@ export interface RegressionIdentity {
 export interface RegressionObservation {
   readonly identity: Readonly<RegressionIdentity>;
   readonly turns: readonly Readonly<Pick<TranscriptTurn, 'id' | 'speaker' | 'text'>>[];
-  readonly core: { readonly rejectedBranches: readonly string[] };
+  readonly core: {
+    readonly rejectedBranches: readonly string[];
+    readonly facts?: readonly Readonly<{
+      category: string; value: string; turnId: string;
+    }>[];
+  };
 }
 
 export interface RegressionObservationOptions {
@@ -69,10 +74,21 @@ export function emitRegressionObservation(
   }
 
   try {
+    // Only active explicit client facts matching the canonical field are exposed.
+    // This detached DEV view has no state authority and contains no whole ledger.
+    const categories = ['paymentMethod', 'budget', 'familyMortgage', 'downPayment'] as const;
+    const facts = result.state.confirmedFacts.filter((fact) => {
+      if (!categories.includes(fact.category as typeof categories[number])
+        || fact.origin !== 'client_explicit' || fact.status !== 'confirmed'
+        || ['superseded', 'rejected'].includes(fact.lifecycleStatus ?? '')) return false;
+      const field = result.state[fact.category as typeof categories[number]];
+      return field?.value === fact.value && field.evidenceTurnIds.includes(fact.turnId)
+        && result.turns.some(turn => turn.id === fact.turnId && turn.speaker === 'client');
+    }).map(({ category, value, turnId }) => Object.freeze({ category, value, turnId }));
     const observation: RegressionObservation = Object.freeze({
       identity: detachedIdentity,
       turns: Object.freeze(result.turns.map(({ id, speaker, text }) => Object.freeze({ id, speaker, text }))),
-      core: Object.freeze({ rejectedBranches: Object.freeze([...(result.state.dialogueControl?.rejectedBranches ?? [])]) }),
+      core: Object.freeze({ rejectedBranches: Object.freeze([...(result.state.dialogueControl?.rejectedBranches ?? [])]), facts: Object.freeze(facts) }),
     });
     if (discardAsyncResult(observer.onObservation(observation))) onError('ASYNC_OBSERVER');
   } catch {

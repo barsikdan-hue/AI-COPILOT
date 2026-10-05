@@ -17,7 +17,7 @@ import unittest
 from unittest.mock import patch
 
 
-CONTRACT_SHA256 = "9f86d71b239c2d865167764a8351f76e69124113b87739088beed028730aaf2f"
+CONTRACT_SHA256 = "b11fc071a1f24fa198acb8e8f02050c7bfc355ace425492137344fca0ee39a37"
 RUNTIME_CONTRACT_SHA256 = "3f9759e88fa98ff21c40240d8447bfdfb0b0c4efd38e6c6f0257336e743f069b"
 AUTHORITY_SIGNATURE = "bcd2f8e3c0129314632d20c74451caba53e96ccf14341bd9cd6ab1b7ae6d5e44"
 RUNNER = "transformers-batch-v1"
@@ -313,6 +313,12 @@ def self_test():
         return manifest, data, requests
 
     class AdapterTests(unittest.TestCase):
+        def test_current_export_authority_is_accepted_before_runtime(self):
+            manifest, data, rows = fixture()
+            # Current local exporter freezes these exact private authority bytes.
+            manifest['contractSha256'] = _sha((Path(__file__).parent.parent / 'references/semantic-scout-contract.json').read_bytes())
+            self.assertEqual(validate_bundle(manifest, data, authority), rows)
+
         def test_disabled_question_stops_before_runtime_or_output(self):
             requests = fixture()[2]
             requests[0]["question"] = authority["questionRegistry"]["dp_current_available_some"]
