@@ -13,11 +13,13 @@ import {
   Clock,
   Radio,
 } from 'lucide-react';
-import { SuggestedReply, SalesRule, ActionType } from '../types';
+import { SuggestedReply, SalesRule, ActionType, BoundaryTraceObserver } from '../types';
+import { observeBoundary } from '../services/boundaryTrace';
 
 export const OPENING_GREETING_TEXT = 'Добрый день! Данил, «Элитный Сочи». Как могу к вам обращаться?';
 
 interface SuggestionCardProps {
+  onBoundaryTrace?: BoundaryTraceObserver;
   suggestion: SuggestedReply | null;
   shouldSuggest: boolean;
   activeRule?: SalesRule | null;
@@ -38,6 +40,7 @@ interface SuggestionCardProps {
 }
 
 export const SuggestionCard: React.FC<SuggestionCardProps> = ({
+  onBoundaryTrace,
   suggestion,
   shouldSuggest,
   activeRule,
@@ -158,6 +161,14 @@ export const SuggestionCard: React.FC<SuggestionCardProps> = ({
 
   const canShowSuggestion =
     isCallRunning && !isPaused && !isCompleted && shouldSuggest && Boolean(suggestion?.text);
+  useEffect(() => {
+    if (!onBoundaryTrace) return;
+    observeBoundary(onBoundaryTrace, { sessionId: suggestion?.sessionId || '', boundary: 'UI_DELIVERY',
+      outcome: 'received', reason: canShowSuggestion ? 'visible' : isPaused ? 'paused' : isCompleted || !isCallRunning ? 'call_inactive' : 'no_visible_candidate',
+      candidateId: suggestion?.id ?? null, candidateRevision: suggestion?.basedOnRevision ?? null,
+      revision: suggestion?.basedOnRevision ?? null, source: 'ui', visible: canShowSuggestion });
+  }, [onBoundaryTrace, suggestion?.id, suggestion?.basedOnRevision, canShowSuggestion, isPaused, isCompleted, isCallRunning]);
+
   const canShowOpeningGreeting =
     isCallRunning &&
     !isPaused &&

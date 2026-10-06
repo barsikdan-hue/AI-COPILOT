@@ -1,4 +1,5 @@
-import { SpeakerRole, TranscriptTurn } from '../types';
+import { SpeakerRole, TranscriptTurn, BoundaryTraceObserver } from '../types';
+import { observeBoundary } from './boundaryTrace';
 
 /**
  * Duplicate Final STT Turn Protection
@@ -62,13 +63,19 @@ export function aggregateFinalTurn(last: TranscriptTurn | undefined, speaker: Sp
 export class FinalTurnBuffer {
   private pending: { speaker: SpeakerRole; text: string; timestamp: number } | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
-  constructor(private emit: (speaker: SpeakerRole, text: string, timestamp: number) => void) {}
+  constructor(private emit: (speaker: SpeakerRole, text: string, timestamp: number) => void,
+    private observer?: BoundaryTraceObserver, private sessionId = '') {}
+  private diagnostic(speaker: SpeakerRole, timestamp: number, outcome: string, reason: string): void {
+    if (this.observer) observeBoundary(this.observer, { sessionId: this.sessionId, boundary: 'TRANSCRIPT_FINAL_RECEIVED',
+      source: speaker, timestamp, outcome, reason, upstreamCorrelationId: `${this.sessionId}:input:${speaker}:${timestamp}` });
+  }
   push(speaker: SpeakerRole, text: string, timestamp = Date.now()) {
     if (this.pending) {
       const pending = this.pending;
       if (pending.speaker === speaker && timestamp - pending.timestamp <= 1500) {
-        this.reset();
+        this.reset('buffer_merged');
         const merged = aggregateFinalTurn({ ...pending } as TranscriptTurn, speaker, text, timestamp);
+        this.diagnostic(speaker, timestamp, 'merged', 'causal_fragment_merged');
         this.emit(speaker, merged.kind === 'new' ? `${pending.text} ${text}` : merged.text, timestamp);
         return;
       }
@@ -76,12 +83,15 @@ export class FinalTurnBuffer {
     }
     if (!/[.!?…]$/.test(text.trim()) && /^(?:поэтому|потому что|так как|если|когда|в результате)\s/iu.test(text) && text.split(/\s+/).length <= 6) {
       this.pending = { speaker, text, timestamp };
+      this.diagnostic(speaker, timestamp, 'buffered', 'causal_fragment_buffered');
       this.timer = setTimeout(() => this.flush(), 1500);
     } else this.emit(speaker, text, timestamp);
   }
   flush() {
-    const pending = this.pending; this.reset();
+    const pending = this.pending; this.reset('buffer_flushed');
     if (pending) this.emit(pending.speaker, pending.text, pending.timestamp);
   }
-  reset() { if (this.timer) clearTimeout(this.timer); this.timer = null; this.pending = null; }
+  reset(reason = 'buffer_reset') {
+    if (this.pending) this.diagnostic(this.pending.speaker, this.pending.timestamp, reason === 'buffer_reset' ? 'discarded' : 'released', reason);
+    if (this.timer) clearTimeout(this.timer); this.timer = null; this.pending = null; }
 }

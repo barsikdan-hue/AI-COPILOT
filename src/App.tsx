@@ -35,6 +35,8 @@ import { DualAudioCapture } from './services/audioCapture';
 import { LiveTranscriptionChannel } from './services/transcriptionService';
 import { SalesDecisionEngine, DEFAULT_RULES } from './services/salesDecisionEngine';
 import { AnalysisProvider } from './services/analysisProvider';
+import { BoundaryTrace, boundaryTraceEnabled, isTesterMarker } from './services/boundaryTrace';
+import type { BoundaryTraceInput, TraceBoundary } from './types';
 import { createInitialState, mergeFactsDelta, mergeSemanticFacts } from './services/conversationStore';
 import { evaluateFirstCallScript } from './services/firstCallScriptEngine';
 import { checkSemanticAntiRepeat, extractSemanticKey } from './services/semanticAntiRepeat';
@@ -181,6 +183,7 @@ export const App: React.FC = () => {
   useEffect(() => () => finalTurnBufferRef.current?.reset(), []);
   const suggestedRepliesHistoryRef = useRef<SuggestedReply[]>([]);
   const suggestionTraceRef = useRef<SuggestionTraceEntry[]>([]);
+  const boundaryTraceRef = useRef<BoundaryTrace | null>(null);
 
   // References for services
   const audioCaptureRef = useRef<DualAudioCapture | null>(null);
@@ -295,6 +298,27 @@ export const App: React.FC = () => {
     };
   }, [isCallRunning, isPaused]);
 
+  const recordBoundaryTrace = useCallback((event: BoundaryTraceInput) => {
+    if (!boundaryTraceRef.current) return;
+    try {
+      const traceSessionId = event.sessionId || sessionIdRef.current;
+      const turn = event.turnId ? turnsRef.current.find(turn => turn.id === event.turnId)
+        : turnsRef.current.find(turn => turn.sessionId === traceSessionId && turn.revision === (event.candidateRevision ?? event.revision));
+      boundaryTraceRef.current.record({ ...event, sessionId: traceSessionId, turnId: event.turnId ?? turn?.id ?? null, revision: event.revision ?? turn?.revision ?? null });
+    } catch { /* DEV/QA observation must never affect a call. */ }
+  }, []);
+  const traceTurn = useCallback((boundary: TraceBoundary, outcome: string, reason: string, turn?: TranscriptTurn, extra: Partial<BoundaryTraceInput> = {}) => {
+    if (!boundaryTraceRef.current) return;
+    recordBoundaryTrace({ sessionId: turn?.sessionId || sessionIdRef.current, boundary, outcome, reason,
+      turnId: turn?.id, revision: turn?.revision, ...extra });
+  }, [recordBoundaryTrace]);
+  const traceCandidate = useCallback((candidate: SuggestedReply, boundary: TraceBoundary, outcome: string, reason: string, timestamp?: number) => {
+    if (!boundaryTraceRef.current) return;
+    recordBoundaryTrace({ sessionId: candidate.sessionId, boundary, outcome, reason, timestamp,
+      candidateId: candidate.id, candidateRevision: candidate.basedOnRevision, revision: candidate.basedOnRevision,
+      source: candidate.source });
+  }, [recordBoundaryTrace]);
+
   const recordSuggestionTrace = useCallback((
     candidate: SuggestedReply,
     outcome: SuggestionTraceEntry['outcome'],
@@ -315,7 +339,12 @@ export const App: React.FC = () => {
       reason,
     };
     suggestionTraceRef.current = [...suggestionTraceRef.current.slice(-499), entry];
-  }, []);
+    traceCandidate(candidate, 'RECOMMENDATION_LIFECYCLE', outcome === 'shown' ? 'accepted' : outcome === 'rejected' ? 'suppressed' : 'pending', reason, entry.timestamp);
+    traceCandidate(candidate, 'PUBLICATION', outcome === 'shown' ? 'emitted' : 'not_emitted', reason, entry.timestamp);
+    if (outcome === 'rejected' && currentSuggestionRef.current) {
+      traceCandidate(currentSuggestionRef.current, 'RECOMMENDATION_LIFECYCLE', 'retained', 'candidate_rejected', entry.timestamp);
+    }
+  }, [traceCandidate]);
 
   const publishSuggestion = useCallback((candidate: SuggestedReply, skipAntiRepeat = false): boolean => {
     const activeSession = sessionIdRef.current;
@@ -366,14 +395,20 @@ export const App: React.FC = () => {
     }
 
     if (suggestionLockedRef.current || isAgentSpeakingRef.current) {
-      if (pendingSuggestionRef.current) pendingSuggestionRef.current.lifecycleStatus = 'superseded';
+      if (pendingSuggestionRef.current) {
+        traceCandidate(pendingSuggestionRef.current, 'RECOMMENDATION_LIFECYCLE', 'superseded', 'replaced_pending_candidate');
+        pendingSuggestionRef.current.lifecycleStatus = 'superseded';
+      }
       candidate.lifecycleStatus = 'candidate';
       pendingSuggestionRef.current = candidate;
       recordSuggestionTrace(candidate, 'pending', suggestionLockedRef.current ? 'suggestion_locked' : 'agent_speaking');
       return true;
     }
 
-    if (currentSuggestionRef.current) currentSuggestionRef.current.lifecycleStatus = 'superseded';
+    if (currentSuggestionRef.current) {
+      traceCandidate(currentSuggestionRef.current, 'RECOMMENDATION_LIFECYCLE', 'superseded', 'replaced_by_candidate');
+      currentSuggestionRef.current.lifecycleStatus = 'superseded';
+    }
     candidate.lifecycleStatus = 'shown';
     recentShownSemanticKeysRef.current.set(candidate.semanticKey, Date.now());
     currentSuggestionRef.current = candidate;
@@ -392,7 +427,7 @@ export const App: React.FC = () => {
     }
     recordSuggestionTrace(candidate, 'shown', 'accepted');
     return true;
-  }, [recordSuggestionTrace]);
+  }, [recordSuggestionTrace, traceCandidate]);
 
   // Warn at 80% of an explicit time promise (for example: “I will take two minutes”).
   useEffect(() => {
@@ -442,6 +477,8 @@ export const App: React.FC = () => {
     // 1. Session check
     if (pending.sessionId !== activeSession) {
       console.log('[HintLifecycle] Discarded pending suggestion: session mismatch');
+      traceCandidate(pending, 'RECOMMENDATION_LIFECYCLE', 'superseded', 'session_mismatch', now);
+      traceCandidate(pending, 'PUBLICATION', 'not_emitted', 'session_mismatch', now);
       pending.lifecycleStatus = 'superseded';
       pendingSuggestionRef.current = null;
       return;
@@ -458,6 +495,8 @@ export const App: React.FC = () => {
         '<',
         lastSubstantiveClientRevisionRef.current
       );
+      traceCandidate(pending, 'RECOMMENDATION_LIFECYCLE', 'superseded', 'superseded_by_newer_revision', now);
+      traceCandidate(pending, 'PUBLICATION', 'not_emitted', 'superseded_by_newer_revision', now);
       pending.lifecycleStatus = 'superseded';
       pendingSuggestionRef.current = null;
       return;
@@ -466,6 +505,8 @@ export const App: React.FC = () => {
     // 3. TTL check: maximum 15s lifetime
     if (now - pending.createdAt > HINT_TTL_MS) {
       console.log('[HintLifecycle] Discarded pending suggestion: TTL expired (>15s)');
+      traceCandidate(pending, 'RECOMMENDATION_LIFECYCLE', 'expired', 'pending_ttl_expired', now);
+      traceCandidate(pending, 'PUBLICATION', 'not_emitted', 'pending_ttl_expired', now);
       pending.lifecycleStatus = 'expired';
       pendingSuggestionRef.current = null;
       return;
@@ -478,6 +519,8 @@ export const App: React.FC = () => {
       console.log(
         `[HintLifecycle] Discarded pending suggestion: semantic key "${semKey}" was shown recently (<30s)`
       );
+      traceCandidate(pending, 'RECOMMENDATION_LIFECYCLE', 'suppressed', 'shown_semantic_cooldown', now);
+      traceCandidate(pending, 'PUBLICATION', 'not_emitted', 'shown_semantic_cooldown', now);
       pending.lifecycleStatus = 'suppressed';
       pendingSuggestionRef.current = null;
       return;
@@ -492,6 +535,8 @@ export const App: React.FC = () => {
       console.log(
         `[HintLifecycle] Discarded pending suggestion: anti-repeat rejected "${antiRepeat.rejectionReason}"`
       );
+      traceCandidate(pending, 'RECOMMENDATION_LIFECYCLE', 'suppressed', 'anti_repeat', now);
+      traceCandidate(pending, 'PUBLICATION', 'not_emitted', 'anti_repeat', now);
       pending.lifecycleStatus = 'suppressed';
       pendingSuggestionRef.current = null;
       return;
@@ -504,6 +549,8 @@ export const App: React.FC = () => {
         console.log(
           `[HintLifecycle] Discarded pending suggestion: metric "${pending.closesMetric}" already closed (${metric.status})`
         );
+        traceCandidate(pending, 'RECOMMENDATION_LIFECYCLE', 'suppressed', 'metric_closed', now);
+        traceCandidate(pending, 'PUBLICATION', 'not_emitted', 'metric_closed', now);
         pending.lifecycleStatus = 'suppressed';
         pendingSuggestionRef.current = null;
         return;
@@ -517,18 +564,22 @@ export const App: React.FC = () => {
         `[HintLifecycle] Promoted pending suggestion to shown: "${pending.text.slice(0, 40)}..."`
       );
     }
-  }, [sessionId, publishSuggestion]);
+  }, [sessionId, publishSuggestion, traceCandidate]);
 
 
   // Deterministic OS 4 turn pipeline used by live STT and the offline simulator.
   const handleAddFinalTurn = useCallback(
     (speaker: SpeakerRole, text: string, timestamp = Date.now()) => {
       let trimmed = text.trim();
-      if (!trimmed) return;
+      if (!trimmed) { traceTurn('TRANSCRIPT_FINAL_RECEIVED', 'ignored', 'empty_final', undefined, { timestamp, source: speaker }); return; }
 
       const previousTurn = turnsRef.current.at(-1);
       const aggregation = aggregateFinalTurn(previousTurn, speaker, trimmed, timestamp);
-      if (aggregation.kind === 'duplicate') return;
+      if (aggregation.kind === 'duplicate') {
+        traceTurn('TRANSCRIPT_FINAL_RECEIVED', 'ignored', 'duplicate_final', previousTurn, { timestamp, source: speaker });
+        traceTurn('ANALYSIS', 'skipped', 'duplicate_final', previousTurn, { timestamp });
+        return;
+      }
       const amending = aggregation.kind === 'amend';
       trimmed = aggregation.text;
 
@@ -557,6 +608,14 @@ export const App: React.FC = () => {
       if (!amending) turnBaseStateRef.current = { id: newTurn.id, state: baseState };
       turnsRef.current = amending ? [...turnsRef.current.slice(0, -1), newTurn] : [...turnsRef.current, newTurn];
       setTurns(turnsRef.current);
+      if (boundaryTraceRef.current) {
+        const marker = isTesterMarker(text);
+        traceTurn('TRANSCRIPT_FINAL_RECEIVED', 'accepted', amending ? 'amended_final' : 'logical_final', newTurn, {
+          timestamp, source: speaker, testerMarker: marker,
+          upstreamCorrelationId: `${activeSessionId}:input:${speaker}:${timestamp}`,
+        });
+        if (marker) traceTurn('TESTER_MARKER', 'observed', 'external_tester_marker', newTurn, { timestamp, testerMarker: true });
+      }
 
       if (speaker === 'agent') {
         suggestionLockedRef.current = true;
@@ -567,7 +626,12 @@ export const App: React.FC = () => {
           lockedAt: previous.lockedAt || Date.now(),
         }));
 
+        traceTurn('STATE_UPDATE', 'started', 'agent_final', newTurn, { stateRevision: baseState.revision });
         const { state: nextState, event: agentEvent } = advanceLocalConversation(baseState, newTurn, turnsRef.current);
+        traceTurn('STATE_UPDATE', 'completed', 'agent_final', newTurn, { stateRevision: nextState.revision });
+        traceTurn('ANALYSIS', 'skipped', 'agent_turn', newTurn);
+        traceTurn('DECISION', 'evaluated', agentEvent ? 'local_event' : 'no_agent_event', newTurn, { candidateProduced: Boolean(agentEvent?.suggestedReply) });
+        if (!agentEvent?.suggestedReply) traceTurn('PUBLICATION', 'not_emitted', 'no_candidate', newTurn);
         conversationStateRef.current = nextState;
         setConversationState(nextState);
 
@@ -602,6 +666,9 @@ export const App: React.FC = () => {
       }));
 
       if (conversationModeRef.current === 'technical_discussion') {
+        traceTurn('STATE_UPDATE', 'skipped', 'technical_discussion', newTurn);
+        traceTurn('ANALYSIS', 'skipped', 'technical_discussion', newTurn);
+        traceTurn('DECISION', 'skipped', 'technical_discussion', newTurn, { candidateProduced: false });
         setIsAnalyzing(false);
         setIsRefiningContext(false);
         return;
@@ -611,21 +678,31 @@ export const App: React.FC = () => {
         .slice(0, -1)
         .filter((turn) => turn.speaker === 'agent')
         .at(-1);
-      if (!isSubstantiveClientTurn(trimmed, lastAgentTurn?.text, turnsRef.current.at(-2)?.speaker === 'agent')) return;
+      if (!isSubstantiveClientTurn(trimmed, lastAgentTurn?.text, turnsRef.current.at(-2)?.speaker === 'agent')) {
+        traceTurn('STATE_UPDATE', 'skipped', 'non_substantive_client', newTurn);
+        traceTurn('ANALYSIS', 'skipped', 'non_substantive_client', newTurn);
+        traceTurn('DECISION', 'skipped', 'non_substantive_client', newTurn, { candidateProduced: false });
+        return;
+      }
       lastSubstantiveClientRevisionRef.current = nextRev;
 
+      traceTurn('STATE_UPDATE', 'started', 'client_final', newTurn, { stateRevision: baseState.revision });
       const { state: nextState, event, clientIntent, localObjection } = advanceLocalConversation(baseState, newTurn, turnsRef.current);
+      traceTurn('STATE_UPDATE', 'completed', 'client_final', newTurn, { stateRevision: nextState.revision });
       conversationStateRef.current = nextState;
       setConversationState(nextState);
 
       if (event) {
         const eventSuggestion = suggestionFromEvent(event, activeSessionId, nextRev);
+        traceTurn('DECISION', 'evaluated', eventSuggestion ? 'local_event_candidate' : 'local_event_no_candidate', newTurn, { candidateProduced: Boolean(eventSuggestion) });
+        if (!eventSuggestion) traceTurn('PUBLICATION', 'not_emitted', 'no_candidate', newTurn);
         if (eventSuggestion) publishSuggestion(eventSuggestion);
 
         // A P0/control event already decided the next action for this exact turn.
         // Do not run a second local policy pass that can overwrite it with a
         // questionnaire fallback or create a duplicate candidate.
         if (event.suppressesAnalysis && eventSuggestion) {
+          traceTurn('ANALYSIS', 'skipped', 'local_event_owns_turn', newTurn);
           setIsAnalyzing(false);
           setIsRefiningContext(false);
           return;
@@ -657,7 +734,11 @@ export const App: React.FC = () => {
       setIsAnalyzing(false);
 
       const applyAnalysisResult = (analysisResult: ReturnType<typeof buildLocalAnalysisResponse>) => {
-        if (analysisResult.sessionId !== sessionIdRef.current || analysisResult.basedOnRevision < lastSubstantiveClientRevisionRef.current) return;
+        if (analysisResult.sessionId !== sessionIdRef.current || analysisResult.basedOnRevision < lastSubstantiveClientRevisionRef.current) {
+          traceTurn('DECISION', 'skipped', 'stale_analysis_result', newTurn, { sessionId: analysisResult.sessionId, candidateRevision: analysisResult.basedOnRevision });
+          traceTurn('PUBLICATION', 'not_emitted', 'stale_analysis_result', newTurn, { sessionId: analysisResult.sessionId, candidateRevision: analysisResult.basedOnRevision });
+          return;
+        }
         setIsAnalyzing(false);
         setIsRefiningContext(false);
         setHasAnalysisError(false);
@@ -691,6 +772,12 @@ export const App: React.FC = () => {
         const isLateGeminiEnhancement =
           analysisResult.modelUsed !== 'local-deterministic' && analysisResult.suggestionExpired === true;
 
+        traceTurn('DECISION', 'evaluated', isLateGeminiEnhancement ? 'late_remote_candidate' : analysisResult.shouldSuggest && analysisResult.suggestedReply ? 'candidate_produced' : 'no_candidate', newTurn,
+          { candidateProduced: Boolean(analysisResult.shouldSuggest && analysisResult.suggestedReply), candidateRevision: analysisResult.basedOnRevision });
+        if (!analysisResult.shouldSuggest || !analysisResult.suggestedReply || isLateGeminiEnhancement) {
+          traceTurn('PUBLICATION', 'not_emitted', isLateGeminiEnhancement ? 'late_remote_candidate' : 'no_candidate', newTurn, { candidateRevision: analysisResult.basedOnRevision });
+          if (currentSuggestionRef.current) traceCandidate(currentSuggestionRef.current, 'RECOMMENDATION_LIFECYCLE', 'retained', 'no_new_publishable_candidate');
+        }
         if (analysisResult.shouldSuggest && analysisResult.suggestedReply && !isLateGeminiEnhancement) {
           publishSuggestion({
             id: `reply_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
@@ -738,14 +825,14 @@ export const App: React.FC = () => {
         { amendment: amending, suppressRemote: event?.suppressesAnalysis }
       );
     },
-    [publishSuggestion, verifyAndPromotePendingSuggestion]
+    [publishSuggestion, verifyAndPromotePendingSuggestion, traceTurn, traceCandidate]
   );
 
   // Initialize Audio & Channels
   const initAudioAndChannels = useCallback(
     (newSessionId: string) => {
       finalTurnBufferRef.current?.reset();
-      finalTurnBufferRef.current = new FinalTurnBuffer(handleAddFinalTurn);
+      finalTurnBufferRef.current = new FinalTurnBuffer(handleAddFinalTurn, boundaryTraceRef.current ? recordBoundaryTrace : undefined, newSessionId);
       // 1. Dual Audio Capture
       // Reuse an existing capture instance so a microphone/tab stream enabled
       // before "Начать звонок" is not orphaned when a real session ID is created.
@@ -783,6 +870,7 @@ export const App: React.FC = () => {
 
       // 2. Transcription Channel for Agent
       const agentChannel = new LiveTranscriptionChannel('agent', newSessionId, {
+        onBoundaryTrace: boundaryTraceRef.current ? recordBoundaryTrace : undefined,
         onStatusChange: (role, status) => {
           setDiagnostics((d) => ({ ...d, sttAgentStatus: status }));
         },
@@ -833,6 +921,7 @@ export const App: React.FC = () => {
 
       // 3. Transcription Channel for Client
       const clientChannel = new LiveTranscriptionChannel('client', newSessionId, {
+        onBoundaryTrace: boundaryTraceRef.current ? recordBoundaryTrace : undefined,
         onStatusChange: (role, status) => {
           setDiagnostics((d) => ({ ...d, sttClientStatus: status }));
         },
@@ -923,7 +1012,10 @@ export const App: React.FC = () => {
     clientSpeechEndedAtRef.current = null;
 
     // Reset analysis provider to ensure absolute session isolation
+    analysisProviderRef.current.setBoundaryObserver(undefined);
     analysisProviderRef.current.setSession(newSessionId);
+    boundaryTraceRef.current = boundaryTraceEnabled() ? new BoundaryTrace(newSessionId, conversationModeRef.current, import.meta.env.VITE_DEV_QA_SOURCE_HEAD || 'NOT_ATTESTED') : null;
+    analysisProviderRef.current.setBoundaryObserver(boundaryTraceRef.current ? recordBoundaryTrace : undefined);
     LiveTranscriptionChannel.resetLiveSessionsCount();
     setDiagnostics((d) => ({
       ...d,
@@ -985,7 +1077,9 @@ export const App: React.FC = () => {
     // Cancel any pending analysis requests and clear active suggestions immediately (Requirement 11)
     finalTurnBufferRef.current?.flush();
     analysisProviderRef.current.cancelPending();
+    if (pendingSuggestionRef.current) traceCandidate(pendingSuggestionRef.current, 'RECOMMENDATION_LIFECYCLE', 'superseded', 'call_ended');
     pendingSuggestionRef.current = null;
+    if (currentSuggestionRef.current) traceCandidate(currentSuggestionRef.current, 'RECOMMENDATION_LIFECYCLE', 'superseded', 'call_ended');
     currentSuggestionRef.current = null;
     isAgentSpeakingRef.current = false;
     if (timeContractWarningTimerRef.current) {
@@ -1033,6 +1127,7 @@ export const App: React.FC = () => {
       suggestedRepliesHistory: activeHistory,
       suggestionTrace: suggestionTraceRef.current,
       diagnostics: finalDiagnostics,
+      ...(boundaryTraceRef.current ? { boundaryTrace: boundaryTraceRef.current.snapshot() } : {}),
       status: 'completed',
     };
 
@@ -1115,6 +1210,7 @@ export const App: React.FC = () => {
     // Реплика отмечается как использованная без инъекции дублирующего транскрипта
     // (реальный звук Андрея будет естественным образом распознан STT микрофона)
     const now = Date.now();
+    traceCandidate(reply, 'RECOMMENDATION_LIFECYCLE', 'used', 'manual_use', now);
     const updatedReply: SuggestedReply = {
       ...reply,
       used: true,
@@ -1140,6 +1236,7 @@ export const App: React.FC = () => {
   const handleDismissSuggestion = () => {
     const dismissed = currentSuggestionRef.current;
     if (dismissed) {
+      traceCandidate(dismissed, 'RECOMMENDATION_LIFECYCLE', 'suppressed', 'manual_dismiss');
       dismissed.lifecycleStatus = 'suppressed';
       recentShownSemanticKeysRef.current.delete(dismissed.semanticKey || extractSemanticKey(dismissed.text));
       const dismissedText = dismissed.text.trim();
@@ -1211,7 +1308,7 @@ export const App: React.FC = () => {
   const handleAskField = (question: string) => {
     const activeSessionId = sessionIdRef.current || sessionId || 'session';
     const curRev = revisionRef.current;
-    setCurrentSuggestion({
+    const candidate: SuggestedReply = {
       id: `suggest_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       sessionId: activeSessionId,
       basedOnRevision: curRev,
@@ -1221,8 +1318,12 @@ export const App: React.FC = () => {
       evidenceTurnIds: [],
       createdAt: Date.now(),
       stage: conversationStateRef.current.stage,
-    });
+    };
+    setCurrentSuggestion(candidate);
     setShouldSuggest(true);
+    traceCandidate(candidate, 'DECISION', 'evaluated', 'manual_activation');
+    traceCandidate(candidate, 'RECOMMENDATION_LIFECYCLE', 'accepted', 'manual_activation');
+    traceCandidate(candidate, 'PUBLICATION', 'emitted', 'manual_activation');
   };
 
   const handleInjectTurnFromSimulator = (speaker: SpeakerRole, text: string) => {
@@ -1244,7 +1345,10 @@ export const App: React.FC = () => {
       recentShownSemanticKeysRef.current.clear();
       clientResponseStartByRevisionRef.current.clear();
       clientSpeechEndedAtRef.current = null;
+      analysisProviderRef.current.setBoundaryObserver(undefined);
       analysisProviderRef.current.setSession(newSessionId);
+      boundaryTraceRef.current = boundaryTraceEnabled() ? new BoundaryTrace(newSessionId, conversationModeRef.current, import.meta.env.VITE_DEV_QA_SOURCE_HEAD || 'NOT_ATTESTED') : null;
+      analysisProviderRef.current.setBoundaryObserver(boundaryTraceRef.current ? recordBoundaryTrace : undefined);
       setSessionId(newSessionId);
       setTurns([]);
       setRevision(0);
@@ -1365,6 +1469,7 @@ export const App: React.FC = () => {
             </div>
           )}
           <SuggestionCard
+            onBoundaryTrace={boundaryTraceRef.current ? recordBoundaryTrace : undefined}
             suggestion={currentSuggestion}
             shouldSuggest={shouldSuggest}
             activeRule={activeRule}

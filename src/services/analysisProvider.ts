@@ -6,6 +6,8 @@ import {
 import { buildLocalAnalysisResponse } from './localAnalysisEngine';
 import { isSubstantiveClientTurn } from './objectionEngine';
 import { applyLearnedSuggestion, rememberLateGeminiSuggestion } from './learnedSuggestionCache';
+import { observeBoundary } from './boundaryTrace';
+import type { BoundaryTraceInput, BoundaryTraceObserver } from '../types';
 
 export interface AnalysisPayload {
   sessionId: string;
@@ -17,6 +19,18 @@ export interface AnalysisPayload {
 }
 
 export class AnalysisProvider {
+  private boundaryObserver?: BoundaryTraceObserver;
+  private activeTrace: BoundaryTraceInput[] = [];
+  public setBoundaryObserver(observer?: BoundaryTraceObserver): void { this.boundaryObserver = observer; }
+  private trace(payload: AnalysisPayload, outcome: string, reason: string, source = 'remote', timestamp?: number): void {
+    if (!this.boundaryObserver) return;
+    for (const turn of payload.newTurns) observeBoundary(this.boundaryObserver, {
+      sessionId: payload.sessionId, boundary: 'ANALYSIS', outcome, reason, source, timestamp,
+      turnId: turn.id, revision: turn.revision ?? payload.revision,
+      analysisId: `${payload.sessionId}:${source}:${payload.revision}`,
+    });
+  }
+
   private currentSessionId: string | null = null;
   private isInFlight: boolean = false;
   private inFlightRevision: number | null = null;
@@ -100,14 +114,19 @@ export class AnalysisProvider {
   }
 
   public scheduleLocalFirst(payload: AnalysisPayload, onSuccess: (result: AnalysisResponse) => void, onError: (error: any) => void, onRefiningChange?: (value: boolean) => void, options: { amendment?: boolean; suppressRemote?: boolean } = {}) {
-    const local = applyLearnedSuggestion(payload, buildLocalAnalysisResponse(payload));
+    this.trace(payload, 'triggered', 'local_first', 'local');
+    let local: AnalysisResponse;
+    try { local = applyLearnedSuggestion(payload, buildLocalAnalysisResponse(payload)); }
+    catch (error) { this.trace(payload, 'failed', 'local_exception', 'local'); throw error; }
+    this.trace(payload, 'completed', 'local_result', 'local');
     onSuccess(local);
-    if (!this.remoteEnhancementEnabled) return;
+    if (!this.remoteEnhancementEnabled) { this.trace(payload, 'skipped', 'remote_disabled'); return; }
     if (options.amendment) {
+      this.trace(payload, 'skipped', 'remote_amendment');
       this.amendTurn(payload.newTurns.at(-1)!, payload.currentState);
       return;
     }
-    if (options.suppressRemote) return;
+    if (options.suppressRemote) { this.trace(payload, 'skipped', 'remote_suppressed_by_event'); return; }
 
     const last = payload.newTurns.at(-1);
     const text = (last?.text || '').toLowerCase();
@@ -121,6 +140,7 @@ export class AnalysisProvider {
     );
     const throttled = Date.now() - this.lastAnalysisTimestamp < AnalysisProvider.REMOTE_MIN_INTERVAL_MS;
     if (cloudUseful && !throttled) this.scheduleAnalysis(payload, onSuccess, onError, onRefiningChange, 120);
+    else this.trace(payload, 'skipped', throttled ? 'remote_throttled' : 'remote_not_useful');
   }
 
   public amendTurn(turn: TranscriptTurn, state: ConversationState) {
@@ -261,13 +281,14 @@ export class AnalysisProvider {
       return this.checkEligibility(turn, turn.revision ?? payload.revision, previousAgent?.text).eligible;
     });
 
-    if (eligibleTurns.length === 0) return;
+    if (eligibleTurns.length === 0) { this.trace(payload, 'skipped', 'remote_ineligible'); return; }
     const eligiblePayload: AnalysisPayload = { ...payload, newTurns: eligibleTurns };
 
     // STAGE 2 SCHEDULER:
     // If a request is already in-flight, DO NOT ABORT!
     // Instead, accumulate into pendingBatch and remember latest state/revision and recent context.
     if (this.isInFlight) {
+      this.trace(eligiblePayload, 'queued', 'remote_in_flight');
       if (eligiblePayload.newTurns.length > 0) {
         for (const t of eligiblePayload.newTurns) {
           if (!this.pendingBatchTurns.some((b) => b.id === t.id)) {
@@ -307,6 +328,7 @@ export class AnalysisProvider {
     this.pendingErrorCb = onError;
     this.pendingRefiningCb = onRefiningChange || null;
 
+    this.trace(eligiblePayload, 'queued', 'remote_debounce');
     if (!this.debounceTimer) {
       this.debounceTimer = setTimeout(() => {
         this.debounceTimer = null;
@@ -336,6 +358,11 @@ export class AnalysisProvider {
     // Update timestamps and reason
     this.lastAnalysisTimestamp = Date.now();
     const requestStartedAt = this.lastAnalysisTimestamp;
+    this.trace(payload, 'started', 'remote_request', 'remote', requestStartedAt);
+    this.activeTrace = this.boundaryObserver ? payload.newTurns.map(turn => ({
+      sessionId: payload.sessionId, boundary: 'ANALYSIS', outcome: 'cancelled', reason: 'active_cancelled', source: 'remote',
+      turnId: turn.id, revision: turn.revision ?? payload.revision, analysisId: `${payload.sessionId}:remote:${payload.revision}`,
+    })) : [];
     this.lastRequestTimestamp = this.lastAnalysisTimestamp;
     this.lastRequestReason =
       payload.reason || (targetTurn ? `Клиент: "${targetTurn.text.slice(0, 35)}..."` : 'Анализ контекста');
@@ -391,19 +418,21 @@ export class AnalysisProvider {
 
       // Discard stale response if session changed
       if (data.sessionId !== this.currentSessionId || data.sessionId !== reqSessionId) {
+        this.trace(payload, 'discarded', 'remote_session_mismatch');
         console.warn(`[AnalysisProvider] Discarded stale response for session ${data.sessionId}`);
         return;
       }
 
       // Exact request/response pairing prevents stale cards from an older batch.
       if (data.basedOnRevision !== reqRevision || reqRevision < this.latestAcknowledgedRevision) {
+        this.trace(payload, 'discarded', 'remote_revision_mismatch');
         console.warn(
           `[AnalysisProvider] Discarded stale revision response=${data.basedOnRevision}, request=${reqRevision}, acknowledged=${this.latestAcknowledgedRevision}`
         );
         return;
       }
       // An extended STT final can amend an in-flight turn without launching another batch.
-      if (payload.newTurns.some(t => this.memoryBacklog.find(m => m.id === t.id)?.text !== t.text)) return;
+      if (payload.newTurns.some(t => this.memoryBacklog.find(m => m.id === t.id)?.text !== t.text)) { this.trace(payload, 'discarded', 'remote_amended_turn'); return; }
       this.latestAcknowledgedRevision = data.basedOnRevision;
 
       // MARK AS ANALYZED ONLY ON SUCCESSFUL RESPONSE (HTTP 2xx)
@@ -414,18 +443,21 @@ export class AnalysisProvider {
       this.analysisSuccess++;
       if (data.suggestionExpired) rememberLateGeminiSuggestion(payload, data);
       onRefiningChange?.(false);
+      this.trace(payload, 'completed', data.suggestionExpired ? 'remote_result_late' : 'remote_result');
       onSuccess(data);
     } catch (err: any) {
       onRefiningChange?.(false);
       if (err.name === 'AbortError') {
         if (isHardTimedOut) {
+          this.trace(payload, 'timeout', 'remote_hard_timeout');
           console.warn(
             `[AnalysisProvider] Analysis hard timed out at ${AnalysisProvider.HARD_TIMEOUT_MS}ms for rev ${reqRevision}. Preserving current suggestion.`
           );
           onError({ isTimeout: true, message: 'Время ответа Gemini превышено, карточка сохранена' });
-        }
+        } else this.trace(payload, 'cancelled', 'remote_aborted');
         return;
       }
+      this.trace(payload, 'failed', 'remote_error');
       this.analysisErrors++;
       console.error('Analysis execution failed:', err);
       onError(err);
@@ -439,6 +471,7 @@ export class AnalysisProvider {
         this.hardTimeoutTimer = null;
       }
       if (requestGeneration !== this.requestGeneration) return;
+      this.activeTrace = [];
       this.isInFlight = false;
       this.inFlightRevision = null;
       if (this.activeAbortController === requestController) this.activeAbortController = null;
@@ -483,6 +516,10 @@ export class AnalysisProvider {
   }
 
   public cancelPending() {
+    for (const event of this.activeTrace) observeBoundary(this.boundaryObserver, event);
+    this.activeTrace = [];
+    if (this.pendingPayload) this.trace(this.pendingPayload, 'cancelled', 'pending_cancelled');
+    if (this.pendingBatchTurns.length && this.pendingLatestState) this.trace({ sessionId: this.currentSessionId || '', revision: this.pendingRevision, newTurns: this.pendingBatchTurns, recentTurns: this.pendingRecentTurns, currentState: this.pendingLatestState }, 'cancelled', 'batch_cancelled');
     this.requestGeneration += 1;
     this.pendingBatchTurns = [];
     this.pendingLatestState = null;

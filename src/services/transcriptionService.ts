@@ -1,4 +1,5 @@
-import { SpeakerRole } from '../types';
+import { SpeakerRole, BoundaryTraceObserver } from '../types';
+import { observeBoundary, isTesterMarker } from './boundaryTrace';
 
 const normalizeTranscript = (value: string): string =>
   String(value || '')
@@ -48,8 +49,12 @@ export class VadFinalCommitter {
 
   constructor(
     private readonly commit: (text: string, timestamp: number) => void,
-    private readonly graceMs: number = VAD_FINAL_GRACE_MS
+    private readonly graceMs: number = VAD_FINAL_GRACE_MS,
+    private readonly onDiagnostic?: (outcome: string, reason: string, timestamp: number) => void,
   ) {}
+  private diagnostic(outcome: string, reason: string, timestamp: number): void {
+    try { this.onDiagnostic?.(outcome, reason, timestamp); } catch { /* Passive observation. */ }
+  }
 
   public onInterim(textRaw: string): void {
     const text = String(textRaw || '').trim();
@@ -71,7 +76,9 @@ export class VadFinalCommitter {
       const text = this.longestInterimText.trim();
       if (!text) return;
       this.optimisticFinalText = text;
-      this.commit(text, Date.now());
+      const timestamp = Date.now();
+      this.diagnostic('committed', 'vad_promoted_final', timestamp);
+      this.commit(text, timestamp);
     }, this.graceMs);
   }
 
@@ -82,8 +89,11 @@ export class VadFinalCommitter {
     this.longestInterimText = '';
     this.optimisticFinalText = '';
 
-    if (!preservedText) return;
-    if (optimisticText && normalizeTranscript(optimisticText) === normalizeTranscript(preservedText)) return;
+    if (!preservedText) { this.diagnostic('ignored', 'empty_final', timestamp); return; }
+    if (optimisticText && normalizeTranscript(optimisticText) === normalizeTranscript(preservedText)) {
+      this.diagnostic('ignored', 'equivalent_vad_final', timestamp); return;
+    }
+    this.diagnostic('committed', 'server_final', timestamp);
     this.commit(preservedText, timestamp);
   }
 
@@ -101,6 +111,7 @@ export class VadFinalCommitter {
 }
 
 export interface TranscriptionCallbacks {
+  onBoundaryTrace?: BoundaryTraceObserver;
   onStatusChange?: (role: SpeakerRole, status: 'idle' | 'connecting' | 'connected' | 'error' | 'closed') => void;
   onInterimText?: (role: SpeakerRole, text: string) => void;
   onFinalTurn?: (role: SpeakerRole, text: string, timestamp: number) => void;
@@ -143,7 +154,10 @@ export class LiveTranscriptionChannel {
     this.callbacks = callbacks;
     this.finalCommitter = new VadFinalCommitter((text, timestamp) => {
       this.callbacks.onFinalTurn?.(this.role, text, timestamp);
-    });
+    }, VAD_FINAL_GRACE_MS, callbacks.onBoundaryTrace ? (outcome, reason, timestamp) => {
+      observeBoundary(callbacks.onBoundaryTrace, { sessionId, boundary: 'TRANSCRIPT_FINAL_RECEIVED', outcome, reason,
+        source: role, timestamp, upstreamCorrelationId: `${sessionId}:input:${role}:${timestamp}` });
+    } : undefined);
   }
 
   public isConnected(): boolean {
@@ -186,7 +200,14 @@ export class LiveTranscriptionChannel {
             this.finalCommitter.onInterim(interimText);
             this.callbacks.onInterimText?.(this.role, interimText);
           } else if (data.type === 'final') {
-            this.finalCommitter.onFinal(String(data.text || ''), data.timestamp || Date.now());
+            const finalText = String(data.text || '');
+            const timestamp = data.timestamp || Date.now();
+            if (this.callbacks.onBoundaryTrace) observeBoundary(this.callbacks.onBoundaryTrace, {
+              sessionId: this.sessionId, boundary: 'TRANSCRIPT_FINAL_RECEIVED', outcome: 'received', reason: 'server_final',
+              source: this.role, timestamp, testerMarker: isTesterMarker(finalText),
+              upstreamCorrelationId: `${this.sessionId}:input:${this.role}:${timestamp}`,
+            });
+            this.finalCommitter.onFinal(finalText, timestamp);
           } else if (data.type === 'voiceActivity') {
             const active = data.activity?.type === 'ACTIVITY_START';
             // Record the local speech-end timestamp first. The optimistic final

@@ -735,8 +735,43 @@ export interface CallSessionRecord {
   suggestedRepliesHistory: SuggestedReply[];
   suggestionTrace?: SuggestionTraceEntry[];
   diagnostics?: DiagnosticsData;
+  boundaryTrace?: BoundaryTraceExport;
   status: 'completed' | 'cancelled';
   note?: string;
+}
+
+export type TraceBoundary = 'TRANSCRIPT_FINAL_RECEIVED' | 'STATE_UPDATE' | 'ANALYSIS' | 'DECISION' | 'RECOMMENDATION_LIFECYCLE' | 'PUBLICATION' | 'UI_DELIVERY' | 'TESTER_MARKER';
+export interface BoundaryTraceInput {
+  sessionId: string;
+  boundary: TraceBoundary;
+  outcome: string;
+  reason: string;
+  timestamp?: number;
+  turnId?: string | null;
+  revision?: number | null;
+  candidateId?: string | null;
+  candidateRevision?: number | null;
+  stateRevision?: number;
+  source?: string;
+  upstreamCorrelationId?: string;
+  analysisId?: string;
+  candidateProduced?: boolean;
+  visible?: boolean;
+  testerMarker?: boolean;
+}
+export interface BoundaryTraceEvent extends BoundaryTraceInput {
+  eventId: string;
+  sequence: number;
+  timestamp: number;
+  correlationId: string;
+}
+export type BoundaryTraceObserver = (event: BoundaryTraceInput) => void;
+export interface BoundaryTraceExport {
+  version: 1;
+  sourceHead: string;
+  mode: ConversationMode;
+  droppedEvents: number;
+  events: BoundaryTraceEvent[];
 }
 
 export interface DiagnosticsData {
