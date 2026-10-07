@@ -140,8 +140,8 @@ export interface PairComparison {
 }
 
 // Byte hash belongs to this composed authority, not to its historical source.
-const CONTRACT_SHA256 = 'b11fc071a1f24fa198acb8e8f02050c7bfc355ace425492137344fca0ee39a37';
-const AUTHORITY_SIGNATURE = 'd25acdbaeb51c4bd1d0ddc0292216442b7b5c30c0c5d8c3bef5f83c9e0fccfa3';
+const CONTRACT_SHA256 = 'ae526586ed84ae203e2542d84168147efc98685b42fd9962630f122165db9a90';
+const AUTHORITY_SIGNATURE = '413ebeffbfccc21042728950be879c8ba630ef1c7439b4e76ecfaf69fb49f746';
 const RUNTIME_CONTRACT_SHA256 = '3f9759e88fa98ff21c40240d8447bfdfb0b0c4efd38e6c6f0257336e743f069b';
 const sourceRoot = fileURLToPath(new URL('../../../../', import.meta.url));
 const sha256 = (bytes: string | Buffer): string => createHash('sha256').update(bytes).digest('hex');

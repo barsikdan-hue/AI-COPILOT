@@ -174,7 +174,7 @@
       "sourceHashes": {
         "src/services/test-fixtures/massRegressionGoldenCases.ts": "bb4ae39c70b23e03f6cc00706447cee7574b7ef30d2c5fccb1eb8a6a8cff610b",
         "src/services/localAnalysisEngine.ts": "d4ea889dff1491e2d23c361ac6506f17a8f810a7f01d3bcafc589f2dd381a228",
-        "src/services/localAnalysisEngineLegacy.ts": "5bd34225654f3aa50592e8fb1916ffd91e3b1aa3dd7589a1d4853257431698cf",
+        "src/services/localAnalysisEngineLegacy.ts": "c119ea65c1d78eefd3483554865e27560a09a1a023995dff71fd19f641719122",
         "src/services/semanticEvidence.ts": "37b1739c4ba55f686e7bfbd26a62e80a07a3724d2bf1ddf8f5d95658f9c052a4"
       },
       "turnsSha256": "ce9c9c8adc6de912dde2007f19ac8003aede4635b0ac58ac585411dac8dcb7a7"
@@ -216,7 +216,7 @@
       "sourceHashes": {
         "src/services/test-fixtures/expandedRegressionScenarios.ts": "ede5d452a135823a6b324c8a35433a10603be0591c907e8dd68870f061ee551c",
         "src/services/localAnalysisEngine.ts": "d4ea889dff1491e2d23c361ac6506f17a8f810a7f01d3bcafc589f2dd381a228",
-        "src/services/localAnalysisEngineLegacy.ts": "5bd34225654f3aa50592e8fb1916ffd91e3b1aa3dd7589a1d4853257431698cf",
+        "src/services/localAnalysisEngineLegacy.ts": "c119ea65c1d78eefd3483554865e27560a09a1a023995dff71fd19f641719122",
         "src/services/semanticEvidence.ts": "37b1739c4ba55f686e7bfbd26a62e80a07a3724d2bf1ddf8f5d95658f9c052a4"
       },
       "turnsSha256": "b672eb0a1f422ac8c4925028d4d602af410052288d70306ed4fada44d1257a05"
@@ -257,7 +257,7 @@
       "sourceHashes": {
         "src/services/test-fixtures/massRegressionGoldenCases.ts": "bb4ae39c70b23e03f6cc00706447cee7574b7ef30d2c5fccb1eb8a6a8cff610b",
         "src/services/localAnalysisEngine.ts": "d4ea889dff1491e2d23c361ac6506f17a8f810a7f01d3bcafc589f2dd381a228",
-        "src/services/localAnalysisEngineLegacy.ts": "5bd34225654f3aa50592e8fb1916ffd91e3b1aa3dd7589a1d4853257431698cf",
+        "src/services/localAnalysisEngineLegacy.ts": "c119ea65c1d78eefd3483554865e27560a09a1a023995dff71fd19f641719122",
         "src/services/semanticEvidence.ts": "37b1739c4ba55f686e7bfbd26a62e80a07a3724d2bf1ddf8f5d95658f9c052a4",
         "src/services/deterministicFacts.ts": "ea7bb272703a3ea182f3d62a757a92927c16cd49caf23e0b971a2db6639c3d76",
         "src/services/conversationStore.ts": "e31384e81bee0474e076a56518b15c442275d90bd7aa8ba8c3bd16be3fdf40e8"
@@ -300,7 +300,7 @@
       "sourceHashes": {
         "src/services/test-fixtures/expandedRegressionScenarios.ts": "ede5d452a135823a6b324c8a35433a10603be0591c907e8dd68870f061ee551c",
         "src/services/localAnalysisEngine.ts": "d4ea889dff1491e2d23c361ac6506f17a8f810a7f01d3bcafc589f2dd381a228",
-        "src/services/localAnalysisEngineLegacy.ts": "5bd34225654f3aa50592e8fb1916ffd91e3b1aa3dd7589a1d4853257431698cf",
+        "src/services/localAnalysisEngineLegacy.ts": "c119ea65c1d78eefd3483554865e27560a09a1a023995dff71fd19f641719122",
         "src/services/semanticEvidence.ts": "37b1739c4ba55f686e7bfbd26a62e80a07a3724d2bf1ddf8f5d95658f9c052a4",
         "src/services/deterministicFacts.ts": "ea7bb272703a3ea182f3d62a757a92927c16cd49caf23e0b971a2db6639c3d76",
         "src/services/conversationStore.ts": "e31384e81bee0474e076a56518b15c442275d90bd7aa8ba8c3bd16be3fdf40e8"
@@ -343,7 +343,7 @@
       "sourceHashes": {
         "src/services/test-fixtures/expandedRegressionScenarios.ts": "ede5d452a135823a6b324c8a35433a10603be0591c907e8dd68870f061ee551c",
         "src/services/localAnalysisEngine.ts": "d4ea889dff1491e2d23c361ac6506f17a8f810a7f01d3bcafc589f2dd381a228",
-        "src/services/localAnalysisEngineLegacy.ts": "5bd34225654f3aa50592e8fb1916ffd91e3b1aa3dd7589a1d4853257431698cf",
+        "src/services/localAnalysisEngineLegacy.ts": "c119ea65c1d78eefd3483554865e27560a09a1a023995dff71fd19f641719122",
         "src/services/semanticEvidence.ts": "37b1739c4ba55f686e7bfbd26a62e80a07a3724d2bf1ddf8f5d95658f9c052a4",
         "src/services/deterministicFacts.ts": "ea7bb272703a3ea182f3d62a757a92927c16cd49caf23e0b971a2db6639c3d76",
         "src/services/conversationStore.ts": "e31384e81bee0474e076a56518b15c442275d90bd7aa8ba8c3bd16be3fdf40e8"
@@ -386,7 +386,7 @@
       "sourceHashes": {
         "src/services/test-fixtures/expandedRegressionScenarios.ts": "ede5d452a135823a6b324c8a35433a10603be0591c907e8dd68870f061ee551c",
         "src/services/localAnalysisEngine.ts": "d4ea889dff1491e2d23c361ac6506f17a8f810a7f01d3bcafc589f2dd381a228",
-        "src/services/localAnalysisEngineLegacy.ts": "5bd34225654f3aa50592e8fb1916ffd91e3b1aa3dd7589a1d4853257431698cf",
+        "src/services/localAnalysisEngineLegacy.ts": "c119ea65c1d78eefd3483554865e27560a09a1a023995dff71fd19f641719122",
         "src/services/semanticEvidence.ts": "37b1739c4ba55f686e7bfbd26a62e80a07a3724d2bf1ddf8f5d95658f9c052a4",
         "src/services/deterministicFacts.ts": "ea7bb272703a3ea182f3d62a757a92927c16cd49caf23e0b971a2db6639c3d76",
         "src/services/conversationStore.ts": "e31384e81bee0474e076a56518b15c442275d90bd7aa8ba8c3bd16be3fdf40e8"
@@ -429,7 +429,7 @@
       "sourceHashes": {
         "src/services/test-fixtures/massRegressionGoldenCases.ts": "bb4ae39c70b23e03f6cc00706447cee7574b7ef30d2c5fccb1eb8a6a8cff610b",
         "src/services/localAnalysisEngine.ts": "d4ea889dff1491e2d23c361ac6506f17a8f810a7f01d3bcafc589f2dd381a228",
-        "src/services/localAnalysisEngineLegacy.ts": "5bd34225654f3aa50592e8fb1916ffd91e3b1aa3dd7589a1d4853257431698cf",
+        "src/services/localAnalysisEngineLegacy.ts": "c119ea65c1d78eefd3483554865e27560a09a1a023995dff71fd19f641719122",
         "src/services/semanticEvidence.ts": "37b1739c4ba55f686e7bfbd26a62e80a07a3724d2bf1ddf8f5d95658f9c052a4",
         "src/services/deterministicFacts.ts": "ea7bb272703a3ea182f3d62a757a92927c16cd49caf23e0b971a2db6639c3d76",
         "src/services/conversationStore.ts": "e31384e81bee0474e076a56518b15c442275d90bd7aa8ba8c3bd16be3fdf40e8"
@@ -472,7 +472,7 @@
       "sourceHashes": {
         "src/services/test-fixtures/expandedRegressionScenarios.ts": "ede5d452a135823a6b324c8a35433a10603be0591c907e8dd68870f061ee551c",
         "src/services/localAnalysisEngine.ts": "d4ea889dff1491e2d23c361ac6506f17a8f810a7f01d3bcafc589f2dd381a228",
-        "src/services/localAnalysisEngineLegacy.ts": "5bd34225654f3aa50592e8fb1916ffd91e3b1aa3dd7589a1d4853257431698cf",
+        "src/services/localAnalysisEngineLegacy.ts": "c119ea65c1d78eefd3483554865e27560a09a1a023995dff71fd19f641719122",
         "src/services/semanticEvidence.ts": "37b1739c4ba55f686e7bfbd26a62e80a07a3724d2bf1ddf8f5d95658f9c052a4",
         "src/services/deterministicFacts.ts": "ea7bb272703a3ea182f3d62a757a92927c16cd49caf23e0b971a2db6639c3d76",
         "src/services/conversationStore.ts": "e31384e81bee0474e076a56518b15c442275d90bd7aa8ba8c3bd16be3fdf40e8"
@@ -517,7 +517,7 @@
       "sourceHashes": {
         "src/services/test-fixtures/expandedRegressionScenarios.ts": "ede5d452a135823a6b324c8a35433a10603be0591c907e8dd68870f061ee551c",
         "src/services/localAnalysisEngine.ts": "d4ea889dff1491e2d23c361ac6506f17a8f810a7f01d3bcafc589f2dd381a228",
-        "src/services/localAnalysisEngineLegacy.ts": "5bd34225654f3aa50592e8fb1916ffd91e3b1aa3dd7589a1d4853257431698cf",
+        "src/services/localAnalysisEngineLegacy.ts": "c119ea65c1d78eefd3483554865e27560a09a1a023995dff71fd19f641719122",
         "src/services/semanticEvidence.ts": "37b1739c4ba55f686e7bfbd26a62e80a07a3724d2bf1ddf8f5d95658f9c052a4",
         "src/services/deterministicFacts.ts": "ea7bb272703a3ea182f3d62a757a92927c16cd49caf23e0b971a2db6639c3d76",
         "src/services/conversationStore.ts": "e31384e81bee0474e076a56518b15c442275d90bd7aa8ba8c3bd16be3fdf40e8"
@@ -562,7 +562,7 @@
       "sourceHashes": {
         "src/services/test-fixtures/expandedRegressionScenarios.ts": "ede5d452a135823a6b324c8a35433a10603be0591c907e8dd68870f061ee551c",
         "src/services/localAnalysisEngine.ts": "d4ea889dff1491e2d23c361ac6506f17a8f810a7f01d3bcafc589f2dd381a228",
-        "src/services/localAnalysisEngineLegacy.ts": "5bd34225654f3aa50592e8fb1916ffd91e3b1aa3dd7589a1d4853257431698cf",
+        "src/services/localAnalysisEngineLegacy.ts": "c119ea65c1d78eefd3483554865e27560a09a1a023995dff71fd19f641719122",
         "src/services/semanticEvidence.ts": "37b1739c4ba55f686e7bfbd26a62e80a07a3724d2bf1ddf8f5d95658f9c052a4",
         "src/services/deterministicFacts.ts": "ea7bb272703a3ea182f3d62a757a92927c16cd49caf23e0b971a2db6639c3d76",
         "src/services/conversationStore.ts": "e31384e81bee0474e076a56518b15c442275d90bd7aa8ba8c3bd16be3fdf40e8"
@@ -605,7 +605,7 @@
       "sourceHashes": {
         "src/services/test-fixtures/expandedRegressionScenarios.ts": "ede5d452a135823a6b324c8a35433a10603be0591c907e8dd68870f061ee551c",
         "src/services/localAnalysisEngine.ts": "d4ea889dff1491e2d23c361ac6506f17a8f810a7f01d3bcafc589f2dd381a228",
-        "src/services/localAnalysisEngineLegacy.ts": "5bd34225654f3aa50592e8fb1916ffd91e3b1aa3dd7589a1d4853257431698cf",
+        "src/services/localAnalysisEngineLegacy.ts": "c119ea65c1d78eefd3483554865e27560a09a1a023995dff71fd19f641719122",
         "src/services/semanticEvidence.ts": "37b1739c4ba55f686e7bfbd26a62e80a07a3724d2bf1ddf8f5d95658f9c052a4",
         "src/services/deterministicFacts.ts": "ea7bb272703a3ea182f3d62a757a92927c16cd49caf23e0b971a2db6639c3d76",
         "src/services/conversationStore.ts": "e31384e81bee0474e076a56518b15c442275d90bd7aa8ba8c3bd16be3fdf40e8"

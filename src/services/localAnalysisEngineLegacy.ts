@@ -7,7 +7,7 @@ import {
 } from '../types';
 import { applyConversationEvent, detectConversationEvent, isAgreedNextStepReaffirmation } from './conversationEventEngine';
 import { createInitialState, mergeFactsDelta } from './conversationStore';
-import { classifyClientTurnIntent, detectLocalObjection, getActiveObjectionGuidance, updateObjectionLifecycle } from './objectionEngine';
+import { classifyClientTurnIntent, detectLocalObjection, getActiveObjectionGuidance, isSubstantiveClientTurn, updateObjectionLifecycle } from './objectionEngine';
 import { extractDeterministicFacts } from './deterministicFacts';
 import { classifyMortgageDecision, extractSemanticCriteria, hasPaymentMethodScope, isPaymentMethodUncertain } from './semanticEvidence';
 import { applyPaymentUncertainty, latestPaymentUncertainty } from './paymentUncertainty';
@@ -35,6 +35,27 @@ function immediatePreviousAgentTurn(turn: TranscriptTurn, turns: TranscriptTurn[
   const idx = turns.findIndex((candidate) => candidate.id === turn.id);
   const immediatePreviousTurn = turns.slice(0, idx < 0 ? turns.length : idx).at(-1);
   return immediatePreviousTurn?.speaker === 'agent' ? immediatePreviousTurn : undefined;
+}
+
+/** The existing name-only eligibility exception is dialogue context, not SPIN evidence. */
+function isImmediateContextualNameAnswer(turn: TranscriptTurn, turns: TranscriptTurn[]): boolean {
+  if (turn.speaker !== 'client') return false;
+  const immediateAgent = immediatePreviousAgentTurn(turn, turns);
+  if (!immediateAgent) return false;
+  const clean = turn.text.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'«»]/g, '').trim();
+  if (!/^\p{L}{2,}$/u.test(clean)) return false;
+  // These also gain contextual eligibility, but are acknowledgements rather than names.
+  if (/^(?:да|нет|хорошо|конечно|согласен|согласна|договорились|удобно|давайте|ок|окей|ладно|подходит|точно)$/u.test(clean)) return false;
+  // Keep the App guard untouched. Match its current final-clause name-question
+  // form here as well: a natural name can already pass the generic business
+  // keyword filter (e.g. a substring), so bare eligibility cannot identify it.
+  const agentClause = immediateAgent.text.toLowerCase().split(/[.!?…]/u)
+    .map(clause => clause.replace(/[,;:]/gu, ' ').replace(/\s+/gu, ' ').trim())
+    .filter(Boolean).at(-1) || '';
+  const reportedOrNegated = /(?:^|\s)(?:не|раньше|спрашивал[аи]?|спрашивали|спросил[аи]?|спросили|говорил[аи]?|говорили|цитирую|задал[аи]?|задали)(?:\s|$)/u.test(agentClause);
+  const askedClientName = !reportedOrNegated && /(?:^|\s)(?:как\s+(?:вас\s+зовут|(?:(?:(?:я|мы)\s+)?(?:могу|можем|можно)\s+)?(?:к\s+вам\s+обращаться|обращаться\s+к\s+вам))(?:\s+пожалуйста)?|(?:скажите|подскажите|назовите)\s+(?:пожалуйста\s+)?(?:ваше\s+)?имя)$/u.test(agentClause);
+  return askedClientName &&
+    isSubstantiveClientTurn(turn.text, immediateAgent.text, true);
 }
 
 function normalizeClientText(text: string): string {
@@ -248,6 +269,7 @@ export function advanceLocalConversation(current: ConversationState, turn: Trans
   const acknowledgementOnly = turn.speaker === 'client' && isConversationalAcknowledgement(turn.text);
   const decisionalForMyself = turn.speaker === 'client' && isDecisionalForMyselfPhrase(turn.text);
   const agreementReaffirmation = turn.speaker === 'client' && isAgreedNextStepReaffirmation(turn.text, current);
+  const contextualNameAnswer = isImmediateContextualNameAnswer(turn, turns);
 
   if (turn.speaker === 'client') {
     const lookup = Object.fromEntries(turns.filter(t => t.speaker === 'client').map(t => [t.id, t.text]));
@@ -347,7 +369,7 @@ export function advanceLocalConversation(current: ConversationState, turn: Trans
         'COMPLIANCE_STOP',
       ].includes(event.type)
     );
-    if (!controlEventBlocksSpin && !acknowledgementOnly && !decisionalForMyself && !agreementReaffirmation) {
+    if (!controlEventBlocksSpin && !acknowledgementOnly && !decisionalForMyself && !agreementReaffirmation && !contextualNameAnswer) {
       const previousAgentAction = previousAgent ? classifyAgentActionForLiveTurn(previousAgent.text) : 'none';
       const spin = evaluateSpinAndHpb(turn, state.spin, previousAgentAction, previousAgent?.text || '', state);
       state = { ...state, spin: spin.updatedSpin, spinState: spin.updatedSpin };
@@ -587,7 +609,8 @@ export function buildLocalAnalysisResponse(input: LocalAnalysisInput): AnalysisR
     };
   }
 
-  const spin = lastClientTurn && !decisionalForMyself
+  const contextualNameAnswer = Boolean(lastClientTurn && isImmediateContextualNameAnswer(lastClientTurn, allTurns));
+  const spin = lastClientTurn && !decisionalForMyself && !contextualNameAnswer
     ? evaluateSpinAndHpb(
         lastClientTurn,
         workingState.spin || workingState.spinState!,
