@@ -82,3 +82,16 @@ Implemented fixes:
 Regression coverage: `src/services/liveCallDecisionRegression4.test.ts` — **5/5 pass**.
 
 Latest full test run after PR #8: **197 passed / 3 failed / 1 skipped**. The same three baseline failures remain: Scenario 22 HPB wording assertion and `localFirstLatency` T10/T11. CI therefore skips lint/build after `npm test`; no new test failures were introduced by this patch.
+
+## 2026-10-07 confirmed Harness/process gaps
+
+The dated entries above are retained unchanged as history, including their historical counts/status. They are not a current open semantic backlog or the validation result of authoritative `04238a2bcbaad771161aa21c157e358a94bee772`. Name/DP consolidation is validated; no resolved semantic issue is reopened here. Current authority and CI are recorded in [PROJECT_CONTEXT](PROJECT_CONTEXT.md).
+
+| Issue | Current evidence and boundary |
+| --- | --- |
+| Historical Windows test timing remains unexplained | Original local full-suite timeouts and a later Scout timeout are retained in private evidence. Comparative isolated runs and independent Ubuntu CI PASS do not establish infrastructure causality. Root cause NOT PROVEN; do not retry/tune/allowlist them as an implicit remedy. |
+| Remote main trails authoritative lineage | At audit, main is b0d011d636d140b6f59071878b478712423a7a2c, ancestor of confirmed04238a2. Audit against exact-base branches; updating/merging main needs owner approval. |
+| Unattended Harness automation is absent | Existing CI checks, deterministic Harness hooks and Scout are implemented; failure collector, persistent incident/dedupe ownership and automatic Critic dispatch are not. [Stage1 discovery](HARNESS.md#stage1-discovery) is a proposal only. |
+| gh-aw repository/auth readiness is not established | Official requirements were evaluated; CLI/extension installation, Actions/model authentication and unattended permissions were not configured or proven. No installation/new secret authorized; current finding is NOT_READY, not a product failure. |
+
+The current full CI contains one pre-existing private real-call fixture SKIP. Public deterministic regression coverage is available; complete replay of that private call and fresh live audio/provider/UI proof require their own evidence. This canon changes no runtime/test behavior and makes no live verification claim.
