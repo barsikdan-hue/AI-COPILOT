@@ -1,4 +1,4 @@
-import {readFileSync,writeFileSync,mkdirSync,appendFileSync} from 'node:fs';
+import {readFileSync,writeFileSync,mkdirSync,appendFileSync,readdirSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {dirname,resolve,isAbsolute} from 'node:path';
@@ -13,7 +13,7 @@ const check=(x,msg)=>{if(!x)throw Error(msg);};
 const digest=p=>hash(JSON.stringify({head:p.head,base:BASE,prior:p.prior,previous:p.previous,recovered:p.recovered,calls:p.calls,questions:p.questions,endpoint:URL,max_calls:19,timeout:30000,source_files:['remaining.mjs','runner.mjs','calibration.mjs'].map(f=>hash(readFileSync(new globalThis.URL(f,import.meta.url))))}));
 function validateAnswers(body,questions){
   // Exact alias documented at https://jev-ai.pro/docs, Decisions compatibility.
-  const aliases={'typesafe/jev-1.13-20260917':'jev-1.13.0','typesafe/jev-1.13':'jev-1.13.0','~typesafe/jev-latest':'jev-latest'};
+  const aliases={'typesafe/jev-1.13-20260917':'jev-1.13.0','typesafe/jev-1.13':'jev-1.13.0','~typesafe/jev-latest':'jev-latest','typesafe/jev-latest':'jev-latest','typesafe-ai/jev':'jev-latest'};
   const model=Object.hasOwn(aliases,body?.model)?aliases[body.model]:body?.model;
   return parseAnswers({...body,model},questions);
 }
@@ -57,8 +57,9 @@ export async function runRemaining(plan,options={}){
       call.http_status=response.status;
       for(const name of ['X-Jev-Credits-Charged','X-Jev-Paid-Input-Tokens-Used','X-Jev-Model-Multiplier','X-Jev-Credits-Remaining','X-Jev-Tokens-Remaining'])call.billing_headers[name]=number(response.headers?.get(name));
       const raw=await response.text();call.latency_ms=performance.now()-start;check(Buffer.byteLength(raw)<=1048576,'RESPONSE_TOO_LARGE');
-      call.raw_body=raw.replaceAll(options.apiKey,'[REDACTED_SECRET]');check(!raw.includes(options.apiKey),'SECRET_REFLECTION');
+      call.raw_body=raw.replaceAll(options.apiKey,'[REDACTED_SECRET]');call.secret_reflection=raw.includes(options.apiKey);check(!call.secret_reflection,'SECRET_REFLECTION');
       let decoded=null;try{decoded=JSON.parse(raw);}catch{}
+      if(decoded&&JSON.stringify(decoded).includes(options.apiKey)){call.secret_reflection=true;call.raw_body='[REDACTED_SECRET_RESPONSE]';throw Error('SECRET_REFLECTION');}
       call.credit_charged=call.billing_headers['X-Jev-Credits-Charged']??number(decoded?.billing?.credits_charged);
       check(response.status===200&&response.ok,'NON_200_STOP');check(decoded&&!decoded.model?.includes(options.apiKey),'UNSAFE_MODEL');
       const answers=validateAnswers(decoded,plan.questions);call.model=decoded.model;
@@ -67,11 +68,13 @@ export async function runRemaining(plan,options={}){
     }catch{
       call.latency_ms=performance.now()-start;call.status=call.http_status===null?'REQUEST_OUTCOME_UNCERTAIN':'HTTP_OR_INVALID_RESPONSE_STOP';
       for(const row of rows)Object.assign(row,{jev_answer:'ERROR',pass:false,latency_ms:call.latency_ms});result.status='STOPPED_API_OUTCOME';
-      await options.checkpoint(result);break;
+      await options.checkpoint(result);
+      if(options.continueOnErrors&&!call.secret_reflection){result.status='IN_PROGRESS';continue;}break;
     }
     await options.checkpoint(result);
   }
   if(result.calls_attempted===19&&result.calls.every(c=>c.status==='SUCCESS'))result.status='COMPLETED';
+  else if(result.calls_attempted===19&&options.continueOnErrors&&!result.calls.some(c=>c.secret_reflection))result.status='COMPLETED_WITH_ERRORS';
   await options.checkpoint(result);return result;
 }
 async function main(){
@@ -92,10 +95,12 @@ async function main(){
   if(resumeDir){
     check(isAbsolute(resumeDir)&&resolve(resumeDir)!==resolve(out),'SEPARATE_RESUME_ARTIFACTS_REQUIRED');previous=JSON.parse(readFileSync(resolve(resumeDir,'results.json')));
     execFileSync('git',['merge-base','--is-ancestor',previous.head,'HEAD'],{cwd:root});
-    const oldLock=JSON.parse(readFileSync(resolve(root,git('rev-parse','--git-common-dir'),'jev-owner-remaining-19-credit-gate.json')));
-    check(oldLock.head===previous.head&&oldLock.approval_hash===previous.approval_hash,'PREVIOUS_GATE_MISMATCH');
+    const common=resolve(root,git('rev-parse','--git-common-dir'));
+    const matchingLocks=readdirSync(common).filter(f=>/^jev-owner-remaining-19.*\.json$/u.test(f)).map(f=>JSON.parse(readFileSync(resolve(common,f)))).filter(g=>g.head===previous.head&&g.approval_hash===previous.approval_hash);
+    check(matchingLocks.length===1,'PREVIOUS_GATE_MISMATCH');
     const journal=readFileSync(resolve(resumeDir,'attempts.jsonl'),'utf8').trim().split(/\r?\n/).map(x=>JSON.parse(x));
-    check(journal.length===previous.calls_attempted&&journal.every((a,i)=>a.case_id===previous.calls[i].case_id&&a.payload_sha256===previous.calls[i].payload_sha256&&a.attempt===i+1),'PREVIOUS_JOURNAL_MISMATCH');
+    const offset=previous.calls_attempted-journal.length;
+    check(offset>=0&&journal.length>0&&previous.calls.slice(0,offset).every(c=>c.offline_revalidated)&&journal.every((a,i)=>a.case_id===previous.calls[offset+i].case_id&&a.payload_sha256===previous.calls[offset+i].payload_sha256&&a.attempt===offset+i+1),'PREVIOUS_JOURNAL_MISMATCH');
     for(const c of previous.calls)check(readFileSync(resolve(resumeDir,c.case_id+'.raw.txt'),'utf8')===c.raw_body,'PREVIOUS_RAW_MISMATCH');
   }
   const plan=remainingPlan(benchmark,prior,readFileSync(resolve(priorDir,'payload.json'),'utf8'),head,previous);
@@ -109,7 +114,7 @@ async function main(){
   for(const c of plan.calls)check(readFileSync(resolve(out,c.case_id+'.payload.json'),'utf8')===c.payload,'EXACT_PAYLOAD_CHANGED');
   const key=process.env.JEV_AI_API_KEY,save=result=>{const s=JSON.stringify(result,null,2)+'\n';check(!s.includes(key),'SECRET_OUTPUT_STOP');writeFileSync(resolve(out,'results.json'),s);for(const c of result.calls)if(c.raw_body!==null)writeFileSync(resolve(out,c.case_id+'.raw.txt'),c.raw_body);};
   const lock=resolve(root,git('rev-parse','--git-common-dir'),previous?'jev-owner-remaining-19-resume-'+hash(JSON.stringify(previous.calls)).slice(0,16)+'.json':'jev-owner-remaining-19-credit-gate.json');
-  const result=await runRemaining(plan,{approvedHash:option('--owner-remaining-19-approved'),apiKey:key,claim:()=>writeFileSync(lock,JSON.stringify({owner_gate:'COMPLETE_REMAINING_19',head,approval_hash:plan.approval_hash,max_new_calls:plan.calls.length,total_new_call_cap:19,prior_case:prior.case_id,created_at:new Date().toISOString()}),{flag:'wx'}),beforeAttempt:a=>appendFileSync(resolve(out,'attempts.jsonl'),JSON.stringify({...a,time:new Date().toISOString()})+'\n'),checkpoint:r=>{save(r);const c=r.calls.at(-1);if(c)console.log(JSON.stringify({completed:r.calls_attempted,case_id:c.case_id,status:c.status,http_status:c.http_status,credit:c.credit_charged,latency_ms:c.latency_ms}));}});
+  const result=await runRemaining(plan,{approvedHash:option('--owner-remaining-19-approved'),apiKey:key,continueOnErrors:true,claim:()=>writeFileSync(lock,JSON.stringify({owner_gate:'COMPLETE_REMAINING_19',head,approval_hash:plan.approval_hash,max_new_calls:plan.calls.length,total_new_call_cap:19,prior_case:prior.case_id,created_at:new Date().toISOString()}),{flag:'wx'}),beforeAttempt:a=>appendFileSync(resolve(out,'attempts.jsonl'),JSON.stringify({...a,time:new Date().toISOString()})+'\n'),checkpoint:r=>{save(r);const c=r.calls.at(-1);if(c)console.log(JSON.stringify({completed:r.calls_attempted,case_id:c.case_id,status:c.status,http_status:c.http_status,credit:c.credit_charged,latency_ms:c.latency_ms}));}});
   console.log(JSON.stringify({status:result.status,new_calls:result.calls_attempted-plan.recovered.calls.length,total_calls_including_prior:result.calls_attempted+1,artifact:resolve(out,'results.json')}));
 }
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url))main().catch(()=>{console.error('REMAINING_BENCHMARK_STOP: local gate/output error; no automatic retry.');process.exitCode=1;});

@@ -43,3 +43,19 @@ test('resume after two paid valid responses makes17 new calls and recovers saved
   let count=0;const r=await runRemaining(resume,{approvedHash:resume.approval_hash,apiKey:'mock-secret',claim:()=>{},beforeAttempt:()=>{},checkpoint:()=>{},transport:async()=>{count++;return {status:200,ok:true,headers:new Headers(),text:async()=>JSON.stringify(body())};}});
   assert.equal(count,17);assert.equal(r.calls_attempted,19);assert.equal(r.rows.length,1280);assert.equal(r.status,'COMPLETED');assert.equal(r.calls[1].original_status,'HTTP_OR_INVALID_RESPONSE_STOP');
 });
+test('provider model metadata variation is retained and does not discard64 valid decisions',async()=>{
+  const p=plan(),b=body();b.model='typesafe-ai/jev';
+  const r=await runRemaining(p,{approvedHash:p.approval_hash,apiKey:'mock-secret',claim:()=>{},beforeAttempt:()=>{},checkpoint:()=>{},transport:async()=>({status:200,ok:true,headers:new Headers(),text:async()=>JSON.stringify(b)})});
+  assert.equal(r.status,'COMPLETED');assert.equal(r.calls[0].model,'typesafe-ai/jev');assert.equal(r.rows.length,1280);
+});
+test('owner full-run error policy preserves error decisions and continues unique cases without retry',async()=>{
+  const p=plan();let count=0;
+  const r=await runRemaining(p,{approvedHash:p.approval_hash,apiKey:'mock-secret',continueOnErrors:true,claim:()=>{},beforeAttempt:()=>{},checkpoint:()=>{},transport:async()=>{count++;if(count===1)throw Error('network');return {status:200,ok:true,headers:new Headers(),text:async()=>JSON.stringify(body())};}});
+  assert.equal(count,19);assert.equal(r.status,'COMPLETED_WITH_ERRORS');assert.equal(r.rows.filter(x=>x.jev_answer==='ERROR').length,64);
+});
+test('escaped reflected key stops error-continuation and a last-call secret stop stays STOP',async()=>{
+  for(const stopAt of [1,19]){const p=plan();let count=0;
+    const r=await runRemaining(p,{approvedHash:p.approval_hash,apiKey:'mock-secret',continueOnErrors:true,claim:()=>{},beforeAttempt:()=>{},checkpoint:()=>{},transport:async()=>{count++;const b=body();if(count===stopAt)b.model='jev-mock-secret';const raw=JSON.stringify(b).replaceAll('mock-secret','\\u006d\\u006f\\u0063\\u006b\\u002d\\u0073\\u0065\\u0063\\u0072\\u0065\\u0074');return {status:200,ok:true,headers:new Headers(),text:async()=>raw};}});
+    assert.equal(count,stopAt);assert.equal(r.status,'STOPPED_API_OUTCOME');assert.equal(r.calls.at(-1).secret_reflection,true);assert(!JSON.stringify(r).includes('mock-secret'));assert.equal(r.calls.at(-1).raw_body,'[REDACTED_SECRET_RESPONSE]');
+  }
+});
