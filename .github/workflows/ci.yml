@@ -16,6 +16,22 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci --no-audit --no-fund
-      - run: npm test
+      - id: tests
+        run: npm test -- --reporter=default --reporter=github-actions --reporter=json --outputFile="$RUNNER_TEMP/vitest-report.json"
+      - name: Collect shadow incidents
+        if: always()
+        env:
+          HARNESS_TEST_OUTCOME: ${{ steps.tests.outcome }}
+          HARNESS_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          HARNESS_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: node --import tsx scripts/collect-ci-failures.ts --input "$RUNNER_TEMP/vitest-report.json" --output "$RUNNER_TEMP/harness-shadow/report.json"
+      - name: Upload shadow incident report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harness-shadow-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/harness-shadow/report.json
+          if-no-files-found: error
+          retention-days: 7
       - run: npm run lint
       - run: npm run build
