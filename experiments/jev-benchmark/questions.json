@@ -1,0 +1,451 @@
+[
+  {
+    "id": "q01",
+    "category": "down_payment",
+    "key": "dp_full_now",
+    "equals": true,
+    "question": "Is the customer's entire down payment currently available?"
+  },
+  {
+    "id": "q02",
+    "category": "down_payment",
+    "key": "dp_some_now",
+    "equals": true,
+    "question": "Does the customer currently have at least part of the down payment available?"
+  },
+  {
+    "id": "q03",
+    "category": "down_payment",
+    "key": "dp_future",
+    "equals": true,
+    "question": "Is some down-payment money expected to become available later?"
+  },
+  {
+    "id": "q04",
+    "category": "down_payment",
+    "key": "dp_partial",
+    "equals": true,
+    "question": "Is only part of the required down payment currently available?"
+  },
+  {
+    "id": "q05",
+    "category": "down_payment",
+    "key": "dp_absent",
+    "equals": true,
+    "question": "Is the customer's down payment explicitly unavailable now?"
+  },
+  {
+    "id": "q06",
+    "category": "down_payment",
+    "key": "dp_amount_known",
+    "equals": true,
+    "question": "Is a numerical amount stated for the customer's down payment?"
+  },
+  {
+    "id": "q07",
+    "category": "down_payment",
+    "key": "dp_amount_m",
+    "equals": 2,
+    "question": "Is the customer's down payment amount two million rubles?"
+  },
+  {
+    "id": "q08",
+    "category": "down_payment",
+    "key": "dp_after_sale",
+    "equals": true,
+    "question": "Is down-payment availability dependent on selling a property?"
+  },
+  {
+    "id": "q09",
+    "category": "down_payment",
+    "key": "dp_after_deposit",
+    "equals": true,
+    "question": "Is down-payment availability dependent on closing a deposit?"
+  },
+  {
+    "id": "q10",
+    "category": "down_payment",
+    "key": "dp_remainder_future",
+    "equals": true,
+    "question": "Is a remainder of a partially available down payment expected later?"
+  },
+  {
+    "id": "q11",
+    "category": "mortgage",
+    "key": "mortgage_considered",
+    "equals": true,
+    "question": "Is the customer currently considering a mortgage, including conditional consideration?"
+  },
+  {
+    "id": "q12",
+    "category": "mortgage",
+    "key": "mortgage_rejected",
+    "equals": true,
+    "question": "Has the customer currently rejected using a mortgage?"
+  },
+  {
+    "id": "q13",
+    "category": "mortgage",
+    "key": "mortgage_planned",
+    "equals": true,
+    "question": "Has the customer committed to using a mortgage?"
+  },
+  {
+    "id": "q14",
+    "category": "mortgage",
+    "key": "mortgage_uncertain",
+    "equals": true,
+    "question": "Has the customer explicitly left the mortgage-use decision undecided?"
+  },
+  {
+    "id": "q15",
+    "category": "mortgage",
+    "key": "mortgage_conditional",
+    "equals": true,
+    "question": "Is the customer's mortgage consideration subject to a stated condition?"
+  },
+  {
+    "id": "q16",
+    "category": "mortgage",
+    "key": "mortgage_approved",
+    "equals": true,
+    "question": "Has a mortgage already been approved for the customer?"
+  },
+  {
+    "id": "q17",
+    "category": "mortgage",
+    "key": "mortgage_family",
+    "equals": true,
+    "question": "Is the customer considering a family mortgage?"
+  },
+  {
+    "id": "q18",
+    "category": "mortgage",
+    "key": "mortgage_rate_unknown",
+    "equals": true,
+    "question": "Does the customer explicitly not know the mortgage interest rate?"
+  },
+  {
+    "id": "q19",
+    "category": "mortgage",
+    "key": "mortgage_reopened",
+    "equals": true,
+    "question": "Has the customer reopened mortgage consideration after an earlier rejection?"
+  },
+  {
+    "id": "q20",
+    "category": "mortgage",
+    "key": "mortgage_complexity_refused",
+    "equals": true,
+    "question": "Has the customer rejected complicated financing arrangements?"
+  },
+  {
+    "id": "q21",
+    "category": "payment",
+    "key": "own_only",
+    "equals": true,
+    "question": "Does the customer intend to pay the entire purchase with own funds?"
+  },
+  {
+    "id": "q22",
+    "category": "payment",
+    "key": "mixed",
+    "equals": true,
+    "question": "Does the customer intend to combine own funds and a mortgage?"
+  },
+  {
+    "id": "q23",
+    "category": "payment",
+    "key": "cash",
+    "equals": true,
+    "question": "Does the customer explicitly intend to pay in physical cash?"
+  },
+  {
+    "id": "q24",
+    "category": "payment",
+    "key": "installment_considered",
+    "equals": true,
+    "question": "Is the customer considering installment financing?"
+  },
+  {
+    "id": "q25",
+    "category": "payment",
+    "key": "installment_planned",
+    "equals": true,
+    "question": "Has the customer committed to installment financing?"
+  },
+  {
+    "id": "q26",
+    "category": "payment",
+    "key": "installment_rejected",
+    "equals": true,
+    "question": "Has the customer rejected installment financing?"
+  },
+  {
+    "id": "q27",
+    "category": "payment",
+    "key": "own_portion",
+    "equals": true,
+    "question": "Does the customer intend to contribute own funds to the purchase?"
+  },
+  {
+    "id": "q28",
+    "category": "payment",
+    "key": "no_credit",
+    "equals": true,
+    "question": "Does the customer intend to buy without credit?"
+  },
+  {
+    "id": "q29",
+    "category": "budget",
+    "key": "budget_known",
+    "equals": true,
+    "question": "Is a numerical purchase budget established for the customer?"
+  },
+  {
+    "id": "q30",
+    "category": "budget",
+    "key": "budget_m",
+    "equals": 25,
+    "question": "Is the customer's current purchase budget exactly twenty-five million rubles?"
+  },
+  {
+    "id": "q31",
+    "category": "budget",
+    "key": "budget_m",
+    "equals": 20,
+    "question": "Is the customer's current purchase budget exactly twenty million rubles?"
+  },
+  {
+    "id": "q32",
+    "category": "budget",
+    "key": "budget_m",
+    "equals": 15,
+    "question": "Is the customer's current purchase budget exactly fifteen million rubles?"
+  },
+  {
+    "id": "q33",
+    "category": "budget",
+    "key": "budget_ceiling",
+    "equals": true,
+    "question": "Is the customer's budget expressed as an upper limit?"
+  },
+  {
+    "id": "q34",
+    "category": "budget",
+    "key": "budget_range",
+    "equals": true,
+    "question": "Is the customer's budget expressed as a range?"
+  },
+  {
+    "id": "q35",
+    "category": "budget",
+    "key": "budget_min20",
+    "equals": true,
+    "question": "Is the lower bound of the customer's budget at least twenty million rubles?"
+  },
+  {
+    "id": "q36",
+    "category": "budget",
+    "key": "budget_max25",
+    "equals": true,
+    "question": "Is the upper bound of the customer's budget at most twenty-five million rubles?"
+  },
+  {
+    "id": "q37",
+    "category": "budget",
+    "key": "budget_max20",
+    "equals": true,
+    "question": "Is the upper bound of the customer's budget at most twenty million rubles?"
+  },
+  {
+    "id": "q38",
+    "category": "budget",
+    "key": "budget_now",
+    "equals": true,
+    "question": "Is the customer's purchase budget explicitly available now?"
+  },
+  {
+    "id": "q39",
+    "category": "budget",
+    "key": "budget_future",
+    "equals": true,
+    "question": "Is the customer's purchase budget explicitly expected later?"
+  },
+  {
+    "id": "q40",
+    "category": "budget",
+    "key": "budget_exact",
+    "equals": true,
+    "question": "Is the customer's current budget expressed as a single exact amount?"
+  },
+  {
+    "id": "q41",
+    "category": "ownership",
+    "key": "owner_client",
+    "equals": true,
+    "question": "Is a mentioned purchase budget attributed to the customer personally?"
+  },
+  {
+    "id": "q42",
+    "category": "ownership",
+    "key": "owner_relative",
+    "equals": true,
+    "question": "Is any mentioned purchase budget attributed to a relative rather than the customer?"
+  },
+  {
+    "id": "q43",
+    "category": "ownership",
+    "key": "owner_brother",
+    "equals": true,
+    "question": "Is a mentioned purchase budget attributed to the customer's brother?"
+  },
+  {
+    "id": "q44",
+    "category": "ownership",
+    "key": "owner_sister",
+    "equals": true,
+    "question": "Is a mentioned purchase budget attributed to the customer's sister?"
+  },
+  {
+    "id": "q45",
+    "category": "ownership",
+    "key": "owner_spouse",
+    "equals": true,
+    "question": "Is a mentioned purchase budget attributed to the customer's spouse?"
+  },
+  {
+    "id": "q46",
+    "category": "ownership",
+    "key": "owner_joint",
+    "equals": true,
+    "question": "Is a mentioned purchase budget explicitly shared by the customer and another person?"
+  },
+  {
+    "id": "q47",
+    "category": "ownership",
+    "key": "dp_owner_client",
+    "equals": true,
+    "question": "Are mentioned down-payment funds attributed to the customer?"
+  },
+  {
+    "id": "q48",
+    "category": "ownership",
+    "key": "dp_owner_relative",
+    "equals": true,
+    "question": "Are mentioned down-payment funds attributed to a relative rather than the customer?"
+  },
+  {
+    "id": "q49",
+    "category": "correction",
+    "key": "correct_budget",
+    "equals": true,
+    "question": "Does the latest client turn explicitly correct the customer's earlier budget amount?"
+  },
+  {
+    "id": "q50",
+    "category": "correction",
+    "key": "correct_payment",
+    "equals": true,
+    "question": "Does the latest client turn correct the customer's earlier payment-method choice?"
+  },
+  {
+    "id": "q51",
+    "category": "correction",
+    "key": "correct_dp",
+    "equals": true,
+    "question": "Does the latest client turn correct the customer's earlier down-payment statement?"
+  },
+  {
+    "id": "q52",
+    "category": "correction",
+    "key": "budget_increase",
+    "equals": true,
+    "question": "Does the latest client turn increase the customer's earlier budget amount?"
+  },
+  {
+    "id": "q53",
+    "category": "correction",
+    "key": "budget_decrease",
+    "equals": true,
+    "question": "Does the latest client turn decrease the customer's earlier budget amount?"
+  },
+  {
+    "id": "q54",
+    "category": "correction",
+    "key": "correct_budget_to25",
+    "equals": true,
+    "question": "Does the latest client turn correct the customer's budget to twenty-five million rubles?"
+  },
+  {
+    "id": "q55",
+    "category": "correction",
+    "key": "correct_budget_to20",
+    "equals": true,
+    "question": "Does the latest client turn correct the customer's budget to twenty million rubles?"
+  },
+  {
+    "id": "q56",
+    "category": "correction",
+    "key": "correct_relative_budget",
+    "equals": true,
+    "question": "Does the latest client turn explicitly correct a relative's budget amount?"
+  },
+  {
+    "id": "q57",
+    "category": "utterance",
+    "key": "marker_uncertain",
+    "equals": true,
+    "question": "Does the latest client turn explicitly express uncertainty?"
+  },
+  {
+    "id": "q58",
+    "category": "utterance",
+    "key": "marker_negative",
+    "equals": true,
+    "question": "Does the latest client turn contain an explicit negation?"
+  },
+  {
+    "id": "q59",
+    "category": "utterance",
+    "key": "marker_conditional",
+    "equals": true,
+    "question": "Does the latest client turn state a condition?"
+  },
+  {
+    "id": "q60",
+    "category": "utterance",
+    "key": "marker_future",
+    "equals": true,
+    "question": "Does the latest client turn explicitly refer to a future event or time?"
+  },
+  {
+    "id": "q61",
+    "category": "utterance",
+    "key": "marker_other_owner",
+    "equals": true,
+    "question": "Does the latest client turn explicitly attribute funds to another person?"
+  },
+  {
+    "id": "q62",
+    "category": "utterance",
+    "key": "marker_question",
+    "equals": true,
+    "question": "Is the latest client turn phrased as a question rather than an assertion?"
+  },
+  {
+    "id": "q63",
+    "category": "utterance",
+    "key": "marker_context_amount",
+    "equals": true,
+    "question": "Does the latest client turn give an amount whose down-payment role is supplied by the preceding agent question?"
+  },
+  {
+    "id": "q64",
+    "category": "utterance",
+    "key": "marker_other_expense",
+    "equals": true,
+    "question": "Does the latest client turn explicitly allocate an amount to an expense other than the down payment or purchase budget?"
+  }
+]
+

@@ -1,0 +1,5973 @@
+[
+  {
+    "case_id": "dp.ready",
+    "category": "down_payment_available_now",
+    "turns": [
+      {
+        "speaker": "client",
+        "text": "Средства на стартовый взнос уже лежат на счёте."
+      }
+    ],
+    "source": {
+      "path": "src/services/downPaymentReadinessIteration13.test.ts",
+      "anchor": "Средства на стартовый взнос уже лежат на счёте.",
+      "derivation": null
+    },
+    "annotations": {
+      "correct_budget": false,
+      "correct_payment": false,
+      "correct_dp": false,
+      "budget_increase": false,
+      "budget_decrease": false,
+      "correct_budget_to25": false,
+      "correct_budget_to20": false,
+      "correct_relative_budget": false,
+      "marker_uncertain": false,
+      "marker_negative": false,
+      "marker_conditional": false,
+      "marker_future": false,
+      "marker_other_owner": false,
+      "marker_question": false,
+      "marker_context_amount": false,
+      "marker_other_expense": false,
+      "dp_some_now": true,
+      "dp_absent": false,
+      "dp_amount_known": false,
+      "dp_owner_client": true
+    },
+    "rationale": "Independent manual annotation of the supplied synthetic fixture. Unknown is retained when neither the predicate nor its contradiction follows. Closed-world utterance/correction predicates describe explicit speech acts in the latest client turn.",
+    "decisions": [
+      {
+        "question_id": "q01",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q02",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q03",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q04",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q05",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q06",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q07",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q08",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q09",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q10",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q11",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q12",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q13",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q14",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q15",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q16",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q17",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q18",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q19",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q20",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q21",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q22",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q23",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q24",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q25",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q26",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q27",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q28",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q29",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q30",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q31",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q32",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q33",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q34",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q35",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q36",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q37",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q38",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q39",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q40",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q41",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q42",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q43",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q44",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q45",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q46",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q47",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q48",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q49",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q50",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q51",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q52",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q53",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q54",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q55",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q56",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q57",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q58",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q59",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q60",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q61",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q62",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q63",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q64",
+        "expected": "NO"
+      }
+    ]
+  },
+  {
+    "case_id": "dp.numeric",
+    "category": "down_payment_available_now",
+    "turns": [
+      {
+        "speaker": "agent",
+        "text": "Первоначальный взнос уже можно внести?"
+      },
+      {
+        "speaker": "client",
+        "text": "2 млн уже на руках"
+      }
+    ],
+    "source": {
+      "path": "src/services/contextualNumericDownPaymentAvailability.test.ts",
+      "anchor": "2 млн уже на руках",
+      "derivation": null
+    },
+    "annotations": {
+      "correct_budget": false,
+      "correct_payment": false,
+      "correct_dp": false,
+      "budget_increase": false,
+      "budget_decrease": false,
+      "correct_budget_to25": false,
+      "correct_budget_to20": false,
+      "correct_relative_budget": false,
+      "marker_uncertain": false,
+      "marker_negative": false,
+      "marker_conditional": false,
+      "marker_future": false,
+      "marker_other_owner": false,
+      "marker_question": false,
+      "marker_context_amount": true,
+      "marker_other_expense": false,
+      "dp_some_now": true,
+      "dp_absent": false,
+      "dp_amount_known": true,
+      "dp_amount_m": 2,
+      "dp_owner_client": true
+    },
+    "rationale": "Independent manual annotation of the supplied synthetic fixture. Unknown is retained when neither the predicate nor its contradiction follows. Closed-world utterance/correction predicates describe explicit speech acts in the latest client turn.",
+    "decisions": [
+      {
+        "question_id": "q01",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q02",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q03",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q04",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q05",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q06",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q07",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q08",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q09",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q10",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q11",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q12",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q13",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q14",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q15",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q16",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q17",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q18",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q19",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q20",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q21",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q22",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q23",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q24",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q25",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q26",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q27",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q28",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q29",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q30",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q31",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q32",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q33",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q34",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q35",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q36",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q37",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q38",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q39",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q40",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q41",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q42",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q43",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q44",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q45",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q46",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q47",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q48",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q49",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q50",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q51",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q52",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q53",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q54",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q55",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q56",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q57",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q58",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q59",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q60",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q61",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q62",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q63",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q64",
+        "expected": "NO"
+      }
+    ]
+  },
+  {
+    "case_id": "dp.future",
+    "category": "down_payment_future",
+    "turns": [
+      {
+        "speaker": "client",
+        "text": "Деньги на взнос поступят после закрытия вклада."
+      }
+    ],
+    "source": {
+      "path": "src/services/downPaymentReadinessIteration13.test.ts",
+      "anchor": "Деньги на взнос поступят после закрытия вклада.",
+      "derivation": null
+    },
+    "annotations": {
+      "correct_budget": false,
+      "correct_payment": false,
+      "correct_dp": false,
+      "budget_increase": false,
+      "budget_decrease": false,
+      "correct_budget_to25": false,
+      "correct_budget_to20": false,
+      "correct_relative_budget": false,
+      "marker_uncertain": false,
+      "marker_negative": false,
+      "marker_conditional": false,
+      "marker_future": true,
+      "marker_other_owner": false,
+      "marker_question": false,
+      "marker_context_amount": false,
+      "marker_other_expense": false,
+      "dp_full_now": false,
+      "dp_future": true,
+      "dp_after_deposit": true,
+      "dp_owner_client": true,
+      "dp_amount_known": false
+    },
+    "rationale": "Independent manual annotation of the supplied synthetic fixture. Unknown is retained when neither the predicate nor its contradiction follows. Closed-world utterance/correction predicates describe explicit speech acts in the latest client turn.",
+    "decisions": [
+      {
+        "question_id": "q01",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q02",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q03",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q04",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q05",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q06",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q07",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q08",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q09",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q10",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q11",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q12",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q13",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q14",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q15",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q16",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q17",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q18",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q19",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q20",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q21",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q22",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q23",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q24",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q25",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q26",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q27",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q28",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q29",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q30",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q31",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q32",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q33",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q34",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q35",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q36",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q37",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q38",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q39",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q40",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q41",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q42",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q43",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q44",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q45",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q46",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q47",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q48",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q49",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q50",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q51",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q52",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q53",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q54",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q55",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q56",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q57",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q58",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q59",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q60",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q61",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q62",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q63",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q64",
+        "expected": "NO"
+      }
+    ]
+  },
+  {
+    "case_id": "dp.none",
+    "category": "negation",
+    "turns": [
+      {
+        "speaker": "client",
+        "text": "Первоначального взноса пока нет."
+      }
+    ],
+    "source": {
+      "path": "src/services/downPaymentReadinessIteration13.test.ts",
+      "anchor": "Первоначального взноса пока нет.",
+      "derivation": null
+    },
+    "annotations": {
+      "correct_budget": false,
+      "correct_payment": false,
+      "correct_dp": false,
+      "budget_increase": false,
+      "budget_decrease": false,
+      "correct_budget_to25": false,
+      "correct_budget_to20": false,
+      "correct_relative_budget": false,
+      "marker_uncertain": false,
+      "marker_negative": true,
+      "marker_conditional": false,
+      "marker_future": false,
+      "marker_other_owner": false,
+      "marker_question": false,
+      "marker_context_amount": false,
+      "marker_other_expense": false,
+      "dp_full_now": false,
+      "dp_some_now": false,
+      "dp_absent": true,
+      "dp_partial": false,
+      "dp_owner_client": true
+    },
+    "rationale": "Independent manual annotation of the supplied synthetic fixture. Unknown is retained when neither the predicate nor its contradiction follows. Closed-world utterance/correction predicates describe explicit speech acts in the latest client turn.",
+    "decisions": [
+      {
+        "question_id": "q01",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q02",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q03",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q04",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q05",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q06",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q07",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q08",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q09",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q10",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q11",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q12",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q13",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q14",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q15",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q16",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q17",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q18",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q19",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q20",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q21",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q22",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q23",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q24",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q25",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q26",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q27",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q28",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q29",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q30",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q31",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q32",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q33",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q34",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q35",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q36",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q37",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q38",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q39",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q40",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q41",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q42",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q43",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q44",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q45",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q46",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q47",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q48",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q49",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q50",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q51",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q52",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q53",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q54",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q55",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q56",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q57",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q58",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q59",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q60",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q61",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q62",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q63",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q64",
+        "expected": "NO"
+      }
+    ]
+  },
+  {
+    "case_id": "dp.partial",
+    "category": "partial_down_payment",
+    "turns": [
+      {
+        "speaker": "client",
+        "text": "Пока собрана только часть первоначального взноса."
+      }
+    ],
+    "source": {
+      "path": "src/services/downPaymentReadinessIteration13.test.ts",
+      "anchor": "Пока собрана только часть первоначального взноса.",
+      "derivation": null
+    },
+    "annotations": {
+      "correct_budget": false,
+      "correct_payment": false,
+      "correct_dp": false,
+      "budget_increase": false,
+      "budget_decrease": false,
+      "correct_budget_to25": false,
+      "correct_budget_to20": false,
+      "correct_relative_budget": false,
+      "marker_uncertain": false,
+      "marker_negative": false,
+      "marker_conditional": false,
+      "marker_future": false,
+      "marker_other_owner": false,
+      "marker_question": false,
+      "marker_context_amount": false,
+      "marker_other_expense": false,
+      "dp_full_now": false,
+      "dp_some_now": true,
+      "dp_partial": true,
+      "dp_absent": false,
+      "dp_amount_known": false,
+      "dp_owner_client": true
+    },
+    "rationale": "Independent manual annotation of the supplied synthetic fixture. Unknown is retained when neither the predicate nor its contradiction follows. Closed-world utterance/correction predicates describe explicit speech acts in the latest client turn.",
+    "decisions": [
+      {
+        "question_id": "q01",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q02",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q03",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q04",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q05",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q06",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q07",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q08",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q09",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q10",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q11",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q12",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q13",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q14",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q15",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q16",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q17",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q18",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q19",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q20",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q21",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q22",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q23",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q24",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q25",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q26",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q27",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q28",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q29",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q30",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q31",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q32",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q33",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q34",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q35",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q36",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q37",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q38",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q39",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q40",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q41",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q42",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q43",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q44",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q45",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q46",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q47",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q48",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q49",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q50",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q51",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q52",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q53",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q54",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q55",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q56",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q57",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q58",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q59",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q60",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q61",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q62",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q63",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q64",
+        "expected": "NO"
+      }
+    ]
+  },
+  {
+    "case_id": "dp.partial-future",
+    "category": "partial_down_payment",
+    "turns": [
+      {
+        "speaker": "client",
+        "text": "Собрана часть первоначального взноса, остальные деньги на взнос поступят после закрытия вклада."
+      }
+    ],
+    "source": {
+      "path": "src/services/downPaymentReadinessIteration13.test.ts",
+      "anchor": "Собрана часть первоначального взноса, остальные деньги на взнос поступят после закрытия вклада.",
+      "derivation": null
+    },
+    "annotations": {
+      "correct_budget": false,
+      "correct_payment": false,
+      "correct_dp": false,
+      "budget_increase": false,
+      "budget_decrease": false,
+      "correct_budget_to25": false,
+      "correct_budget_to20": false,
+      "correct_relative_budget": false,
+      "marker_uncertain": false,
+      "marker_negative": false,
+      "marker_conditional": false,
+      "marker_future": true,
+      "marker_other_owner": false,
+      "marker_question": false,
+      "marker_context_amount": false,
+      "marker_other_expense": false,
+      "dp_full_now": false,
+      "dp_some_now": true,
+      "dp_partial": true,
+      "dp_future": true,
+      "dp_remainder_future": true,
+      "dp_after_deposit": true,
+      "dp_absent": false,
+      "dp_amount_known": false,
+      "dp_owner_client": true
+    },
+    "rationale": "Independent manual annotation of the supplied synthetic fixture. Unknown is retained when neither the predicate nor its contradiction follows. Closed-world utterance/correction predicates describe explicit speech acts in the latest client turn.",
+    "decisions": [
+      {
+        "question_id": "q01",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q02",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q03",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q04",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q05",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q06",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q07",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q08",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q09",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q10",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q11",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q12",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q13",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q14",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q15",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q16",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q17",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q18",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q19",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q20",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q21",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q22",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q23",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q24",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q25",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q26",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q27",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q28",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q29",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q30",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q31",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q32",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q33",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q34",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q35",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q36",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q37",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q38",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q39",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q40",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q41",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q42",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q43",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q44",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q45",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q46",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q47",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q48",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q49",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q50",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q51",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q52",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q53",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q54",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q55",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q56",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q57",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q58",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q59",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q60",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q61",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q62",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q63",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q64",
+        "expected": "NO"
+      }
+    ]
+  },
+  {
+    "case_id": "dp.relative",
+    "category": "relative_ownership",
+    "turns": [
+      {
+        "speaker": "client",
+        "text": "У брата средства на стартовый взнос уже есть."
+      }
+    ],
+    "source": {
+      "path": "src/services/downPaymentReadinessIteration13.test.ts",
+      "anchor": "У брата средства на стартовый взнос уже есть.",
+      "derivation": null
+    },
+    "annotations": {
+      "correct_budget": false,
+      "correct_payment": false,
+      "correct_dp": false,
+      "budget_increase": false,
+      "budget_decrease": false,
+      "correct_budget_to25": false,
+      "correct_budget_to20": false,
+      "correct_relative_budget": false,
+      "marker_uncertain": false,
+      "marker_negative": false,
+      "marker_conditional": false,
+      "marker_future": false,
+      "marker_other_owner": true,
+      "marker_question": false,
+      "marker_context_amount": false,
+      "marker_other_expense": false,
+      "dp_owner_relative": true
+    },
+    "rationale": "Independent manual annotation of the supplied synthetic fixture. Unknown is retained when neither the predicate nor its contradiction follows. Closed-world utterance/correction predicates describe explicit speech acts in the latest client turn.",
+    "decisions": [
+      {
+        "question_id": "q01",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q02",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q03",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q04",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q05",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q06",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q07",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q08",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q09",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q10",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q11",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q12",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q13",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q14",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q15",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q16",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q17",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q18",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q19",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q20",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q21",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q22",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q23",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q24",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q25",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q26",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q27",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q28",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q29",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q30",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q31",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q32",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q33",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q34",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q35",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q36",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q37",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q38",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q39",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q40",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q41",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q42",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q43",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q44",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q45",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q46",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q47",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q48",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q49",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q50",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q51",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q52",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q53",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q54",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q55",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q56",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q57",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q58",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q59",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q60",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q61",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q62",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q63",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q64",
+        "expected": "NO"
+      }
+    ]
+  },
+  {
+    "case_id": "mortgage.considered",
+    "category": "mortgage_considered",
+    "turns": [
+      {
+        "speaker": "client",
+        "text": "Рассматриваю ипотеку."
+      }
+    ],
+    "source": {
+      "path": "src/services/paymentMethodCorrectionIteration3.test.ts",
+      "anchor": "Рассматриваю ипотеку.",
+      "derivation": null
+    },
+    "annotations": {
+      "correct_budget": false,
+      "correct_payment": false,
+      "correct_dp": false,
+      "budget_increase": false,
+      "budget_decrease": false,
+      "correct_budget_to25": false,
+      "correct_budget_to20": false,
+      "correct_relative_budget": false,
+      "marker_uncertain": false,
+      "marker_negative": false,
+      "marker_conditional": false,
+      "marker_future": false,
+      "marker_other_owner": false,
+      "marker_question": false,
+      "marker_context_amount": false,
+      "marker_other_expense": false,
+      "mortgage_considered": true,
+      "mortgage_rejected": false
+    },
+    "rationale": "Independent manual annotation of the supplied synthetic fixture. Unknown is retained when neither the predicate nor its contradiction follows. Closed-world utterance/correction predicates describe explicit speech acts in the latest client turn.",
+    "decisions": [
+      {
+        "question_id": "q01",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q02",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q03",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q04",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q05",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q06",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q07",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q08",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q09",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q10",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q11",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q12",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q13",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q14",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q15",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q16",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q17",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q18",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q19",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q20",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q21",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q22",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q23",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q24",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q25",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q26",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q27",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q28",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q29",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q30",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q31",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q32",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q33",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q34",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q35",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q36",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q37",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q38",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q39",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q40",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q41",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q42",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q43",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q44",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q45",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q46",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q47",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q48",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q49",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q50",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q51",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q52",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q53",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q54",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q55",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q56",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q57",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q58",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q59",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q60",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q61",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q62",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q63",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q64",
+        "expected": "NO"
+      }
+    ]
+  },
+  {
+    "case_id": "mortgage.rejected",
+    "category": "mortgage_rejected",
+    "turns": [
+      {
+        "speaker": "client",
+        "text": "Ипотеку не рассматриваю."
+      }
+    ],
+    "source": {
+      "path": "src/services/paymentMethodCorrectionIteration3.test.ts",
+      "anchor": "Ипотеку не рассматриваю.",
+      "derivation": null
+    },
+    "annotations": {
+      "correct_budget": false,
+      "correct_payment": false,
+      "correct_dp": false,
+      "budget_increase": false,
+      "budget_decrease": false,
+      "correct_budget_to25": false,
+      "correct_budget_to20": false,
+      "correct_relative_budget": false,
+      "marker_uncertain": false,
+      "marker_negative": true,
+      "marker_conditional": false,
+      "marker_future": false,
+      "marker_other_owner": false,
+      "marker_question": false,
+      "marker_context_amount": false,
+      "marker_other_expense": false,
+      "mortgage_considered": false,
+      "mortgage_rejected": true,
+      "mortgage_planned": false,
+      "mixed": false
+    },
+    "rationale": "Independent manual annotation of the supplied synthetic fixture. Unknown is retained when neither the predicate nor its contradiction follows. Closed-world utterance/correction predicates describe explicit speech acts in the latest client turn.",
+    "decisions": [
+      {
+        "question_id": "q01",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q02",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q03",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q04",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q05",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q06",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q07",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q08",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q09",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q10",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q11",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q12",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q13",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q14",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q15",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q16",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q17",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q18",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q19",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q20",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q21",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q22",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q23",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q24",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q25",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q26",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q27",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q28",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q29",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q30",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q31",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q32",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q33",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q34",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q35",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q36",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q37",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q38",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q39",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q40",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q41",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q42",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q43",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q44",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q45",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q46",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q47",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q48",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q49",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q50",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q51",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q52",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q53",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q54",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q55",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q56",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q57",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q58",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q59",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q60",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q61",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q62",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q63",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q64",
+        "expected": "NO"
+      }
+    ]
+  },
+  {
+    "case_id": "mortgage.negation-scope",
+    "category": "negation",
+    "turns": [
+      {
+        "speaker": "client",
+        "text": "Часть своих, часть ипотека, но не хочу сложных конструкций."
+      }
+    ],
+    "source": {
+      "path": "src/services/mortgageScopeIteration38.test.ts",
+      "anchor": "Часть своих, часть ипотека, но не хочу сложных конструкций.",
+      "derivation": null
+    },
+    "annotations": {
+      "correct_budget": false,
+      "correct_payment": false,
+      "correct_dp": false,
+      "budget_increase": false,
+      "budget_decrease": false,
+      "correct_budget_to25": false,
+      "correct_budget_to20": false,
+      "correct_relative_budget": false,
+      "marker_uncertain": false,
+      "marker_negative": true,
+      "marker_conditional": false,
+      "marker_future": false,
+      "marker_other_owner": false,
+      "marker_question": false,
+      "marker_context_amount": false,
+      "marker_other_expense": false,
+      "mortgage_considered": true,
+      "mortgage_rejected": false,
+      "mixed": true,
+      "own_only": false,
+      "own_portion": true,
+      "no_credit": false,
+      "mortgage_complexity_refused": true
+    },
+    "rationale": "Independent manual annotation of the supplied synthetic fixture. Unknown is retained when neither the predicate nor its contradiction follows. Closed-world utterance/correction predicates describe explicit speech acts in the latest client turn.",
+    "decisions": [
+      {
+        "question_id": "q01",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q02",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q03",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q04",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q05",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q06",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q07",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q08",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q09",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q10",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q11",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q12",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q13",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q14",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q15",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q16",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q17",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q18",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q19",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q20",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q21",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q22",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q23",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q24",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q25",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q26",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q27",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q28",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q29",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q30",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q31",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q32",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q33",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q34",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q35",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q36",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q37",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q38",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q39",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q40",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q41",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q42",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q43",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q44",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q45",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q46",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q47",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q48",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q49",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q50",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q51",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q52",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q53",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q54",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q55",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q56",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q57",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q58",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q59",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q60",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q61",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q62",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q63",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q64",
+        "expected": "NO"
+      }
+    ]
+  },
+  {
+    "case_id": "mortgage.conditional",
+    "category": "mortgage_considered",
+    "turns": [
+      {
+        "speaker": "client",
+        "text": "Если ипотека будет простой, рассмотрю."
+      }
+    ],
+    "source": {
+      "path": "src/services/mortgageScopeIteration38.test.ts",
+      "anchor": "Если ипотека будет простой, рассмотрю.",
+      "derivation": null
+    },
+    "annotations": {
+      "correct_budget": false,
+      "correct_payment": false,
+      "correct_dp": false,
+      "budget_increase": false,
+      "budget_decrease": false,
+      "correct_budget_to25": false,
+      "correct_budget_to20": false,
+      "correct_relative_budget": false,
+      "marker_uncertain": false,
+      "marker_negative": false,
+      "marker_conditional": true,
+      "marker_future": true,
+      "marker_other_owner": false,
+      "marker_question": false,
+      "marker_context_amount": false,
+      "marker_other_expense": false,
+      "mortgage_considered": true,
+      "mortgage_rejected": false,
+      "mortgage_conditional": true
+    },
+    "rationale": "Independent manual annotation of the supplied synthetic fixture. Unknown is retained when neither the predicate nor its contradiction follows. Closed-world utterance/correction predicates describe explicit speech acts in the latest client turn.",
+    "decisions": [
+      {
+        "question_id": "q01",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q02",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q03",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q04",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q05",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q06",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q07",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q08",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q09",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q10",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q11",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q12",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q13",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q14",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q15",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q16",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q17",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q18",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q19",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q20",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q21",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q22",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q23",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q24",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q25",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q26",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q27",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q28",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q29",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q30",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q31",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q32",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q33",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q34",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q35",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q36",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q37",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q38",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q39",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q40",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q41",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q42",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q43",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q44",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q45",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q46",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q47",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q48",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q49",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q50",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q51",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q52",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q53",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q54",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q55",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q56",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q57",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q58",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q59",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q60",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q61",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q62",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q63",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q64",
+        "expected": "NO"
+      }
+    ]
+  },
+  {
+    "case_id": "mortgage.unknown",
+    "category": "ambiguity_unknown",
+    "turns": [
+      {
+        "speaker": "agent",
+        "text": "Планируете использовать ипотечный кредит?"
+      },
+      {
+        "speaker": "client",
+        "text": "Не знаю."
+      }
+    ],
+    "source": {
+      "path": "src/services/paymentUncertaintyIteration39.test.ts",
+      "anchor": "Не знаю.",
+      "derivation": null
+    },
+    "annotations": {
+      "correct_budget": false,
+      "correct_payment": false,
+      "correct_dp": false,
+      "budget_increase": false,
+      "budget_decrease": false,
+      "correct_budget_to25": false,
+      "correct_budget_to20": false,
+      "correct_relative_budget": false,
+      "marker_uncertain": true,
+      "marker_negative": true,
+      "marker_conditional": false,
+      "marker_future": false,
+      "marker_other_owner": false,
+      "marker_question": false,
+      "marker_context_amount": false,
+      "marker_other_expense": false,
+      "mortgage_uncertain": true
+    },
+    "rationale": "Independent manual annotation of the supplied synthetic fixture. Unknown is retained when neither the predicate nor its contradiction follows. Closed-world utterance/correction predicates describe explicit speech acts in the latest client turn.",
+    "decisions": [
+      {
+        "question_id": "q01",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q02",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q03",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q04",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q05",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q06",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q07",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q08",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q09",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q10",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q11",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q12",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q13",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q14",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q15",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q16",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q17",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q18",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q19",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q20",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q21",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q22",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q23",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q24",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q25",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q26",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q27",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q28",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q29",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q30",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q31",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q32",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q33",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q34",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q35",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q36",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q37",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q38",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q39",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q40",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q41",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q42",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q43",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q44",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q45",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q46",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q47",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q48",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q49",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q50",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q51",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q52",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q53",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q54",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q55",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q56",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q57",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q58",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q59",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q60",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q61",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q62",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q63",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q64",
+        "expected": "NO"
+      }
+    ]
+  },
+  {
+    "case_id": "payment.own",
+    "category": "own_funds",
+    "turns": [
+      {
+        "speaker": "client",
+        "text": "Буду покупать за свои."
+      }
+    ],
+    "source": {
+      "path": "src/services/paymentMethodCorrectionIteration3.test.ts",
+      "anchor": "Буду покупать за свои.",
+      "derivation": null
+    },
+    "annotations": {
+      "correct_budget": false,
+      "correct_payment": false,
+      "correct_dp": false,
+      "budget_increase": false,
+      "budget_decrease": false,
+      "correct_budget_to25": false,
+      "correct_budget_to20": false,
+      "correct_relative_budget": false,
+      "marker_uncertain": false,
+      "marker_negative": false,
+      "marker_conditional": false,
+      "marker_future": true,
+      "marker_other_owner": false,
+      "marker_question": false,
+      "marker_context_amount": false,
+      "marker_other_expense": false,
+      "own_only": true,
+      "own_portion": true,
+      "mixed": false,
+      "no_credit": true,
+      "mortgage_planned": false
+    },
+    "rationale": "Independent manual annotation of the supplied synthetic fixture. Unknown is retained when neither the predicate nor its contradiction follows. Closed-world utterance/correction predicates describe explicit speech acts in the latest client turn.",
+    "decisions": [
+      {
+        "question_id": "q01",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q02",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q03",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q04",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q05",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q06",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q07",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q08",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q09",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q10",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q11",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q12",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q13",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q14",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q15",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q16",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q17",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q18",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q19",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q20",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q21",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q22",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q23",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q24",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q25",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q26",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q27",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q28",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q29",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q30",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q31",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q32",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q33",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q34",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q35",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q36",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q37",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q38",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q39",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q40",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q41",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q42",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q43",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q44",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q45",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q46",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q47",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q48",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q49",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q50",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q51",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q52",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q53",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q54",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q55",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q56",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q57",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q58",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q59",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q60",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q61",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q62",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q63",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q64",
+        "expected": "NO"
+      }
+    ]
+  },
+  {
+    "case_id": "payment.correction",
+    "category": "correction_previous_statement",
+    "turns": [
+      {
+        "speaker": "client",
+        "text": "Рассматриваю ипотеку."
+      },
+      {
+        "speaker": "client",
+        "text": "Нет, ипотеку всё-таки не хочу, куплю за свои."
+      }
+    ],
+    "source": {
+      "path": "src/services/paymentMethodCorrectionIteration3.test.ts",
+      "anchor": "Нет, ипотеку всё-таки не хочу, куплю за свои.",
+      "derivation": null
+    },
+    "annotations": {
+      "correct_budget": false,
+      "correct_payment": true,
+      "correct_dp": false,
+      "budget_increase": false,
+      "budget_decrease": false,
+      "correct_budget_to25": false,
+      "correct_budget_to20": false,
+      "correct_relative_budget": false,
+      "marker_uncertain": false,
+      "marker_negative": true,
+      "marker_conditional": false,
+      "marker_future": true,
+      "marker_other_owner": false,
+      "marker_question": false,
+      "marker_context_amount": false,
+      "marker_other_expense": false,
+      "mortgage_considered": false,
+      "mortgage_rejected": true,
+      "mortgage_planned": false,
+      "own_only": true,
+      "own_portion": true,
+      "mixed": false,
+      "no_credit": true
+    },
+    "rationale": "Independent manual annotation of the supplied synthetic fixture. Unknown is retained when neither the predicate nor its contradiction follows. Closed-world utterance/correction predicates describe explicit speech acts in the latest client turn.",
+    "decisions": [
+      {
+        "question_id": "q01",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q02",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q03",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q04",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q05",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q06",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q07",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q08",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q09",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q10",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q11",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q12",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q13",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q14",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q15",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q16",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q17",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q18",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q19",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q20",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q21",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q22",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q23",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q24",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q25",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q26",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q27",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q28",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q29",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q30",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q31",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q32",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q33",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q34",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q35",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q36",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q37",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q38",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q39",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q40",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q41",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q42",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q43",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q44",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q45",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q46",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q47",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q48",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q49",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q50",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q51",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q52",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q53",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q54",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q55",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q56",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q57",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q58",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q59",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q60",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q61",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q62",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q63",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q64",
+        "expected": "NO"
+      }
+    ]
+  },
+  {
+    "case_id": "budget.own",
+    "category": "budget_value",
+    "turns": [
+      {
+        "speaker": "client",
+        "text": "У меня бюджет двадцать пять миллионов"
+      }
+    ],
+    "source": {
+      "path": "src/services/wordBudgetOwnershipRegression.test.ts",
+      "anchor": "У меня бюджет двадцать пять миллионов",
+      "derivation": null
+    },
+    "annotations": {
+      "correct_budget": false,
+      "correct_payment": false,
+      "correct_dp": false,
+      "budget_increase": false,
+      "budget_decrease": false,
+      "correct_budget_to25": false,
+      "correct_budget_to20": false,
+      "correct_relative_budget": false,
+      "marker_uncertain": false,
+      "marker_negative": false,
+      "marker_conditional": false,
+      "marker_future": false,
+      "marker_other_owner": false,
+      "marker_question": false,
+      "marker_context_amount": false,
+      "marker_other_expense": false,
+      "budget_known": true,
+      "budget_m": 25,
+      "budget_ceiling": false,
+      "budget_range": false,
+      "budget_exact": true,
+      "budget_min20": true,
+      "budget_max25": true,
+      "budget_max20": false,
+      "owner_client": true,
+      "owner_relative": false
+    },
+    "rationale": "Independent manual annotation of the supplied synthetic fixture. Unknown is retained when neither the predicate nor its contradiction follows. Closed-world utterance/correction predicates describe explicit speech acts in the latest client turn.",
+    "decisions": [
+      {
+        "question_id": "q01",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q02",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q03",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q04",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q05",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q06",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q07",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q08",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q09",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q10",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q11",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q12",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q13",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q14",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q15",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q16",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q17",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q18",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q19",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q20",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q21",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q22",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q23",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q24",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q25",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q26",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q27",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q28",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q29",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q30",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q31",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q32",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q33",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q34",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q35",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q36",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q37",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q38",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q39",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q40",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q41",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q42",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q43",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q44",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q45",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q46",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q47",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q48",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q49",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q50",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q51",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q52",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q53",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q54",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q55",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q56",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q57",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q58",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q59",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q60",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q61",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q62",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q63",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q64",
+        "expected": "NO"
+      }
+    ]
+  },
+  {
+    "case_id": "budget.correction",
+    "category": "budget_correction",
+    "turns": [
+      {
+        "speaker": "client",
+        "text": "Бюджет 15 млн"
+      },
+      {
+        "speaker": "client",
+        "text": "У меня бюджет не 15, а 25 млн"
+      }
+    ],
+    "source": {
+      "path": "src/services/wordBudgetOwnershipRegression.test.ts",
+      "anchor": "У меня бюджет не 15, а 25 млн",
+      "derivation": null
+    },
+    "annotations": {
+      "correct_budget": true,
+      "correct_payment": false,
+      "correct_dp": false,
+      "budget_increase": true,
+      "budget_decrease": false,
+      "correct_budget_to25": true,
+      "correct_budget_to20": false,
+      "correct_relative_budget": false,
+      "marker_uncertain": false,
+      "marker_negative": true,
+      "marker_conditional": false,
+      "marker_future": false,
+      "marker_other_owner": false,
+      "marker_question": false,
+      "marker_context_amount": false,
+      "marker_other_expense": false,
+      "budget_known": true,
+      "budget_m": 25,
+      "budget_ceiling": false,
+      "budget_range": false,
+      "budget_exact": true,
+      "budget_min20": true,
+      "budget_max25": true,
+      "budget_max20": false,
+      "owner_client": true,
+      "owner_relative": false
+    },
+    "rationale": "Independent manual annotation of the supplied synthetic fixture. Unknown is retained when neither the predicate nor its contradiction follows. Closed-world utterance/correction predicates describe explicit speech acts in the latest client turn.",
+    "decisions": [
+      {
+        "question_id": "q01",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q02",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q03",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q04",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q05",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q06",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q07",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q08",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q09",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q10",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q11",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q12",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q13",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q14",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q15",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q16",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q17",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q18",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q19",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q20",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q21",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q22",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q23",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q24",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q25",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q26",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q27",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q28",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q29",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q30",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q31",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q32",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q33",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q34",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q35",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q36",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q37",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q38",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q39",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q40",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q41",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q42",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q43",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q44",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q45",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q46",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q47",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q48",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q49",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q50",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q51",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q52",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q53",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q54",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q55",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q56",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q57",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q58",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q59",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q60",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q61",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q62",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q63",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q64",
+        "expected": "NO"
+      }
+    ]
+  },
+  {
+    "case_id": "budget.brother",
+    "category": "budget_ownership",
+    "turns": [
+      {
+        "speaker": "client",
+        "text": "Бюджет 15 млн"
+      },
+      {
+        "speaker": "client",
+        "text": "У брата бюджет не 15, а 25 млн"
+      }
+    ],
+    "source": {
+      "path": "src/services/wordBudgetOwnershipRegression.test.ts",
+      "anchor": "У брата бюджет не 15, а 25 млн",
+      "derivation": null
+    },
+    "annotations": {
+      "correct_budget": false,
+      "correct_payment": false,
+      "correct_dp": false,
+      "budget_increase": false,
+      "budget_decrease": false,
+      "correct_budget_to25": false,
+      "correct_budget_to20": false,
+      "correct_relative_budget": true,
+      "marker_uncertain": false,
+      "marker_negative": true,
+      "marker_conditional": false,
+      "marker_future": false,
+      "marker_other_owner": true,
+      "marker_question": false,
+      "marker_context_amount": false,
+      "marker_other_expense": false,
+      "budget_known": true,
+      "budget_m": 15,
+      "budget_ceiling": false,
+      "budget_range": false,
+      "budget_exact": true,
+      "budget_min20": false,
+      "budget_max25": true,
+      "budget_max20": true,
+      "owner_client": true,
+      "owner_relative": true,
+      "owner_brother": true
+    },
+    "rationale": "Independent manual annotation of the supplied synthetic fixture. Unknown is retained when neither the predicate nor its contradiction follows. Closed-world utterance/correction predicates describe explicit speech acts in the latest client turn.",
+    "decisions": [
+      {
+        "question_id": "q01",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q02",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q03",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q04",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q05",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q06",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q07",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q08",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q09",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q10",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q11",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q12",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q13",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q14",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q15",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q16",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q17",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q18",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q19",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q20",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q21",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q22",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q23",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q24",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q25",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q26",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q27",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q28",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q29",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q30",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q31",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q32",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q33",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q34",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q35",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q36",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q37",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q38",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q39",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q40",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q41",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q42",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q43",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q44",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q45",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q46",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q47",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q48",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q49",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q50",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q51",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q52",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q53",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q54",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q55",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q56",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q57",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q58",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q59",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q60",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q61",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q62",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q63",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q64",
+        "expected": "NO"
+      }
+    ]
+  },
+  {
+    "case_id": "budget.mixed-owner",
+    "category": "budget_ownership",
+    "turns": [
+      {
+        "speaker": "client",
+        "text": "У моего брата бюджет двадцать пять миллионов, а мой бюджет двадцать миллионов."
+      }
+    ],
+    "source": {
+      "path": "src/services/wordBudgetOwnershipRegression.test.ts",
+      "anchor": "У моего брата бюджет двадцать пять миллионов, а мой бюджет двадцать миллионов.",
+      "derivation": null
+    },
+    "annotations": {
+      "correct_budget": false,
+      "correct_payment": false,
+      "correct_dp": false,
+      "budget_increase": false,
+      "budget_decrease": false,
+      "correct_budget_to25": false,
+      "correct_budget_to20": false,
+      "correct_relative_budget": false,
+      "marker_uncertain": false,
+      "marker_negative": false,
+      "marker_conditional": false,
+      "marker_future": false,
+      "marker_other_owner": true,
+      "marker_question": false,
+      "marker_context_amount": false,
+      "marker_other_expense": false,
+      "budget_known": true,
+      "budget_m": 20,
+      "budget_ceiling": false,
+      "budget_range": false,
+      "budget_exact": true,
+      "budget_min20": true,
+      "budget_max25": true,
+      "budget_max20": true,
+      "owner_client": true,
+      "owner_relative": true,
+      "owner_brother": true
+    },
+    "rationale": "Independent manual annotation of the supplied synthetic fixture. Unknown is retained when neither the predicate nor its contradiction follows. Closed-world utterance/correction predicates describe explicit speech acts in the latest client turn.",
+    "decisions": [
+      {
+        "question_id": "q01",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q02",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q03",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q04",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q05",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q06",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q07",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q08",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q09",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q10",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q11",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q12",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q13",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q14",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q15",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q16",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q17",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q18",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q19",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q20",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q21",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q22",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q23",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q24",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q25",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q26",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q27",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q28",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q29",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q30",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q31",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q32",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q33",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q34",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q35",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q36",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q37",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q38",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q39",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q40",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q41",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q42",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q43",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q44",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q45",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q46",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q47",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q48",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q49",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q50",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q51",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q52",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q53",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q54",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q55",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q56",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q57",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q58",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q59",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q60",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q61",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q62",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q63",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q64",
+        "expected": "NO"
+      }
+    ]
+  },
+  {
+    "case_id": "budget.spouse",
+    "category": "spouse_ownership",
+    "turns": [
+      {
+        "speaker": "client",
+        "text": "У моей супруги бюджет двадцать пять миллионов"
+      }
+    ],
+    "source": {
+      "path": "src/services/wordBudgetOwnershipRegression.test.ts",
+      "anchor": "У моего брата бюджет двадцать пять миллионов",
+      "derivation": "Synthetic owner substitution: brother -> spouse. No existing spouse-budget assertion is claimed; its ground truth is an experiment annotation requiring owner review."
+    },
+    "annotations": {
+      "correct_budget": false,
+      "correct_payment": false,
+      "correct_dp": false,
+      "budget_increase": false,
+      "budget_decrease": false,
+      "correct_budget_to25": false,
+      "correct_budget_to20": false,
+      "correct_relative_budget": false,
+      "marker_uncertain": false,
+      "marker_negative": false,
+      "marker_conditional": false,
+      "marker_future": false,
+      "marker_other_owner": true,
+      "marker_question": false,
+      "marker_context_amount": false,
+      "marker_other_expense": false,
+      "owner_relative": true,
+      "owner_spouse": true,
+      "owner_client": false,
+      "owner_joint": false
+    },
+    "rationale": "Independent manual annotation of the supplied synthetic fixture. Unknown is retained when neither the predicate nor its contradiction follows. Closed-world utterance/correction predicates describe explicit speech acts in the latest client turn.",
+    "decisions": [
+      {
+        "question_id": "q01",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q02",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q03",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q04",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q05",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q06",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q07",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q08",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q09",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q10",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q11",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q12",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q13",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q14",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q15",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q16",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q17",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q18",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q19",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q20",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q21",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q22",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q23",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q24",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q25",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q26",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q27",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q28",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q29",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q30",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q31",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q32",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q33",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q34",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q35",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q36",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q37",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q38",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q39",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q40",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q41",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q42",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q43",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q44",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q45",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q46",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q47",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q48",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q49",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q50",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q51",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q52",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q53",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q54",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q55",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q56",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q57",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q58",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q59",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q60",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q61",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q62",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q63",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q64",
+        "expected": "NO"
+      }
+    ]
+  },
+  {
+    "case_id": "dp.expense-correction",
+    "category": "correction_negation",
+    "turns": [
+      {
+        "speaker": "client",
+        "text": "Не на первый взнос выделено три миллиона, а на ремонт."
+      }
+    ],
+    "source": {
+      "path": "src/services/positiveDownPaymentIteration44.test.ts",
+      "anchor": "Не на первый взнос выделено три миллиона, а на ремонт.",
+      "derivation": null
+    },
+    "annotations": {
+      "correct_budget": false,
+      "correct_payment": false,
+      "correct_dp": false,
+      "budget_increase": false,
+      "budget_decrease": false,
+      "correct_budget_to25": false,
+      "correct_budget_to20": false,
+      "correct_relative_budget": false,
+      "marker_uncertain": false,
+      "marker_negative": true,
+      "marker_conditional": false,
+      "marker_future": false,
+      "marker_other_owner": false,
+      "marker_question": false,
+      "marker_context_amount": false,
+      "marker_other_expense": true,
+      "dp_amount_known": false
+    },
+    "rationale": "Independent manual annotation of the supplied synthetic fixture. Unknown is retained when neither the predicate nor its contradiction follows. Closed-world utterance/correction predicates describe explicit speech acts in the latest client turn.",
+    "decisions": [
+      {
+        "question_id": "q01",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q02",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q03",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q04",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q05",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q06",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q07",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q08",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q09",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q10",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q11",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q12",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q13",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q14",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q15",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q16",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q17",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q18",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q19",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q20",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q21",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q22",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q23",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q24",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q25",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q26",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q27",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q28",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q29",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q30",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q31",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q32",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q33",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q34",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q35",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q36",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q37",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q38",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q39",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q40",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q41",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q42",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q43",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q44",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q45",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q46",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q47",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q48",
+        "expected": "UNKNOWN"
+      },
+      {
+        "question_id": "q49",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q50",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q51",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q52",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q53",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q54",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q55",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q56",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q57",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q58",
+        "expected": "YES"
+      },
+      {
+        "question_id": "q59",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q60",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q61",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q62",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q63",
+        "expected": "NO"
+      },
+      {
+        "question_id": "q64",
+        "expected": "YES"
+      }
+    ]
+  }
+]

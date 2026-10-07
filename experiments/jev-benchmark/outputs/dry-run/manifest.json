@@ -1,0 +1,48 @@
+{
+  "base": "04238a2bcbaad771161aa21c157e358a94bee772",
+  "branch": "experiment/jev-benchmark",
+  "approval_hash": "d29420d1eea4af481316eb8bd4d2fa38fac6bd8fbb7ae29cd0bfcd760d2c9bc4",
+  "endpoint": "https://jev-ai.pro/api/v1/systemone",
+  "model": "jev-latest",
+  "cases": 20,
+  "questions_per_case": 64,
+  "total_decisions": 1280,
+  "max_calls": 20,
+  "request_bytes": [
+    53077,
+    53123,
+    53078,
+    53051,
+    53083,
+    53168,
+    53073,
+    53031,
+    53036,
+    53098,
+    53061,
+    53113,
+    53031,
+    53141,
+    53060,
+    53090,
+    53092,
+    53134,
+    53075,
+    53088
+  ],
+  "source_sha256": {
+    "src/services/downPaymentReadinessIteration13.test.ts": "3a86a5bbc55406fb879b0f967719f73588b937177b3a81b3a9032ee852f7eb1f",
+    "src/services/contextualNumericDownPaymentAvailability.test.ts": "b65be7f3190920ccd2725795e9e9c19a7172b2e74d70d75514a9c74235fcce04",
+    "src/services/paymentMethodCorrectionIteration3.test.ts": "69b2fa691ba3520d9e16f685c1e1f29cc2d6fd7fec4acad4b9c38b6e64c5f9ee",
+    "src/services/mortgageScopeIteration38.test.ts": "80e22ad3201f0d2f889f2b96eb83eea3c475d207c06fe817719500fb8da9052f",
+    "src/services/paymentUncertaintyIteration39.test.ts": "506c51af436cf89e27e635fc2db57837f5df47794f599431f68207057545108f",
+    "src/services/wordBudgetOwnershipRegression.test.ts": "4479b2098bab5ab5606f5b505916a8f31f0113f0496179b1afcee138acb05858",
+    "src/services/positiveDownPaymentIteration44.test.ts": "3502f4b0e80a2fc83630c7496dd2d90f5774332be6d715afe418b48219c8c3f4"
+  },
+  "ground_truth_counts": {
+    "YES": 94,
+    "NO": 345,
+    "UNKNOWN": 841
+  },
+  "no_inference": true
+}

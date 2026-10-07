@@ -1,0 +1,5639 @@
+{
+  "source_head": "04238a2bcbaad771161aa21c157e358a94bee772",
+  "cases_sha256": "27f294ab658b625d1802a26dc36344b5f5e8d0711a9c77958bb9fddf438ada5b",
+  "status": "OBSERVED_NOT_VALIDATED: full baseline 1986 PASS / 2 timeout FAIL / 1 SKIP",
+  "trace": "src/services/conversationStore.ts::createInitialState -> src/services/localAnalysisEngine.ts::advanceLocalConversation -> canonical finance fields and rejectedBranches",
+  "observations": [
+    {
+      "case_id": "dp.ready",
+      "budget": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "downPayment": {
+        "value": "Средства доступны на первоначальный взнос; точный размер не назван",
+        "turnId": "dp.ready-0",
+        "evidenceTurnIds": [
+          "dp.ready-0"
+        ],
+        "needsClarification": true
+      },
+      "paymentMethod": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "rejectedBranches": [],
+      "event": null,
+      "active_finance_facts": [
+        {
+          "category": "downPayment",
+          "value": "Средства доступны на первоначальный взнос; точный размер не назван",
+          "lifecycleStatus": "needs_verification",
+          "turnId": "dp.ready-0"
+        }
+      ],
+      "projections": {
+        "q01": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q02": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q03": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q04": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q05": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q06": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q07": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q08": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q09": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q10": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q11": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q12": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q13": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q14": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q15": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q16": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q17": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q18": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q19": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q20": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q21": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q22": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q23": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q24": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q25": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q26": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q27": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q28": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q29": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q30": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q31": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q32": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q33": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q34": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q35": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q36": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q37": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q38": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q39": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q40": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q41": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q42": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q43": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q44": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q45": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q46": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q47": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q48": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q49": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q50": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q51": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q52": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q53": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q54": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q55": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q56": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q57": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q58": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q59": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q60": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q61": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q62": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q63": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q64": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        }
+      }
+    },
+    {
+      "case_id": "dp.numeric",
+      "budget": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "downPayment": {
+        "value": "2 млн руб",
+        "turnId": "dp.numeric-1",
+        "evidenceTurnIds": [
+          "dp.numeric-1"
+        ]
+      },
+      "paymentMethod": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "rejectedBranches": [],
+      "event": null,
+      "active_finance_facts": [
+        {
+          "category": "downPayment",
+          "value": "2 млн руб",
+          "lifecycleStatus": "confirmed",
+          "turnId": "dp.numeric-1"
+        }
+      ],
+      "projections": {
+        "q01": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q02": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q03": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q04": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q05": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q06": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q07": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q08": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q09": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q10": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q11": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q12": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q13": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q14": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q15": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q16": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q17": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q18": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q19": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q20": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q21": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q22": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q23": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q24": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q25": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q26": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q27": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q28": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q29": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q30": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q31": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q32": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q33": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q34": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q35": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q36": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q37": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q38": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q39": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q40": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q41": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q42": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q43": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q44": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q45": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q46": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q47": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q48": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q49": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q50": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q51": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q52": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q53": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q54": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q55": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q56": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q57": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q58": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q59": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q60": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q61": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q62": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q63": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q64": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        }
+      }
+    },
+    {
+      "case_id": "dp.future",
+      "budget": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "downPayment": {
+        "value": "Средства на первоначальный взнос будут доступны позже; сейчас готовность не подтверждена",
+        "turnId": "dp.future-0",
+        "evidenceTurnIds": [
+          "dp.future-0"
+        ],
+        "needsClarification": true
+      },
+      "paymentMethod": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "rejectedBranches": [],
+      "event": null,
+      "active_finance_facts": [
+        {
+          "category": "downPayment",
+          "value": "Средства на первоначальный взнос будут доступны позже; сейчас готовность не подтверждена",
+          "lifecycleStatus": "needs_verification",
+          "turnId": "dp.future-0"
+        }
+      ],
+      "projections": {
+        "q01": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q02": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q03": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q04": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q05": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q06": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q07": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q08": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q09": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q10": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q11": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q12": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q13": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q14": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q15": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q16": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q17": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q18": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q19": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q20": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q21": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q22": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q23": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q24": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q25": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q26": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q27": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q28": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q29": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q30": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q31": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q32": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q33": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q34": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q35": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q36": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q37": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q38": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q39": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q40": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q41": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q42": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q43": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q44": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q45": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q46": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q47": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q48": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q49": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q50": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q51": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q52": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q53": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q54": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q55": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q56": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q57": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q58": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q59": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q60": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q61": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q62": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q63": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q64": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        }
+      }
+    },
+    {
+      "case_id": "dp.none",
+      "budget": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "downPayment": {
+        "value": null,
+        "explicitlyUnavailable": true,
+        "evidenceTurnIds": [
+          "dp.none-0"
+        ],
+        "evidenceQuote": "Первоначального взноса пока нет.",
+        "turnId": "dp.none-0"
+      },
+      "paymentMethod": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "rejectedBranches": [],
+      "event": null,
+      "active_finance_facts": [],
+      "projections": {
+        "q01": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q02": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q03": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q04": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q05": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q06": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q07": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q08": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q09": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q10": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q11": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q12": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q13": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q14": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q15": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q16": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q17": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q18": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q19": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q20": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q21": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q22": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q23": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q24": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q25": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q26": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q27": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q28": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q29": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q30": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q31": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q32": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q33": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q34": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q35": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q36": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q37": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q38": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q39": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q40": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q41": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q42": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q43": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q44": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q45": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q46": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q47": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q48": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q49": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q50": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q51": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q52": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q53": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q54": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q55": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q56": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q57": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q58": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q59": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q60": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q61": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q62": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q63": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q64": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        }
+      }
+    },
+    {
+      "case_id": "dp.partial",
+      "budget": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "downPayment": {
+        "value": "Часть средств на первоначальный взнос доступна частично; полная готовность требует уточнения",
+        "turnId": "dp.partial-0",
+        "evidenceTurnIds": [
+          "dp.partial-0"
+        ],
+        "needsClarification": true
+      },
+      "paymentMethod": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "rejectedBranches": [],
+      "event": null,
+      "active_finance_facts": [
+        {
+          "category": "downPayment",
+          "value": "Часть средств на первоначальный взнос доступна частично; полная готовность требует уточнения",
+          "lifecycleStatus": "needs_verification",
+          "turnId": "dp.partial-0"
+        }
+      ],
+      "projections": {
+        "q01": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q02": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q03": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q04": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q05": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q06": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q07": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q08": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q09": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q10": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q11": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q12": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q13": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q14": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q15": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q16": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q17": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q18": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q19": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q20": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q21": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q22": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q23": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q24": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q25": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q26": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q27": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q28": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q29": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q30": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q31": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q32": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q33": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q34": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q35": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q36": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q37": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q38": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q39": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q40": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q41": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q42": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q43": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q44": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q45": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q46": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q47": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q48": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q49": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q50": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q51": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q52": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q53": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q54": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q55": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q56": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q57": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q58": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q59": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q60": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q61": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q62": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q63": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q64": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        }
+      }
+    },
+    {
+      "case_id": "dp.partial-future",
+      "budget": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "downPayment": {
+        "value": "Часть средств на первоначальный взнос доступна частично; полная готовность требует уточнения",
+        "turnId": "dp.partial-future-0",
+        "evidenceTurnIds": [
+          "dp.partial-future-0"
+        ],
+        "needsClarification": true
+      },
+      "paymentMethod": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "rejectedBranches": [],
+      "event": null,
+      "active_finance_facts": [
+        {
+          "category": "downPayment",
+          "value": "Часть средств на первоначальный взнос доступна частично; полная готовность требует уточнения",
+          "lifecycleStatus": "needs_verification",
+          "turnId": "dp.partial-future-0"
+        }
+      ],
+      "projections": {
+        "q01": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q02": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q03": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q04": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q05": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q06": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q07": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q08": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q09": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q10": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q11": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q12": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q13": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q14": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q15": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q16": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q17": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q18": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q19": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q20": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q21": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q22": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q23": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q24": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q25": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q26": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q27": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q28": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q29": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q30": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q31": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q32": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q33": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q34": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q35": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q36": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q37": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q38": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q39": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q40": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q41": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q42": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q43": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q44": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q45": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q46": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q47": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q48": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q49": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q50": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q51": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q52": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q53": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q54": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q55": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q56": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q57": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q58": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q59": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q60": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q61": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q62": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q63": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q64": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        }
+      }
+    },
+    {
+      "case_id": "dp.relative",
+      "budget": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "paymentMethod": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "rejectedBranches": [],
+      "event": null,
+      "active_finance_facts": [],
+      "projections": {
+        "q01": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q02": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q03": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q04": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q05": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q06": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q07": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q08": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q09": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q10": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q11": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q12": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q13": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q14": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q15": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q16": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q17": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q18": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q19": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q20": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q21": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q22": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q23": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q24": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q25": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q26": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q27": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q28": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q29": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q30": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q31": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q32": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q33": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q34": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q35": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q36": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q37": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q38": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q39": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q40": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q41": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q42": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q43": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q44": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q45": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q46": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q47": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q48": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q49": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q50": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q51": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q52": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q53": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q54": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q55": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q56": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q57": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q58": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q59": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q60": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q61": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q62": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q63": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q64": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        }
+      }
+    },
+    {
+      "case_id": "mortgage.considered",
+      "budget": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "paymentMethod": {
+        "value": "Ипотека",
+        "evidenceTurnIds": [
+          "mortgage.considered-0"
+        ]
+      },
+      "rejectedBranches": [],
+      "event": null,
+      "active_finance_facts": [
+        {
+          "category": "paymentMethod",
+          "value": "Ипотека",
+          "lifecycleStatus": "confirmed",
+          "turnId": "mortgage.considered-0"
+        }
+      ],
+      "projections": {
+        "q01": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q02": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q03": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q04": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q05": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q06": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q07": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q08": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q09": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q10": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q11": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q12": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q13": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q14": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q15": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q16": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q17": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q18": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q19": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q20": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q21": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q22": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q23": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q24": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q25": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q26": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q27": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q28": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q29": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q30": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q31": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q32": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q33": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q34": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q35": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q36": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q37": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q38": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q39": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q40": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q41": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q42": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q43": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q44": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q45": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q46": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q47": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q48": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q49": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q50": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q51": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q52": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q53": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q54": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q55": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q56": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q57": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q58": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q59": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q60": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q61": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q62": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q63": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q64": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        }
+      }
+    },
+    {
+      "case_id": "mortgage.rejected",
+      "budget": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "paymentMethod": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "rejectedBranches": [
+        "ипотеку"
+      ],
+      "event": {
+        "type": "EXPLICIT_REJECTION",
+        "rejectedBranch": "ипотеку"
+      },
+      "active_finance_facts": [],
+      "projections": {
+        "q01": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q02": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q03": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q04": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q05": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q06": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q07": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q08": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q09": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q10": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q11": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q12": {
+          "answer": "YES",
+          "status": "OBSERVED_NOT_VALIDATED"
+        },
+        "q13": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q14": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q15": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q16": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q17": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q18": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q19": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q20": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q21": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q22": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q23": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q24": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q25": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q26": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q27": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q28": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q29": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q30": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q31": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q32": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q33": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q34": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q35": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q36": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q37": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q38": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q39": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q40": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q41": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q42": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q43": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q44": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q45": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q46": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q47": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q48": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q49": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q50": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q51": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q52": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q53": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q54": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q55": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q56": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q57": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q58": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q59": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q60": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q61": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q62": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q63": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q64": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        }
+      }
+    },
+    {
+      "case_id": "mortgage.negation-scope",
+      "budget": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "paymentMethod": {
+        "value": "Смешанная схема: собственные средства + ипотека",
+        "evidenceTurnIds": [
+          "mortgage.negation-scope-0"
+        ]
+      },
+      "rejectedBranches": [],
+      "event": null,
+      "active_finance_facts": [
+        {
+          "category": "paymentMethod",
+          "value": "Смешанная схема: собственные средства + ипотека",
+          "lifecycleStatus": "confirmed",
+          "turnId": "mortgage.negation-scope-0"
+        }
+      ],
+      "projections": {
+        "q01": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q02": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q03": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q04": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q05": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q06": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q07": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q08": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q09": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q10": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q11": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q12": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q13": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q14": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q15": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q16": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q17": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q18": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q19": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q20": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q21": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q22": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q23": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q24": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q25": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q26": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q27": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q28": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q29": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q30": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q31": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q32": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q33": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q34": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q35": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q36": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q37": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q38": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q39": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q40": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q41": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q42": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q43": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q44": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q45": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q46": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q47": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q48": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q49": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q50": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q51": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q52": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q53": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q54": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q55": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q56": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q57": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q58": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q59": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q60": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q61": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q62": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q63": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q64": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        }
+      }
+    },
+    {
+      "case_id": "mortgage.conditional",
+      "budget": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "paymentMethod": {
+        "value": null,
+        "needsClarification": true,
+        "evidenceTurnIds": [
+          "mortgage.conditional-0"
+        ]
+      },
+      "rejectedBranches": [],
+      "event": null,
+      "active_finance_facts": [],
+      "projections": {
+        "q01": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q02": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q03": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q04": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q05": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q06": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q07": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q08": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q09": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q10": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q11": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q12": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q13": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q14": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q15": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q16": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q17": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q18": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q19": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q20": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q21": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q22": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q23": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q24": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q25": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q26": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q27": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q28": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q29": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q30": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q31": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q32": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q33": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q34": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q35": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q36": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q37": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q38": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q39": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q40": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q41": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q42": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q43": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q44": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q45": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q46": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q47": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q48": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q49": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q50": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q51": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q52": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q53": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q54": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q55": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q56": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q57": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q58": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q59": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q60": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q61": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q62": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q63": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q64": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        }
+      }
+    },
+    {
+      "case_id": "mortgage.unknown",
+      "budget": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "paymentMethod": {
+        "value": null,
+        "needsClarification": true,
+        "evidenceTurnIds": [
+          "mortgage.unknown-1"
+        ]
+      },
+      "rejectedBranches": [],
+      "event": null,
+      "active_finance_facts": [],
+      "projections": {
+        "q01": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q02": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q03": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q04": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q05": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q06": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q07": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q08": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q09": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q10": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q11": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q12": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q13": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q14": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q15": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q16": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q17": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q18": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q19": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q20": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q21": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q22": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q23": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q24": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q25": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q26": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q27": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q28": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q29": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q30": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q31": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q32": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q33": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q34": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q35": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q36": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q37": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q38": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q39": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q40": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q41": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q42": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q43": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q44": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q45": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q46": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q47": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q48": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q49": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q50": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q51": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q52": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q53": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q54": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q55": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q56": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q57": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q58": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q59": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q60": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q61": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q62": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q63": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q64": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        }
+      }
+    },
+    {
+      "case_id": "payment.own",
+      "budget": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "paymentMethod": {
+        "value": "Собственные средства (100% оплата)",
+        "evidenceTurnIds": [
+          "payment.own-0"
+        ]
+      },
+      "rejectedBranches": [],
+      "event": null,
+      "active_finance_facts": [
+        {
+          "category": "paymentMethod",
+          "value": "Собственные средства (100% оплата)",
+          "lifecycleStatus": "confirmed",
+          "turnId": "payment.own-0"
+        }
+      ],
+      "projections": {
+        "q01": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q02": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q03": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q04": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q05": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q06": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q07": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q08": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q09": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q10": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q11": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q12": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q13": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q14": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q15": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q16": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q17": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q18": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q19": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q20": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q21": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q22": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q23": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q24": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q25": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q26": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q27": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q28": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q29": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q30": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q31": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q32": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q33": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q34": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q35": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q36": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q37": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q38": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q39": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q40": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q41": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q42": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q43": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q44": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q45": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q46": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q47": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q48": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q49": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q50": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q51": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q52": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q53": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q54": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q55": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q56": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q57": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q58": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q59": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q60": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q61": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q62": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q63": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q64": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        }
+      }
+    },
+    {
+      "case_id": "payment.correction",
+      "budget": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "paymentMethod": {
+        "value": "Собственные средства (100% оплата)",
+        "evidenceTurnIds": [
+          "payment.correction-0",
+          "payment.correction-1"
+        ]
+      },
+      "rejectedBranches": [
+        "ипотеку"
+      ],
+      "event": {
+        "type": "FACT_CORRECTION"
+      },
+      "active_finance_facts": [
+        {
+          "category": "paymentMethod",
+          "value": "Собственные средства (100% оплата)",
+          "lifecycleStatus": "confirmed",
+          "turnId": "payment.correction-1"
+        }
+      ],
+      "projections": {
+        "q01": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q02": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q03": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q04": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q05": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q06": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q07": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q08": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q09": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q10": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q11": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q12": {
+          "answer": "YES",
+          "status": "OBSERVED_NOT_VALIDATED"
+        },
+        "q13": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q14": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q15": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q16": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q17": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q18": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q19": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q20": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q21": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q22": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q23": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q24": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q25": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q26": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q27": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q28": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q29": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q30": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q31": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q32": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q33": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q34": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q35": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q36": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q37": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q38": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q39": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q40": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q41": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q42": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q43": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q44": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q45": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q46": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q47": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q48": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q49": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q50": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q51": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q52": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q53": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q54": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q55": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q56": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q57": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q58": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q59": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q60": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q61": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q62": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q63": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q64": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        }
+      }
+    },
+    {
+      "case_id": "budget.own",
+      "budget": {
+        "value": "25 млн руб",
+        "evidenceTurnIds": [
+          "budget.own-0"
+        ],
+        "isFlexible": false,
+        "comment": "Клиент явно назвал бюджет словесной суммой."
+      },
+      "paymentMethod": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "rejectedBranches": [],
+      "event": null,
+      "active_finance_facts": [
+        {
+          "category": "budget",
+          "value": "25 млн руб",
+          "lifecycleStatus": "confirmed",
+          "turnId": "budget.own-0"
+        }
+      ],
+      "projections": {
+        "q01": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q02": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q03": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q04": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q05": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q06": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q07": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q08": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q09": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q10": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q11": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q12": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q13": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q14": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q15": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q16": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q17": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q18": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q19": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q20": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q21": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q22": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q23": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q24": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q25": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q26": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q27": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q28": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q29": {
+          "answer": "YES",
+          "status": "OBSERVED_NOT_VALIDATED"
+        },
+        "q30": {
+          "answer": "YES",
+          "status": "OBSERVED_NOT_VALIDATED"
+        },
+        "q31": {
+          "answer": "NO",
+          "status": "OBSERVED_NOT_VALIDATED"
+        },
+        "q32": {
+          "answer": "NO",
+          "status": "OBSERVED_NOT_VALIDATED"
+        },
+        "q33": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q34": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q35": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q36": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q37": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q38": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q39": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q40": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q41": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q42": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q43": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q44": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q45": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q46": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q47": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q48": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q49": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q50": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q51": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q52": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q53": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q54": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q55": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q56": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q57": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q58": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q59": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q60": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q61": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q62": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q63": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q64": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        }
+      }
+    },
+    {
+      "case_id": "budget.correction",
+      "budget": {
+        "value": "25 млн руб",
+        "evidenceTurnIds": [
+          "budget.correction-0",
+          "budget.correction-1"
+        ],
+        "isFlexible": false
+      },
+      "paymentMethod": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "rejectedBranches": [],
+      "event": {
+        "type": "FACT_CORRECTION"
+      },
+      "active_finance_facts": [
+        {
+          "category": "budget",
+          "value": "25 млн руб",
+          "lifecycleStatus": "confirmed",
+          "turnId": "budget.correction-1"
+        }
+      ],
+      "projections": {
+        "q01": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q02": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q03": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q04": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q05": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q06": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q07": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q08": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q09": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q10": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q11": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q12": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q13": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q14": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q15": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q16": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q17": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q18": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q19": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q20": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q21": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q22": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q23": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q24": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q25": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q26": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q27": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q28": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q29": {
+          "answer": "YES",
+          "status": "OBSERVED_NOT_VALIDATED"
+        },
+        "q30": {
+          "answer": "YES",
+          "status": "OBSERVED_NOT_VALIDATED"
+        },
+        "q31": {
+          "answer": "NO",
+          "status": "OBSERVED_NOT_VALIDATED"
+        },
+        "q32": {
+          "answer": "NO",
+          "status": "OBSERVED_NOT_VALIDATED"
+        },
+        "q33": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q34": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q35": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q36": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q37": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q38": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q39": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q40": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q41": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q42": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q43": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q44": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q45": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q46": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q47": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q48": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q49": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q50": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q51": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q52": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q53": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q54": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q55": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q56": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q57": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q58": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q59": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q60": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q61": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q62": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q63": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q64": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        }
+      }
+    },
+    {
+      "case_id": "budget.brother",
+      "budget": {
+        "value": "15 млн руб",
+        "evidenceTurnIds": [
+          "budget.brother-0"
+        ],
+        "isFlexible": false
+      },
+      "paymentMethod": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "rejectedBranches": [],
+      "event": null,
+      "active_finance_facts": [
+        {
+          "category": "budget",
+          "value": "15 млн руб",
+          "lifecycleStatus": "confirmed",
+          "turnId": "budget.brother-0"
+        }
+      ],
+      "projections": {
+        "q01": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q02": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q03": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q04": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q05": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q06": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q07": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q08": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q09": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q10": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q11": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q12": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q13": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q14": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q15": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q16": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q17": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q18": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q19": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q20": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q21": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q22": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q23": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q24": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q25": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q26": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q27": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q28": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q29": {
+          "answer": "YES",
+          "status": "OBSERVED_NOT_VALIDATED"
+        },
+        "q30": {
+          "answer": "NO",
+          "status": "OBSERVED_NOT_VALIDATED"
+        },
+        "q31": {
+          "answer": "NO",
+          "status": "OBSERVED_NOT_VALIDATED"
+        },
+        "q32": {
+          "answer": "YES",
+          "status": "OBSERVED_NOT_VALIDATED"
+        },
+        "q33": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q34": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q35": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q36": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q37": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q38": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q39": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q40": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q41": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q42": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q43": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q44": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q45": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q46": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q47": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q48": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q49": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q50": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q51": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q52": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q53": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q54": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q55": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q56": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q57": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q58": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q59": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q60": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q61": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q62": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q63": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q64": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        }
+      }
+    },
+    {
+      "case_id": "budget.mixed-owner",
+      "budget": {
+        "value": "20 млн руб",
+        "evidenceTurnIds": [
+          "budget.mixed-owner-0"
+        ],
+        "isFlexible": false,
+        "comment": "Клиент явно назвал бюджет словесной суммой."
+      },
+      "paymentMethod": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "rejectedBranches": [],
+      "event": null,
+      "active_finance_facts": [
+        {
+          "category": "budget",
+          "value": "20 млн руб",
+          "lifecycleStatus": "confirmed",
+          "turnId": "budget.mixed-owner-0"
+        }
+      ],
+      "projections": {
+        "q01": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q02": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q03": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q04": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q05": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q06": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q07": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q08": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q09": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q10": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q11": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q12": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q13": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q14": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q15": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q16": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q17": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q18": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q19": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q20": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q21": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q22": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q23": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q24": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q25": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q26": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q27": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q28": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q29": {
+          "answer": "YES",
+          "status": "OBSERVED_NOT_VALIDATED"
+        },
+        "q30": {
+          "answer": "NO",
+          "status": "OBSERVED_NOT_VALIDATED"
+        },
+        "q31": {
+          "answer": "YES",
+          "status": "OBSERVED_NOT_VALIDATED"
+        },
+        "q32": {
+          "answer": "NO",
+          "status": "OBSERVED_NOT_VALIDATED"
+        },
+        "q33": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q34": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q35": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q36": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q37": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q38": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q39": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q40": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q41": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q42": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q43": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q44": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q45": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q46": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q47": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q48": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q49": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q50": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q51": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q52": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q53": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q54": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q55": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q56": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q57": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q58": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q59": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q60": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q61": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q62": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q63": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q64": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        }
+      }
+    },
+    {
+      "case_id": "budget.spouse",
+      "budget": {
+        "value": "25 млн руб",
+        "evidenceTurnIds": [
+          "budget.spouse-0"
+        ],
+        "isFlexible": false,
+        "comment": "Клиент явно назвал бюджет словесной суммой."
+      },
+      "paymentMethod": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "rejectedBranches": [],
+      "event": null,
+      "active_finance_facts": [
+        {
+          "category": "budget",
+          "value": "25 млн руб",
+          "lifecycleStatus": "confirmed",
+          "turnId": "budget.spouse-0"
+        }
+      ],
+      "projections": {
+        "q01": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q02": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q03": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q04": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q05": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q06": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q07": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q08": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q09": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q10": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q11": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q12": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q13": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q14": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q15": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q16": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q17": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q18": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q19": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q20": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q21": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q22": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q23": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q24": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q25": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q26": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q27": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q28": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q29": {
+          "answer": "YES",
+          "status": "OBSERVED_NOT_VALIDATED"
+        },
+        "q30": {
+          "answer": "YES",
+          "status": "OBSERVED_NOT_VALIDATED"
+        },
+        "q31": {
+          "answer": "NO",
+          "status": "OBSERVED_NOT_VALIDATED"
+        },
+        "q32": {
+          "answer": "NO",
+          "status": "OBSERVED_NOT_VALIDATED"
+        },
+        "q33": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q34": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q35": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q36": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q37": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q38": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q39": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q40": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q41": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q42": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q43": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q44": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q45": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q46": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q47": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q48": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q49": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q50": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q51": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q52": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q53": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q54": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q55": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q56": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q57": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q58": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q59": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q60": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q61": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q62": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q63": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q64": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        }
+      }
+    },
+    {
+      "case_id": "dp.expense-correction",
+      "budget": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "paymentMethod": {
+        "value": null,
+        "evidenceTurnIds": []
+      },
+      "rejectedBranches": [],
+      "event": null,
+      "active_finance_facts": [],
+      "projections": {
+        "q01": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q02": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q03": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q04": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q05": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q06": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q07": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q08": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q09": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q10": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q11": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q12": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q13": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q14": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q15": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q16": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q17": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q18": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q19": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q20": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q21": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q22": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q23": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q24": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q25": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q26": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q27": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q28": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q29": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q30": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q31": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q32": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q33": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q34": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q35": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q36": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q37": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q38": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q39": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q40": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q41": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q42": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q43": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q44": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q45": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q46": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q47": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q48": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q49": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q50": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q51": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q52": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q53": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q54": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q55": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q56": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q57": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q58": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q59": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q60": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q61": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q62": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q63": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        },
+        "q64": {
+          "answer": "NOT_COMPARABLE",
+          "status": "NOT_COMPARABLE"
+        }
+      }
+    }
+  ]
+}
