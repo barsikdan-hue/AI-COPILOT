@@ -183,6 +183,29 @@ describe('optional DEV/QA boundary trace through production callbacks',()=>{
     expect(record.state.revision).toBe(0);
     expect(events(record)).toEqual(expect.arrayContaining([expect.objectContaining({boundary:'ANALYSIS',outcome:'skipped',reason:'non_substantive_client',turnId:record.turns[0].id})]));
   });
+  it.each([
+    'Добрый день, меня зовут Данил, специалист по недвижимости.',
+    'Добрый день, Данил, специалист по недвижимости компании Элитный Сочи. Как я могу обращаться к вам?',
+  ])('Issue40 retains the greeting final without state analysis or a new hint after %s',async(agentIntroduction)=>{
+    await start();
+    final('agent',agentIntroduction,time);
+    const tree=final('client','Да, добрый день, Данил.',time+3000);
+    expect(card(tree).props.suggestion).toBeNull();
+    const record=await finish(tree);
+    expect(record.turns).toHaveLength(2);
+    const greeting=record.turns[1];
+    expect(greeting.text).toBe('Да, добрый день, Данил.');
+    expect(record.state.revision).toBe(0);
+    expect(record.suggestedRepliesHistory).toHaveLength(0);
+    for(const boundary of ['STATE_UPDATE','ANALYSIS','DECISION']) {
+      expect(events(record)).toEqual(expect.arrayContaining([expect.objectContaining({
+        boundary,outcome:'skipped',reason:'non_substantive_client',turnId:greeting.id,
+      })]));
+    }
+    expect(events(record).some((event:any)=>event.turnId===greeting.id&&
+      ((event.boundary==='STATE_UPDATE'&&event.outcome==='started')||
+       (event.boundary==='PUBLICATION'&&event.outcome==='emitted')))).toBe(false);
+  });
   it('records analysis completion with no candidate and retains the current card',async()=>{
     await nameExchange();
     // Exercise the real App consumer with an explicit no-output provider result.

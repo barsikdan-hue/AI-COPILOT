@@ -202,7 +202,8 @@ export class AnalysisProvider {
   public checkEligibility(
     turn: TranscriptTurn,
     revision: number,
-    previousAgentTurnText?: string | null
+    previousAgentTurnText?: string | null,
+    previousAgentTurnIsImmediate = true
   ): { eligible: boolean; reason: string; canReuseLast: boolean } {
     let rejectionReason: string | null = null;
 
@@ -210,7 +211,7 @@ export class AnalysisProvider {
       rejectionReason = 'Реплика Андрея (анализ отключен)';
     } else if (!turn.isFinal) {
       rejectionReason = 'Промежуточная транскрипция';
-    } else if (!isSubstantiveClientTurn(turn.text, previousAgentTurnText)) {
+    } else if (!isSubstantiveClientTurn(turn.text, previousAgentTurnText, previousAgentTurnIsImmediate)) {
       rejectionReason = 'Бессодержательная реплика / междометие';
     } else if (this.analyzedTurnIds.has(turn.id)) {
       rejectionReason = 'Реплика уже проанализирована';
@@ -278,7 +279,8 @@ export class AnalysisProvider {
         .slice(0, Math.max(0, turnIndex))
         .filter((candidate) => candidate.speaker === 'agent')
         .at(-1);
-      return this.checkEligibility(turn, turn.revision ?? payload.revision, previousAgent?.text).eligible;
+      const previousAgentIsImmediate = contextTurns[turnIndex - 1]?.id === previousAgent?.id && Boolean(previousAgent);
+      return this.checkEligibility(turn, turn.revision ?? payload.revision, previousAgent?.text, previousAgentIsImmediate).eligible;
     });
 
     if (eligibleTurns.length === 0) { this.trace(payload, 'skipped', 'remote_ineligible'); return; }

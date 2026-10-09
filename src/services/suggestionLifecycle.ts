@@ -143,7 +143,7 @@ export function shouldReplaceSuggestion(
     if (
       client && agent && agent.isFinal &&
       (agent.revision ?? 0) > current.basedOnRevision &&
-      isSubstantiveClientTurn(client.text, agent.text) &&
+      isSubstantiveClientTurn(client.text, agent.text, sessionTurns[clientIndex - 1]?.id === agent.id) &&
       question.length > 10 && (` ${spoken} `).includes(` ${question} `)
     ) return true;
   }
