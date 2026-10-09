@@ -130,6 +130,17 @@ export function isSubstantiveClientTurn(text: string, previousAgentTurn?: string
     return false;
   }
 
+  // A composed greeting is still non-substantive. An optional address must
+  // match the immediate agent's introduction, not an arbitrary trailing word.
+  const greeting = /^(?:(?:ну|да|ага|угу)\s+)*(?:добрый\s+(?:день|вечер)|доброе\s+утро|здравствуйте|привет)(?:\s+(\p{L}{2,}))?$/u.exec(clean);
+  if (greeting) {
+    const introducedName = previousAgentTurnIsImmediate
+      ? /(?:^|[\s,])меня\s+зовут\s+(\p{L}{2,})(?=$|[\s,.!?])/u.exec((previousAgentTurn || '').toLowerCase())?.[1] ||
+        /^(?:добрый\s+(?:день|вечер)|доброе\s+утро|здравствуйте|привет)\s*[,!.?]\s*(\p{L}{2,})\s*,\s*специалист\s+по\s+недвижимости(?=$|[\s,.!?])/u.exec((previousAgentTurn || '').toLowerCase().trim())?.[1]
+      : undefined;
+    if (!greeting[1] || greeting[1] === introducedName) return false;
+  }
+
   // Any message containing numbers/digits is substantive (e.g. "30 млн", "до 20", "2 комнатная")
   if (/\d+/.test(clean)) {
     return true;
