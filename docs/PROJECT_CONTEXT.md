@@ -1,6 +1,18 @@
 # Project context
 
-Factual snapshot audited 2026-10-07. This file records current engineering authority, not deployment authority or fix history.
+## Verified remote delta: 2026-10-17
+
+This is a **remote GitHub inspection**, not a local Codex-worktree audit, authorization to promote a runtime base, proof of Render deployment, or a new live-call evaluation. Re-read live refs/Issues for every task; coordination rules and the dated queue are in [CODEX_SYNC](CODEX_SYNC.md).
+
+- Remote `main` was observed at [`a86bd4c`](https://github.com/barsikdan-hue/AI-COPILOT/commit/a86bd4c62cd3ac3d9a19882b42ce386e3fe147c1). GitHub comparison shows **three commits ahead of** owner-confirmed historical engineering base `04238a2`; this is ancestry, **not** automatic acceptance of new runtime/product/deployment authority.
+- Stage1A **has been implemented in the currently inspected remote main**: [CI](../.github/workflows/ci.yml) adds Vitest JSON output, always-run [shadow collection](../scripts/collect-ci-failures.ts) and sanitized artifact upload, with dedicated [unit tests](../scripts/harness-shadow-collector.test.ts). [Stage1A spec](HARNESS_STAGE1A.md) describes its limits. [Issue #37](https://github.com/barsikdan-hue/AI-COPILOT/issues/37) is closed; [PR #38](https://github.com/barsikdan-hue/AI-COPILOT/pull/38) was still draft when checked.
+- Stage1A is **not** a complete unattended Harness: the report intentionally declares `remediationExecuted=false` and `crossRunPersistence=NOT_IMPLEMENTED`; no automatic Fixer/Critic dispatch, persistent claims, semantic root-cause proof or live UI/STT acceptance is established.
+- [Issue #40](https://github.com/barsikdan-hue/AI-COPILOT/issues/40) remains open despite its contextual greeting patch appearing in `main` commit `a86bd4c`; [PR #43](https://github.com/barsikdan-hue/AI-COPILOT/pull/43) was still draft. Reconcile product/CI/live/owner gates instead of duplicating this fix.
+- Unresolved [#41](https://github.com/barsikdan-hue/AI-COPILOT/issues/41) (client STT interim tail; root cause unproven) is the proposed first **read-only P0 investigation**. [#42](https://github.com/barsikdan-hue/AI-COPILOT/issues/42) (Windows timeout attribution) is a separate infra investigation; [#39](https://github.com/barsikdan-hue/AI-COPILOT/issues/39) (five real calls) is open and needs live/private evidence. These are independent scoped tasks, not one combined bugfix.
+
+## Historical confirmed baseline: audited 2026-10-07
+
+The following audit records the engineering authority established **on that date**. Statements such as \"remote main trails\", \"no failure collector\" and \"Stage1 planned\" are historical and must not override the 2026-10-17 code inspection above.
 
 `AUTHORITATIVE_BASE = 04238a2bcbaad771161aa21c157e358a94bee772`
 
