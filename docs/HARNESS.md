@@ -2,6 +2,15 @@
 
 This is the canonical operating contract. Runtime architecture is in [ARCHITECTURE](ARCHITECTURE.md); authority is in [PROJECT_CONTEXT](PROJECT_CONTEXT.md). Contract definitions and Stage1 proposals below do not mean an unattended coordinator exists.
 
+## Actual implementation and collaboration boundary (remote checked 2026-10-17)
+
+- [Stage1A](HARNESS_STAGE1A.md) is **implemented** in inspected remote `main`: [CI](../.github/workflows/ci.yml) emits Vitest JSON, runs [deterministic bounded failure collection](../scripts/collect-ci-failures.ts) and uploads a sanitized report. An unchanged failed test still fails CI. See Issue [#37](https://github.com/barsikdan-hue/AI-COPILOT/issues/37) and Draft PR [#38](https://github.com/barsikdan-hue/AI-COPILOT/pull/38).
+- Stage1A emits symptom fingerprints and within-run duplicates only: `crossRunPersistence=NOT_IMPLEMENTED` and `remediationExecuted=false`. No persistent registry/claim ownership, unattended Fixer/Critic dispatch, provenance-complete original RED or live-call proof is implied. A hash without accessible/private retained input cannot reproduce an incident.
+- The **2026-10-07 Stage1 discovery** below is a dated historical audit, not a statement that the collector remains unimplemented.
+- [CODEX_SYNC](CODEX_SYNC.md) defines the current GitHub Issue → Task Contract → exact branch/PR → independent ChatGPT audit handoff. Issue/PR comments are visibility, not atomic locks or permission; no automatic cross-account notification or autonomous work is activated by this document.
+- Nothing in the 2026-10-17 documentation authorization permits unattended runtime fixes, changes to CI/auth/infra, merge, deploy or broader product/oracle modifications.
+
+
 ## Lifecycle and roles
 
 ```text
